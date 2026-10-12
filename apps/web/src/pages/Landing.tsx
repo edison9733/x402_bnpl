@@ -22,12 +22,13 @@ const PROGRAM = 'TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ';
 
 const mask = { display: 'inline-block', overflow: 'hidden', verticalAlign: 'top', paddingBottom: '0.2em', marginBottom: '-0.12em' } as const;
 
-/** "A credit score for AI agents.", with the key words in a shimmering green and an underline that draws itself. */
+/** "Agents without a name, with a record.", with the turn of the sentence in a shimmering green and an underline that draws itself. */
 function HeroTitle() {
-  const parts: [string, boolean][] = [['A', false], ['credit score', true], ['for', false], ['AI', false], ['agents.', false]];
+  // [words, accent, line break after them on wide screens]
+  const parts: [string, boolean, boolean][] = [['Agents without', false, false], ['a name,', false, true], ['with a record.', true, false]];
   return (
-    <h1 className="display mx-auto mt-7 text-[clamp(3rem,8vw,7rem)]" style={{ maxWidth: '13ch' }} aria-label="A credit score for AI agents.">
-      {parts.map(([w, accent], i) => (
+    <h1 className="display mx-auto mt-7 text-[clamp(2.8rem,7.2vw,6.4rem)]" style={{ maxWidth: '22ch' }} aria-label="Agents without a name, with a record.">
+      {parts.map(([w, accent, br], i) => (
         <Fragment key={w}>
         <span aria-hidden style={{ position: 'relative', display: 'inline-block' }}>
           <span style={mask}>
@@ -57,6 +58,7 @@ function HeroTitle() {
           )}
         </span>
         {i < parts.length - 1 ? ' ' : ''}
+        {br && <br className="hidden md:block" />}
         </Fragment>
       ))}
     </h1>
@@ -106,7 +108,7 @@ function Hero() {
           className="mx-auto mt-7 max-w-[41rem] text-[1.14rem] leading-relaxed md:text-[1.24rem]"
           style={{ color: '#4b483e' }}
         >
-          AI agents now pay each other over x402, and the payment is final in about a second. Tessera puts it in escrow on Solana and lets an on-chain credit score decide how long it waits.{' '}
+          AI agents now pay each other over x402, final in about a second, and nobody checks who is on the other end. Tessera puts the payment in escrow on Solana and lets an on-chain credit score decide how long it waits.{' '}
           <span style={{ color: '#14130f' }}>Strangers wait. Agents with a record settle at once.</span>
         </motion.p>
 
@@ -183,7 +185,7 @@ function Problem() {
       <Reveal>
         <Stage kind="pain" n={1} label="Who is on the other end?" />
         <h2 className="display mt-4 max-w-[19ch] text-[clamp(2.4rem,5.6vw,4.6rem)]">
-          Anyone can launch a thousand agents. <em>Nobody checks who owns them.</em>
+          One person can launch unlimited agents. <em>Nobody checks who owns them.</em>
         </h2>
         <p className="mt-6 max-w-[46rem] text-[1.12rem] leading-relaxed" style={{ color: '#4b483e' }}>
           An AI agent is just a wallet. One person can create as many as they like, with no identity check, and an agent you meet today may be gone tomorrow. Yet these anonymous agents now pay each other, and the payment is final.
@@ -344,7 +346,7 @@ function Threats() {
 function WhyEscrow() {
   const rows: [string, string][] = [
     ['Sybil attacks', 'A new wallet counts for only 10%, and any one counterparty can add only so much to a score (the pair cap). A hundred fresh wallets vouching for each other add up to very little.'],
-    ['Friendly fraud', 'The merchant commits a hash of the delivery on-chain before the money moves, so the arbiter can check it. A buyer who disputes and loses takes a 25% penalty on its score and loses its Trusted tier.'],
+    ['Friendly fraud', 'The merchant commits a hash of what it delivered on-chain before the escrow pays out, so an arbiter (one key in this devnet demo) can check a dispute against it. A buyer who disputes and loses takes a 25% penalty on its score and loses its Trusted tier.'],
     ['Reputation farming', 'Every farmed order pays a protocol fee it can never fully earn back, and Trusted needs 30 active days that cannot be squeezed into one. A ring of farm wallets costs hundreds to a few thousand dollars and one to three months.'],
   ];
   return (
@@ -358,7 +360,7 @@ function WhyEscrow() {
         </Reveal>
         <Reveal delay={0.1} className="min-w-0">
           <p className="text-[1.08rem] leading-relaxed" style={{ color: '#4b483e' }}>
-            The money goes to a Solana program, not to the merchant. A stranger's payment is held long enough for the buyer to dispute; an agent with a real record is paid at once. That turns faking a record from a free trick into something that costs real money and real time, and caps what a fake can take.
+            The money goes to a Solana program, not to the merchant. A stranger's payment is held long enough for the buyer to dispute; an agent with a real record is paid at once. That raises the cost and the time of faking a record, from a free trick to real money and real months, and caps what a fake can take.
           </p>
         </Reveal>
       </div>
