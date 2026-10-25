@@ -4,7 +4,7 @@
  * locally, so there is no reply to check before signing.
  *
  *   tessera credit <wallet>
- *   tessera buy-later <merchant> <amount> --keypair PATH [--send]
+ *   tessera buy-later --order <order> --keypair PATH [--send]
  *   tessera repay <loan> --keypair PATH [--send]
  *   tessera repay --all --keypair PATH [--send]      every loan still owed, in one transaction
  *   tessera mark-default <loan> --keypair PATH [--send]
@@ -25,26 +25,26 @@ import {
   type Instruction,
   type KeyPairSigner,
 } from '@solana/kit';
+import { fetchMaybeToken } from '@solana-program/token';
 import {
   agentPdaOf,
   configPda,
   fetchMaybeAgent,
   fetchMaybeConfig,
+  fetchMaybeOrder,
   findAta,
   fromUnits,
-  hashJson,
-  newOrderId,
   paylater,
   score,
-  toUnits,
 } from '@tessera/sdk';
 
 export const PAYLATER_COMMANDS = new Set(['credit', 'buy-later', 'repay', 'mark-default']);
 
 export const PAYLATER_HELP = `Pay later (reads the chain itself; no API)
   credit <wallet>                                a wallet's pay-later limit and record
-  buy-later <merchant> <amount> --keypair PATH [--send] [--request JSON]
-                                                 the pool pays the merchant now; you repay by the due date
+  buy-later --order <order> --keypair PATH [--send]
+                                                 the pool pays the quoted escrow order for you; you repay
+                                                 the price plus the pool's fee by the due date
   repay <loan> --keypair PATH [--send]           pay a loan back in full (anyone may repay for the buyer)
   repay --all --keypair PATH [--send]            pay every loan you still owe, in one transaction
   mark-default <loan> --keypair PATH [--send]    anyone, once a loan is past its due date and grace period`;
@@ -55,7 +55,7 @@ const short = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`;
 const usdc = (u: bigint) => `${fromUnits(u)} USDC`;
 const STATE = ['open', 'repaid on time', 'repaid late', 'in default'] as const;
 
-type Opts = { rpcUrl: string; kp?: KeyPairSigner; send: boolean; json: boolean; all: boolean; request?: unknown; die: (m: string) => never };
+type Opts = { rpcUrl: string; kp?: KeyPairSigner; send: boolean; json: boolean; all: boolean; order?: string; die: (m: string) => never };
 
 /** Repay instructions per transaction: each adds one loan account, so a tab of this size fits a v0 transaction comfortably. */
 const REPAYS_PER_TX = 8;
@@ -104,8 +104,9 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
   /** One line per loan still owed, with how its due date stands. */
   function describeOwed(a: Address, d: paylater.Loan, now: bigint): string {
     const when = d.state === paylater.LoanState.Defaulted ? 'in default, a late repayment clears the debt' : d.dueAt >= now ? `due in ${d.dueAt - now} s` : `${now - d.dueAt} s late`;
-    return `  ${short(a)}  ${usdc(d.amount)}  ${when}`;
+    return `  ${short(a)}  ${usdc(paylater.owedOf(d))}  order ${short(d.order)}  ${when}`;
   }
+  const owedTotal = (tab: { data: paylater.Loan }[]) => tab.reduce((sum, l) => sum + paylater.owedOf(l.data), 0n);
 
   async function sendOrPrint(kp: KeyPairSigner, ixs: Instruction[]): Promise<void> {
     const { value: latest } = await rpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
@@ -145,7 +146,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     const tab = paylater.owed(loans);
     if (o.json) return void console.log(JSON.stringify({ ...s, owed: tab }, (_, v) => (typeof v === 'bigint' ? v.toString() : v), 2));
     console.log(`credit   ${short(wallet)}  ${TIERS[s.tier]} ${s.score}${s.known ? '' : '  (no credit file)'}`);
-    console.log(`limit ${usdc(s.limit)} · owes ${usdc(s.line?.outstanding ?? 0n)} · available ${usdc(s.available)}`);
+    console.log(`limit ${usdc(s.limit)} · owes ${usdc(owedTotal(tab))} (${usdc(s.line?.outstanding ?? 0n)} of it counts against the limit) · available ${usdc(s.available)}`);
     const l = s.line;
     console.log(l ? `record: ${l.loans} loan${l.loans === 1 ? '' : 's'}, ${l.repaidOnTime} on time, ${l.repaidLate} late, ${l.defaults} default${l.defaults === 1 ? '' : 's'}` : 'record: never borrowed');
     if (tab.length) {
@@ -154,7 +155,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     }
     if (l?.defaults) console.log('frozen: a loan went unpaid past its grace period');
     else if (s.tier === 0) console.log('no credit yet: settle orders through Tessera escrow to earn a tier');
-    console.log(`terms: repay within ${p.termSecs} s, merchant paid at once, pool keeps ${p.feeBps / 100}%, no interest`);
+    console.log(`terms: the pool pays your escrow order; you repay the price plus ${p.feeBps / 100}% within ${p.termSecs} s, no interest`);
     return;
   }
 
@@ -165,7 +166,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     const now = await chainNow();
     const tab = paylater.owed(await paylater.fetchLoansOf(rpc, kp.address));
     if (tab.length === 0) o.die(`${short(kp.address)} owes nothing`);
-    const total = tab.reduce((sum, l) => sum + l.data.amount, 0n);
+    const total = owedTotal(tab);
     console.log(`tab for ${short(kp.address)}: ${tab.length} loan${tab.length === 1 ? '' : 's'}, ${usdc(total)} owed`);
     for (const { address: a, data: d } of tab) console.log(describeOwed(a, d, now));
     const [line, payerToken] = await Promise.all([paylater.linePdaOf(kp.address), findAta(kp.address, pool.data.mint)]);
@@ -177,34 +178,29 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
   }
 
   if (cmd === 'buy-later') {
-    const merchant = addr(a1, '<merchant>');
-    if (!a2) o.die('<amount> is required (see: tessera help)');
-    let amount: bigint;
-    try {
-      amount = toUnits(a2);
-    } catch (e) {
-      return o.die(`<amount>: ${(e as Error).message}`);
-    }
+    // The order is the merchant's quote: the payTo of its 402, opened in your name.
+    const orderAddr = addr(o.order ?? a1, '--order');
+    const found = await fetchMaybeOrder(rpc, orderAddr);
+    if (!found.exists) o.die(`no escrow order at ${orderAddr}`);
+    const d = found.data;
+    const vault = await fetchMaybeToken(rpc, await findAta(orderAddr, d.mint));
     const now = await chainNow();
-    const [b, m] = await Promise.all([standing(kp.address, now), standing(merchant, now)]);
+    const why = paylater.orderRefusal(d, vault.exists ? vault.data.amount : 0n, kp.address, now, scoreParams);
+    if (why) o.die(`order ${short(orderAddr)}: ${why}`);
+    const amount = d.amount;
+    const [b, m] = await Promise.all([standing(kp.address, now), standing(d.merchant, now)]);
+    console.log(`order    ${short(orderAddr)}  ${usdc(amount)}  awaiting payment`);
     console.log(`buyer    ${short(kp.address)}  ${TIERS[b.tier]} ${b.score}  available ${usdc(b.available)}`);
-    console.log(`merchant ${short(merchant)}  ${TIERS[m.tier]} ${m.score}`);
+    console.log(`merchant ${short(d.merchant)}  ${TIERS[m.tier]} ${m.score}`);
+    if (amount < p.minLoan) o.die(`${usdc(amount)} is below the smallest purchase the pool finances (${usdc(p.minLoan)})`);
     if (amount > b.available) o.die(`${usdc(amount)} is above your available credit (${usdc(b.available)})`);
-    if (m.tier < p.minMerchantTier) o.die(`the pool only pays merchants at ${TIERS[p.minMerchantTier]} or above`);
+    if (m.tier < p.minMerchantTier) o.die(`the pool only funds orders from merchants at ${TIERS[p.minMerchantTier]} or above`);
     const fee = paylater.feeOf(amount, p);
-    const loanId = newOrderId();
-    const ix = await paylater.getBuyNowInstructionAsync({
-      mint: pool.data.mint,
-      buyer: kp,
-      merchant,
-      loanId,
-      amount,
-      requestHash: await hashJson(o.request ?? { merchant, amount: amount.toString() }),
-    });
-    console.log(`BUY NOW  ${usdc(amount)}: merchant gets ${usdc(amount - fee)} now, pool keeps ${usdc(fee)}`);
-    console.log(`you repay ${usdc(amount)} within ${p.termSecs} s, no interest`);
-    console.log(`loan ${await paylater.loanPdaOf(kp.address, loanId)}`);
-    return sendOrPrint(kp, [ix]);
+    const { loan, instructions } = await paylater.buyOrderOnCredit(rpc, kp, orderAddr);
+    console.log(`BUY NOW  ${usdc(amount)}: the pool pays the escrow vault and the order is confirmed funded; the escrow pays the merchant on delivery`);
+    console.log(`you repay ${usdc(amount + fee)} (${usdc(amount)} + ${usdc(fee)} pool fee) within ${p.termSecs} s, no interest`);
+    console.log(`loan ${loan}`);
+    return sendOrPrint(kp, instructions);
   }
 
   const loanAddr = addr(a1, '<loan>');
@@ -214,13 +210,14 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
   if (d.state !== paylater.LoanState.Open && d.state !== paylater.LoanState.Defaulted) o.die(`this loan is already ${STATE[d.state]}`);
   const now = await chainNow();
   const left = d.dueAt - now;
+  const owes = paylater.owedOf(d);
   if (cmd === 'mark-default') {
     if (d.state !== paylater.LoanState.Open) o.die(`this loan is already ${STATE[d.state]}`);
     const wait = d.defaultAfter - now;
-    console.log(`loan ${short(loanAddr)}  buyer ${short(d.buyer)}  owes ${usdc(d.amount)}  ${wait < 0n ? `${-left} s past due, grace over` : `grace ends in ${wait + 1n} s`}`);
+    console.log(`loan ${short(loanAddr)}  buyer ${short(d.buyer)}  owes ${usdc(owes)}  ${wait < 0n ? `${-left} s past due, grace over` : `grace ends in ${wait + 1n} s`}`);
     return sendOrPrint(kp, [await paylater.getMarkDefaultInstructionAsync({ loan: loanAddr, line: await paylater.linePdaOf(d.buyer) })]);
   }
-  console.log(`loan ${short(loanAddr)}  ${STATE[d.state]}  owes ${usdc(d.amount)}  ${left >= 0n ? `due in ${left} s: on time` : `${-left} s late`}`);
+  console.log(`loan ${short(loanAddr)}  ${STATE[d.state]}  owes ${usdc(owes)} (${usdc(d.amount)} + ${usdc(d.fee)} fee)  ${left >= 0n ? `due in ${left} s: on time` : `${-left} s late`}`);
   const ix = await paylater.getRepayInstructionAsync({
     mint: pool.data.mint,
     loan: loanAddr,

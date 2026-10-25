@@ -23,7 +23,7 @@ export async function findLinePda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU" as Address<"7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU">,
+    programAddress = "LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D" as Address<"LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,

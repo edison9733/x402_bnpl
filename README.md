@@ -61,8 +61,9 @@ dollars and one to three months for a ring). Priced, not impossible: see
 so its owner keeps topping it up and guessing how many tokens the next job needs.
 
 **Fix 3: pay later (preview, local validator).** Fund the agent roughly, once. When a purchase costs
-more than its wallet holds, the agent can buy now and pay later; the merchant is paid at once, and the
-limit comes from the same score. See [Pay later](#pay-later-preview) below.
+more than its wallet holds, the agent can buy now and pay later: a pool pays its escrow order for it,
+so it keeps the escrow's protection, and the limit comes from the same score. See
+[Pay later](#pay-later-preview) below.
 
 ## What Tessera does
 
@@ -147,16 +148,20 @@ refunded order weighs 0.
 
 The same score that shortens the hold can set a credit line. A second program,
 [`programs/tessera-paylater`](programs/tessera-paylater), lets an agent buy now and pay later:
-- **Buy now.** A pool pays the merchant at once, minus a 2% fee.
-- **Pay later.** The buyer repays the full price by the due date, with no interest. Each on-time
-  repayment raises its limit.
+- **Buy now.** The merchant quotes as always, by opening an escrow order. A pool pays the price into
+  the order's vault in the buyer's place, and the escrow takes it from there: the merchant delivers
+  and is paid by the escrow, minus the escrow's 1% fee, and the buyer keeps the refund and dispute
+  protection of any other order.
+- **Pay later.** The buyer repays the price plus the pool's 2% fee by the due date, with no interest.
+  Each on-time repayment raises its limit.
 - **Or run a tab.** Buy several things, then settle every loan still owed in one transaction
   (`tessera repay --all`).
 - **Or default.** Anyone can mark an unpaid loan in default once its grace period ends, and the line
   freezes at zero.
 
 The limit is `tier limit × score ÷ 1000 × on-time boost`, read live from the buyer's Tessera credit
-file. A New wallet gets nothing. The escrow program is unchanged; pay-later only reads its accounts.
+file. A New wallet gets nothing. The escrow program is unchanged; pay-later only reads its accounts
+and pays into its vaults with the same plain token transfer an x402 payment is.
 **It runs on a local validator only and is not deployed to devnet.** Rules, checks and limits:
 [docs/PAYLATER.md](docs/PAYLATER.md).
 
@@ -183,7 +188,7 @@ agree. Full write-up: [docs/SCORING.md](docs/SCORING.md).
 | Command | Result | What it proves |
 |---|---|---|
 | `npm run test:local` | **395 / 395** | Runs the real program on a local validator. After every instruction, every account is compared field by field with a reference model. Every attack in [docs/SECURITY.md](docs/SECURITY.md) is sent as a real transaction and must fail. |
-| `npm run test:paylater` | **51 / 51** | The pay-later program next to the real escrow program on a local validator: limits from live Tessera scores matched against the off-chain formula, buy, on-time repayment, a tab of three settled in one transaction, default and freeze, pool accounting, and the main refusal paths as real transactions. |
+| `npm run test:paylater` | **72 / 72** | The pay-later program next to the real escrow program on a local validator: every purchase on credit goes through a real escrow order (the pool pays the vault, the escrow pays the merchant), limits from live Tessera scores matched against the off-chain formula, on-time repayment of price plus fee, a tab of three settled in one transaction, default and freeze, an escrow refund with the loan still owed, pool accounting, and the refusal paths as real transactions. |
 | `npm run test:formula` | **44 / 44** | The guarantees stated in the docs and on the site, as tests, including the review-reward rules. |
 | `npm run demo:rewards` | **pass** | The review-reward rebate on a local validator with the real program: real purchases and reviews, a merchant that then misses a delivery, and a real payout from the treasury. It checks each reward and label, the on-chain balances, the 75%-of-fees bound, and that `--verify` recomputes the payout. |
 | `npm run test:doors` | **pass** (94 checks) | All four doors against the real program on a local validator: every API tool and refusal path with transactions signed and sent, `find_merchants` against real and copycat agent cards, the MCP tools and their enums, SKILL.md, and the CLI signing locally and refusing a tampered transaction from a fake API. |
@@ -240,7 +245,7 @@ npm run build:program        # anchor build
 npm run codegen              # typed client from the IDL
 npm run test:formula         # 44 formula and reward tests, no chain needed
 npm run test:local           # 395 checks on a local validator (about 4 minutes)
-npm run test:paylater        # 51 pay-later checks on a local validator
+npm run test:paylater        # 72 pay-later checks on a local validator
 npm run paylater:local       # a local pay-later world to try the CLI by hand (docs/PAYLATER.md)
 ```
 
@@ -336,7 +341,8 @@ results.
   ([7 October](docs/SECURITY.md#audit-of-7-october-2026), [10 October](docs/SECURITY.md#audit-of-10-october-2026)).
   The fixes from both reviews are deployed on devnet.
 - **Pay later is a local preview.** The pay-later program is tested on a local validator and not
-  deployed to devnet. A default freezes the pay-later line but does not lower the Tessera score. See
+  deployed to devnet. A default freezes the pay-later line but does not lower the Tessera score, and
+  an escrow refund goes to the buyer while the loan stays owed. See
   [docs/PAYLATER.md](docs/PAYLATER.md).
 - **It prices faking; it does not detect it.** On-chain data cannot tell a bot from a customer who
   spends the same money. See the limits in [docs/SECURITY.md](docs/SECURITY.md).

@@ -43,6 +43,7 @@ export type LoanRepaidEvent = {
   loan: Address;
   buyer: Address;
   amount: bigint;
+  fee: bigint;
   onTime: boolean;
 };
 
@@ -50,6 +51,7 @@ export type LoanRepaidEventArgs = {
   loan: Address;
   buyer: Address;
   amount: number | bigint;
+  fee: number | bigint;
   onTime: boolean;
 };
 
@@ -60,6 +62,7 @@ export function getLoanRepaidEventEncoder(): FixedSizeEncoder<LoanRepaidEventArg
       ["loan", getAddressEncoder()],
       ["buyer", getAddressEncoder()],
       ["amount", getU64Encoder()],
+      ["fee", getU64Encoder()],
       ["onTime", getBooleanEncoder()],
     ]),
     [getConstantEncoder(LOAN_REPAID_EVENT_DISCRIMINATOR)],
@@ -73,6 +76,7 @@ export function getLoanRepaidEventDecoder(): FixedSizeDecoder<LoanRepaidEvent> {
       ["loan", getAddressDecoder()],
       ["buyer", getAddressDecoder()],
       ["amount", getU64Decoder()],
+      ["fee", getU64Decoder()],
       ["onTime", getBooleanDecoder()],
     ]),
     [getConstantDecoder(LOAN_REPAID_EVENT_DISCRIMINATOR)],

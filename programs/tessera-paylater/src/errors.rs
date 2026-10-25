@@ -20,8 +20,20 @@ pub enum PayLaterError {
     MerchantTierTooLow,
     #[msg("The purchase is above the buyer's available credit")]
     CreditLimitExceeded,
-    #[msg("The pool does not hold enough to pay the merchant")]
+    #[msg("The pool does not hold enough to fund the order")]
     PoolEmpty,
+    #[msg("Not a Tessera escrow order")]
+    NotAnOrder,
+    #[msg("The order was not opened for this buyer")]
+    NotTheBuyer,
+    #[msg("The order was not opened by this merchant")]
+    NotTheMerchant,
+    #[msg("The order is not awaiting payment")]
+    OrderNotAwaitingPayment,
+    #[msg("The order's vault already holds the price")]
+    OrderAlreadyFunded,
+    #[msg("The order's payment window has closed")]
+    PaymentWindowClosed,
     #[msg("The grace period after the due date has not passed yet")]
     NotOverdue,
     #[msg("Arithmetic overflow")]

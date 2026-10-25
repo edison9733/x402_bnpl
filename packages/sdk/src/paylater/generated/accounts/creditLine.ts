@@ -55,6 +55,10 @@ export type CreditLine = {
   discriminator: ReadonlyUint8Array;
   wallet: Address;
   openedAt: bigint;
+  /**
+   * Principal still owed. This is what counts against the limit; the fee
+   * on each open loan is owed on top.
+   */
   outstanding: bigint;
   openLoans: number;
   loans: number;
@@ -71,6 +75,10 @@ export type CreditLine = {
 export type CreditLineArgs = {
   wallet: Address;
   openedAt: number | bigint;
+  /**
+   * Principal still owed. This is what counts against the limit; the fee
+   * on each open loan is owed on top.
+   */
   outstanding: number | bigint;
   openLoans: number;
   loans: number;

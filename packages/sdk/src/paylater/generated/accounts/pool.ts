@@ -63,10 +63,16 @@ export type Pool = {
   outstanding: bigint;
   deposited: bigint;
   withdrawn: bigint;
+  /** Principal paid into escrow vaults. */
   lent: bigint;
+  /** Principal repaid, fees not included. */
   repaid: bigint;
   /** Principal of loans that went past their grace period unpaid. */
   defaulted: bigint;
+  /**
+   * Fees collected. A fee is earned when its loan is repaid, not when it
+   * opens, so the vault holds deposited - withdrawn - lent + repaid + fees_earned.
+   */
   feesEarned: bigint;
   loansOpened: bigint;
   bump: number;
@@ -81,10 +87,16 @@ export type PoolArgs = {
   outstanding: number | bigint;
   deposited: number | bigint;
   withdrawn: number | bigint;
+  /** Principal paid into escrow vaults. */
   lent: number | bigint;
+  /** Principal repaid, fees not included. */
   repaid: number | bigint;
   /** Principal of loans that went past their grace period unpaid. */
   defaulted: number | bigint;
+  /**
+   * Fees collected. A fee is earned when its loan is repaid, not when it
+   * opens, so the vault holds deposited - withdrawn - lent + repaid + fees_earned.
+   */
   feesEarned: number | bigint;
   loansOpened: number | bigint;
   bump: number;

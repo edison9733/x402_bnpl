@@ -1,11 +1,13 @@
 /**
  * A local pay-later world to try the commands by hand: a validator running
  * the real escrow and pay-later programs, wallets that earned their tiers
- * through real escrow orders, and a funded pool. It prints each wallet's
- * keypair file and stays up until Ctrl-C.
+ * through real escrow orders, a funded pool, and a shop that has quoted a few
+ * escrow orders for the buyers and delivers whatever gets paid. It prints each
+ * wallet's keypair file and the open quotes, and stays up until Ctrl-C.
  *
  *   npm run build:program && npm run paylater:local
  *   npm run tessera -- credit <alice> --rpc http://127.0.0.1:18999
+ *   npm run tessera -- buy-later --order <quote> --keypair <alice.json> --rpc http://127.0.0.1:18999 --send
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -19,6 +21,7 @@ import {
   configPda,
   fetchAgent,
   fetchConfig,
+  fetchMaybeOrder,
   fromUnits,
   getConfirmFundedInstructionAsync,
   getDeliverInstructionAsync,
@@ -29,6 +32,7 @@ import {
   getSubmitReviewInstructionAsync,
   newOrderId,
   orderAddresses,
+  OrderState,
   pairPdaOf,
   paylater,
   programDataAddress,
@@ -58,6 +62,8 @@ const USDC = 1_000_000n;
 const PAYLATER = paylater.TESSERA_PAYLATER_PROGRAM_ADDRESS;
 
 // The escrow's compressed local params (as in test-local.ts): 2-second periods.
+// The payment and delivery windows are ten minutes, so a quote the shop
+// opens here can be paid by hand.
 const PARAMS: Params = {
   periodSecs: 2,
   holdSecs: [4, 3, 2, 0],
@@ -69,8 +75,8 @@ const PARAMS: Params = {
   diversityFull: 20,
   reviewPrior: USDC / 100n,
   minOrder: 1_000n,
-  deliverSecs: 6,
-  unpaidSecs: 6,
+  deliverSecs: 600,
+  unpaidSecs: 600,
   reviewSecs: 20,
   complaintSecs: 32,
   instantBase: USDC / 2n,
@@ -254,6 +260,63 @@ try {
   ]);
   log.ok('pool funded with 50 test USDC');
 
+  // The shop, as a merchant agent runs: it quotes by opening escrow orders
+  // in the buyer's name, delivers each one once it is paid (by the buyer or
+  // by the pool), and takes the money once the hold has run.
+  log.step('The shop quotes a few orders for each buyer');
+  const shop = m1;
+  const short = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`;
+  const quotes = new Map<Address, { buyer: ScriptClient; amount: bigint }>();
+  async function openQuote(buyer: ScriptClient, amount: bigint): Promise<Address> {
+    const id = newOrderId();
+    const { order } = await orderAddresses(id, mint);
+    await server.sendTransaction([
+      await getOpenOrderInstructionAsync({
+        mint, buyer: buyer.identity.address, merchant: shop.identity, payer: server.identity, orderId: id, amount, requestHash, minHoldSecs: 0,
+      }),
+    ]);
+    quotes.set(order, { buyer, amount });
+    return order;
+  }
+  async function shopTick(): Promise<void> {
+    for (const [order, q] of quotes) {
+      try {
+        const found = await fetchMaybeOrder(rpc, order);
+        if (!found.exists) {
+          quotes.delete(order);
+          continue;
+        }
+        const d = found.data;
+        if (d.state === OrderState.Funded) {
+          await shop.sendTransaction([await getDeliverInstructionAsync({ order, merchant: shop.identity, deliveryHash: requestHash })]);
+          console.log(`  shop: order ${short(order)} was paid (${fromUnits(await tok.balance(order))} USDC in its vault); delivered`);
+        } else if (d.state === OrderState.Delivered && (await chainTime(server)) >= d.releaseAt) {
+          const settle = await settleAccounts(order, d, treasury.identity.address);
+          await shop.sendTransaction([getReleaseInstruction({ ...settle, authority: shop.identity })]);
+          const paid = await fetchMaybeOrder(rpc, order);
+          console.log(`  shop: the escrow paid ${fromUnits(paid.exists ? paid.data.paidMerchant : 0n)} USDC for order ${short(order)} (${fromUnits(q.amount)} minus its fee)`);
+          quotes.delete(order);
+        } else if (d.state !== OrderState.AwaitingPayment && d.state !== OrderState.Delivered) {
+          quotes.delete(order);
+        }
+      } catch (e) {
+        console.log(`  shop: order ${short(order)}: ${errText(e).slice(0, 300)}`);
+      }
+    }
+  }
+  const opened: [string, Address, bigint][] = [];
+  for (const [name, buyer] of [['alice', alice], ['bob', bob], ['fresh', fresh]] as const) {
+    for (const amount of [USDC / 2n, USDC]) opened.push([name, await openQuote(buyer, amount), amount]);
+  }
+  let busy = false;
+  const shopTimer = setInterval(() => {
+    if (busy) return;
+    busy = true;
+    void shopTick().finally(() => {
+      busy = false;
+    });
+  }, 2000);
+
   const TIERS = ['New', 'Building', 'Established', 'Trusted'];
   console.log(`\nLocal pay-later world on ${LOCAL.rpcUrl} (test money). Keypairs in ${keys}:`);
   for (const [name, c, what] of [
@@ -266,10 +329,15 @@ try {
     const file = join(keys, `${name}.json`);
     writeFileSync(file, JSON.stringify(Array.from(bytesOf.get(c.identity.address)!)), { mode: 0o600 });
     const e = await live(c);
-    console.log(`  ${name.padEnd(9)} ${c.identity.address}  ${TIERS[e.tier]} ${e.score}  (${what})  ${file}`);
+    const l = paylater.limit(paylater.NO_LINE, LINE, e.tier, e.score);
+    console.log(`  ${name.padEnd(9)} ${c.identity.address}  ${TIERS[e.tier]} ${e.score}  limit ${fromUnits(l)} USDC  (${what})  ${file}`);
   }
+  console.log('\nQuotes the shop has opened (escrow orders awaiting payment for 10 minutes); the shop delivers what gets paid:');
+  for (const [name, order, amount] of opened) console.log(`  ${name.padEnd(9)} ${order}  ${fromUnits(amount)} USDC`);
+  console.log(`\nTry:  npm run tessera -- buy-later --order <quote> --keypair ${join(keys, 'alice.json')} --rpc ${LOCAL.rpcUrl} --send`);
   console.log('\nCtrl-C to stop.');
   await new Promise<void>((done) => process.once('SIGINT', () => done()));
+  clearInterval(shopTimer);
 
   } catch (e) {
   console.log(`\nthe world stopped on an unexpected error:\n${errText(e).slice(0, 1500)}`);

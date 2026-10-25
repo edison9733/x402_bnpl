@@ -210,7 +210,7 @@ test('two runs cannot hold the ledger at once, and a dead run needs --force-unlo
   try {
     const path = join(dir, 'ledger.json');
     const release = lockLedger(path);
-    assert.throws(() => lockLedger(path), /another airdrop run holds/);
+    assert.throws(() => lockLedger(path), /another rebate run holds/);
     release();
     assert.ok(!existsSync(`${path}.lock`));
     const again = lockLedger(path);

@@ -67,7 +67,7 @@ export type InitializeInstruction<
   TAccountMint extends string | AccountMeta<string> = string,
   TAccountTesseraConfig extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> =
-    "7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU",
+    "LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D",
   TAccountProgramData extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
@@ -351,7 +351,7 @@ export async function getInitializeInstructionAsync<
   }
   if (!accounts.program.value) {
     accounts.program.value =
-      "7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU" as Address<"7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU">;
+      "LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D" as Address<"LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D">;
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
@@ -595,7 +595,7 @@ export function getInitializeInstruction<
   // Resolve default values.
   if (!accounts.program.value) {
     accounts.program.value =
-      "7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU" as Address<"7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU">;
+      "LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D" as Address<"LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D">;
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =

@@ -43,6 +43,7 @@ export type LoanOpenedEvent = {
   loan: Address;
   buyer: Address;
   merchant: Address;
+  order: Address;
   amount: bigint;
   fee: bigint;
   dueAt: bigint;
@@ -53,6 +54,7 @@ export type LoanOpenedEventArgs = {
   loan: Address;
   buyer: Address;
   merchant: Address;
+  order: Address;
   amount: number | bigint;
   fee: number | bigint;
   dueAt: number | bigint;
@@ -66,6 +68,7 @@ export function getLoanOpenedEventEncoder(): FixedSizeEncoder<LoanOpenedEventArg
       ["loan", getAddressEncoder()],
       ["buyer", getAddressEncoder()],
       ["merchant", getAddressEncoder()],
+      ["order", getAddressEncoder()],
       ["amount", getU64Encoder()],
       ["fee", getU64Encoder()],
       ["dueAt", getI64Encoder()],
@@ -82,6 +85,7 @@ export function getLoanOpenedEventDecoder(): FixedSizeDecoder<LoanOpenedEvent> {
       ["loan", getAddressDecoder()],
       ["buyer", getAddressDecoder()],
       ["merchant", getAddressDecoder()],
+      ["order", getAddressDecoder()],
       ["amount", getU64Decoder()],
       ["fee", getU64Decoder()],
       ["dueAt", getI64Decoder()],

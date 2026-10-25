@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 pub const BPS: u64 = 10_000;
-/// The pool keeps at most this share of each purchase as its fee.
+/// The pool may charge the buyer at most this share of each purchase.
 pub const MAX_FEE_BPS: u16 = 1_000;
 /// The longest a buyer may be given to repay.
 pub const MAX_TERM_SECS: u32 = 90 * 86_400;
@@ -21,10 +21,12 @@ pub struct LineParams {
     pub term_secs: u32,
     /// After the due date, how long before anyone may mark the loan in default.
     pub grace_secs: u32,
-    /// Share of each purchase the pool keeps; the merchant gets the rest at once.
-    /// The buyer repays the full price and pays no interest.
+    /// The pool's charge, as a share of the price. The buyer owes it on top of
+    /// the price at repayment; there is no interest. The merchant is paid by
+    /// the escrow, in full minus the escrow's own fee, and pays the pool nothing.
     pub fee_bps: u16,
-    /// The pool only pays merchants that have earned at least this Tessera tier.
+    /// The pool only funds orders from merchants that have earned at least
+    /// this Tessera tier.
     pub min_merchant_tier: u8,
     /// Smallest purchase the pool finances.
     pub min_loan: u64,
@@ -42,10 +44,14 @@ pub struct Pool {
     pub outstanding: u64,
     pub deposited: u64,
     pub withdrawn: u64,
+    /// Principal paid into escrow vaults.
     pub lent: u64,
+    /// Principal repaid, fees not included.
     pub repaid: u64,
     /// Principal of loans that went past their grace period unpaid.
     pub defaulted: u64,
+    /// Fees collected. A fee is earned when its loan is repaid, not when it
+    /// opens, so the vault holds deposited - withdrawn - lent + repaid + fees_earned.
     pub fees_earned: u64,
     pub loans_opened: u64,
     pub bump: u8,
@@ -57,6 +63,8 @@ pub struct Pool {
 pub struct CreditLine {
     pub wallet: Pubkey,
     pub opened_at: i64,
+    /// Principal still owed. This is what counts against the limit; the fee
+    /// on each open loan is owed on top.
     pub outstanding: u64,
     pub open_loans: u32,
     pub loans: u32,
@@ -85,11 +93,15 @@ pub struct Loan {
     pub loan_id: [u8; 32],
     pub buyer: Pubkey,
     pub merchant: Pubkey,
-    /// What the buyer owes: the full price.
+    /// The escrow order the pool funded. The escrow pays the merchant when the
+    /// order settles; a refund goes to the buyer, and the loan is still owed.
+    pub order: Pubkey,
+    /// The order's price: what the pool paid into the escrow vault, and the
+    /// principal the buyer owes.
     pub amount: u64,
-    /// What the pool kept; the merchant received `amount - fee`.
+    /// The pool's charge, owed on top: the buyer repays `amount + fee`.
     pub fee: u64,
-    /// Hash of what was bought (the A2A task or the x402 resource).
+    /// Hash of what was bought, copied from the order.
     pub request_hash: [u8; 32],
     pub state: LoanState,
     // ---- snapshot taken at purchase

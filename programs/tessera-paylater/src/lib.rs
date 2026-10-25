@@ -12,19 +12,24 @@ pub mod state;
 use errors::PayLaterError;
 use state::*;
 
-declare_id!("7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU");
+declare_id!("LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D");
 
 /// Tessera pay-later: buy now, pay later for AI agents.
 ///
-/// * A pool pays the merchant at once (minus a small fee) and the buyer repays
-///   the full price by the due date, with no interest.
+/// * A pool pays the price of an escrow order into the order's vault, in the
+///   buyer's place. The escrow then treats the order like any other: the
+///   merchant delivers and is paid, minus the escrow's fee, and the buyer
+///   keeps the escrow's refund and dispute protection. The buyer repays the
+///   price plus the pool's fee by the due date, with no interest.
 /// * The buyer's credit limit comes from its live Tessera score, read straight
 ///   from the escrow program's credit file. A wallet with no settled history
 ///   gets no credit; repaying on time raises the limit; a default freezes it.
 /// * Everything is public: anyone can recompute a limit, and anyone can mark an
 ///   unpaid loan in default once its grace period has passed.
 ///
-/// The escrow program is untouched: this program only reads its accounts.
+/// The escrow program is untouched: this program only reads its accounts and
+/// pays into its vaults with a plain token transfer, the same one a buyer's
+/// x402 payment is.
 #[program]
 pub mod tessera_paylater {
     use super::*;
@@ -78,16 +83,45 @@ pub mod tessera_paylater {
         Ok(())
     }
 
-    /// Buy now: the pool pays the merchant, the buyer owes the full price by the
-    /// due date. Only the buyer can spend its own credit.
-    pub fn buy_now(ctx: Context<BuyNow>, loan_id: [u8; 32], amount: u64, request_hash: [u8; 32]) -> Result<()> {
+    /// Buy now: the pool pays the price of an escrow order into the order's
+    /// vault, and the buyer owes the price plus the pool's fee by the due date.
+    /// Only the buyer can spend its own credit.
+    ///
+    /// The order is one the merchant has already opened for this buyer (the
+    /// x402 quote), still awaiting payment and inside its payment window. The
+    /// price and the request hash are read from it. The payment is the plain
+    /// token transfer the escrow's `confirm_funded` looks for, so from here on
+    /// the order runs exactly as a self-funded one: the merchant delivers, the
+    /// hold runs, and the escrow pays the merchant the price minus its own fee.
+    ///
+    /// If the escrow refunds the order instead (the merchant never delivers,
+    /// a dispute goes the buyer's way, or a late payment is cancelled), the
+    /// money goes to the buyer's token account, not back to the pool, and the
+    /// loan is still owed: the buyer repays out of the refund. This version
+    /// does not route refunds to the pool; that needs the escrow to know about
+    /// loans, which it deliberately does not.
+    pub fn buy_now(ctx: Context<BuyNow>, loan_id: [u8; 32]) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         let a = &ctx.accounts;
         let p = a.pool.params;
         require_keys_neq!(a.buyer.key(), a.merchant.key(), PayLaterError::SelfDealing);
+
+        let order = read_order(&a.order)?;
+        require_keys_eq!(order.buyer, a.buyer.key(), PayLaterError::NotTheBuyer);
+        require_keys_eq!(order.merchant, a.merchant.key(), PayLaterError::NotTheMerchant);
+        require_keys_eq!(order.mint, a.mint.key(), PayLaterError::MintMismatch);
+        require!(order.state == tessera::state::OrderState::AwaitingPayment, PayLaterError::OrderNotAwaitingPayment);
+        require!(a.order_vault.amount < order.amount, PayLaterError::OrderAlreadyFunded);
+        let amount = order.amount;
         require!(amount >= p.min_loan, PayLaterError::AmountTooSmall);
 
         let cfg = read_config(&a.tessera_config)?;
+        // `confirm_funded` refuses a payment after the order's window; money
+        // sent then could only come back to the buyer through `cancel_unpaid`.
+        require!(
+            now <= order.created_at.saturating_add(cfg.params.unpaid_secs as i64),
+            PayLaterError::PaymentWindowClosed
+        );
         let buyer = score_of(&a.buyer_agent, &cfg.params, now)?;
         let merchant = score_of(&a.merchant_agent, &cfg.params, now)?;
         require!(merchant.tier >= p.min_merchant_tier, PayLaterError::MerchantTierTooLow);
@@ -97,9 +131,8 @@ pub mod tessera_paylater {
         require!(amount <= limit.saturating_sub(line.outstanding), PayLaterError::CreditLimitExceeded);
 
         let fee = credit::fee_of(amount, &p);
-        let to_merchant = amount - fee;
-        require!(a.vault.amount >= to_merchant, PayLaterError::PoolEmpty);
-        pay_from_pool(&a.pool, &a.token_program, &a.vault, &a.mint, a.merchant_token.to_account_info(), to_merchant)?;
+        require!(a.vault.amount >= amount, PayLaterError::PoolEmpty);
+        pay_from_pool(&a.pool, &a.token_program, &a.vault, &a.mint, a.order_vault.to_account_info(), amount)?;
 
         let line = &mut ctx.accounts.line;
         if line.wallet == Pubkey::default() {
@@ -116,7 +149,6 @@ pub mod tessera_paylater {
         let pool = &mut ctx.accounts.pool;
         pool.outstanding = pool.outstanding.checked_add(amount).ok_or(PayLaterError::Overflow)?;
         pool.lent = pool.lent.checked_add(amount).ok_or(PayLaterError::Overflow)?;
-        pool.fees_earned = pool.fees_earned.checked_add(fee).ok_or(PayLaterError::Overflow)?;
         pool.loans_opened += 1;
 
         let due_at = now + p.term_secs as i64;
@@ -124,9 +156,10 @@ pub mod tessera_paylater {
         loan.loan_id = loan_id;
         loan.buyer = ctx.accounts.buyer.key();
         loan.merchant = ctx.accounts.merchant.key();
+        loan.order = ctx.accounts.order.key();
         loan.amount = amount;
         loan.fee = fee;
-        loan.request_hash = request_hash;
+        loan.request_hash = order.request_hash;
         loan.state = LoanState::Open;
         loan.buyer_tier = buyer.tier;
         loan.buyer_score = buyer.score;
@@ -141,6 +174,7 @@ pub mod tessera_paylater {
             loan: loan.key(),
             buyer: loan.buyer,
             merchant: loan.merchant,
+            order: loan.order,
             amount,
             fee,
             due_at,
@@ -149,13 +183,15 @@ pub mod tessera_paylater {
         Ok(())
     }
 
-    /// Pay the full price back. Anyone may pay a buyer's loan for it. Repaying
-    /// on time raises the buyer's limit; repaying late or after a default
-    /// clears the debt but earns nothing.
+    /// Pay the price plus the pool's fee back. Anyone may pay a buyer's loan
+    /// for it. Repaying on time raises the buyer's limit; repaying late or
+    /// after a default clears the debt but earns nothing.
     pub fn repay(ctx: Context<Repay>) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         let a = &ctx.accounts;
         let amount = a.loan.amount;
+        let fee = a.loan.fee;
+        let due = amount.checked_add(fee).ok_or(PayLaterError::Overflow)?;
         transfer_checked(
             CpiContext::new(
                 a.token_program.key(),
@@ -166,7 +202,7 @@ pub mod tessera_paylater {
                     authority: a.payer.to_account_info(),
                 },
             ),
-            amount,
+            due,
             a.mint.decimals,
         )?;
 
@@ -193,8 +229,9 @@ pub mod tessera_paylater {
         let pool = &mut ctx.accounts.pool;
         pool.outstanding -= amount;
         pool.repaid = pool.repaid.checked_add(amount).ok_or(PayLaterError::Overflow)?;
+        pool.fees_earned = pool.fees_earned.checked_add(fee).ok_or(PayLaterError::Overflow)?;
 
-        emit!(LoanRepaid { loan: loan.key(), buyer: loan.buyer, amount, on_time });
+        emit!(LoanRepaid { loan: loan.key(), buyer: loan.buyer, amount, fee, on_time });
         Ok(())
     }
 
@@ -235,6 +272,20 @@ pub mod tessera_paylater {
 fn read_config(acc: &UncheckedAccount) -> Result<tessera::state::Config> {
     let data = acc.try_borrow_data()?;
     tessera::state::Config::try_deserialize(&mut &data[..]).map_err(|_| error!(PayLaterError::NotACreditFile))
+}
+
+/// The escrow order the pool is asked to fund. The account constraint checks
+/// the owner; this checks the discriminator and that the account sits at the
+/// address its own id derives under the escrow program, the way
+/// `packages/sdk/src/pda.ts` derives it (seeds `"order"`, order id).
+fn read_order(acc: &UncheckedAccount) -> Result<tessera::state::Order> {
+    let data = acc.try_borrow_data()?;
+    let order =
+        tessera::state::Order::try_deserialize(&mut &data[..]).map_err(|_| error!(PayLaterError::NotAnOrder))?;
+    let expected = Pubkey::create_program_address(&[b"order", order.order_id.as_ref(), &[order.bump]], &tessera::ID)
+        .map_err(|_| error!(PayLaterError::NotAnOrder))?;
+    require_keys_eq!(acc.key(), expected, PayLaterError::NotAnOrder);
+    Ok(order)
 }
 
 /// The wallet's live Tessera score, recomputed from its credit file exactly as
@@ -283,6 +334,7 @@ pub struct LoanOpened {
     pub loan: Pubkey,
     pub buyer: Pubkey,
     pub merchant: Pubkey,
+    pub order: Pubkey,
     pub amount: u64,
     pub fee: u64,
     pub due_at: i64,
@@ -294,6 +346,7 @@ pub struct LoanRepaid {
     pub loan: Pubkey,
     pub buyer: Pubkey,
     pub amount: u64,
+    pub fee: u64,
     pub on_time: bool,
 }
 
@@ -410,15 +463,16 @@ pub struct BuyNow<'info> {
     /// The buyer signs and pays the rent: nobody can borrow in its name.
     #[account(mut)]
     pub buyer: Signer<'info>,
-    /// CHECK: any wallet; its Tessera tier is checked from `merchant_agent`.
+    /// CHECK: must be the order's merchant; its Tessera tier is checked from `merchant_agent`.
     pub merchant: UncheckedAccount<'info>,
-    #[account(
-        init_if_needed,
-        payer = buyer,
-        associated_token::mint = mint,
-        associated_token::authority = merchant
-    )]
-    pub merchant_token: Box<Account<'info, TokenAccount>>,
+    /// CHECK: the escrow order to fund. Owned by the escrow program; its
+    /// contents, address and parties are checked by `read_order` and `buy_now`.
+    #[account(owner = tessera::ID)]
+    pub order: UncheckedAccount<'info>,
+    /// The order's vault, ATA(mint, order): where the escrow looks for the
+    /// payment. It exists from `open_order` until the order settles.
+    #[account(mut, associated_token::mint = mint, associated_token::authority = order)]
+    pub order_vault: Box<Account<'info, TokenAccount>>,
     /// CHECK: the escrow program's config (the score parameters).
     #[account(owner = tessera::ID, seeds = [b"config"], bump, seeds::program = tessera::ID)]
     pub tessera_config: UncheckedAccount<'info>,
@@ -429,7 +483,6 @@ pub struct BuyNow<'info> {
     #[account(owner = tessera::ID, seeds = [b"agent", merchant.key().as_ref()], bump, seeds::program = tessera::ID)]
     pub merchant_agent: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 

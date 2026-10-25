@@ -29,6 +29,7 @@ export function available(line: LimitLine, p: LineParams, tier: number, score: n
   return l > line.outstanding ? l - line.outstanding : 0n;
 }
 
+/** The pool's charge on a purchase, owed by the buyer on top of the price. */
 export const feeOf = (amount: bigint, p: LineParams): bigint => (amount * BigInt(p.feeBps)) / BPS;
 
 /**

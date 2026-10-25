@@ -16,8 +16,6 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
-  getU64Decoder,
-  getU64Encoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
   SolanaError,
   transformEncoder,
@@ -65,14 +63,13 @@ export type BuyNowInstruction<
   TAccountLoan extends string | AccountMeta<string> = string,
   TAccountBuyer extends string | AccountMeta<string> = string,
   TAccountMerchant extends string | AccountMeta<string> = string,
-  TAccountMerchantToken extends string | AccountMeta<string> = string,
+  TAccountOrder extends string | AccountMeta<string> = string,
+  TAccountOrderVault extends string | AccountMeta<string> = string,
   TAccountTesseraConfig extends string | AccountMeta<string> = string,
   TAccountBuyerAgent extends string | AccountMeta<string> = string,
   TAccountMerchantAgent extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-  TAccountAssociatedTokenProgram extends string | AccountMeta<string> =
-    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -102,9 +99,12 @@ export type BuyNowInstruction<
       TAccountMerchant extends string
         ? ReadonlyAccount<TAccountMerchant>
         : TAccountMerchant,
-      TAccountMerchantToken extends string
-        ? WritableAccount<TAccountMerchantToken>
-        : TAccountMerchantToken,
+      TAccountOrder extends string
+        ? ReadonlyAccount<TAccountOrder>
+        : TAccountOrder,
+      TAccountOrderVault extends string
+        ? WritableAccount<TAccountOrderVault>
+        : TAccountOrderVault,
       TAccountTesseraConfig extends string
         ? ReadonlyAccount<TAccountTesseraConfig>
         : TAccountTesseraConfig,
@@ -117,9 +117,6 @@ export type BuyNowInstruction<
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
-      TAccountAssociatedTokenProgram extends string
-        ? ReadonlyAccount<TAccountAssociatedTokenProgram>
-        : TAccountAssociatedTokenProgram,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -130,23 +127,15 @@ export type BuyNowInstruction<
 export type BuyNowInstructionData = {
   discriminator: ReadonlyUint8Array;
   loanId: ReadonlyUint8Array;
-  amount: bigint;
-  requestHash: ReadonlyUint8Array;
 };
 
-export type BuyNowInstructionDataArgs = {
-  loanId: ReadonlyUint8Array;
-  amount: number | bigint;
-  requestHash: ReadonlyUint8Array;
-};
+export type BuyNowInstructionDataArgs = { loanId: ReadonlyUint8Array };
 
 export function getBuyNowInstructionDataEncoder(): FixedSizeEncoder<BuyNowInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["loanId", fixEncoderSize(getBytesEncoder(), 32)],
-      ["amount", getU64Encoder()],
-      ["requestHash", fixEncoderSize(getBytesEncoder(), 32)],
     ]),
     (value) => ({ ...value, discriminator: BUY_NOW_DISCRIMINATOR }),
   );
@@ -156,8 +145,6 @@ export function getBuyNowInstructionDataDecoder(): FixedSizeDecoder<BuyNowInstru
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["loanId", fixDecoderSize(getBytesDecoder(), 32)],
-    ["amount", getU64Decoder()],
-    ["requestHash", fixDecoderSize(getBytesDecoder(), 32)],
   ]);
 }
 
@@ -179,16 +166,14 @@ export type BuyNowAsyncInput<
   TAccountLoan extends InstructionAccountInput = InstructionAccountInput,
   TAccountBuyer extends InstructionSignerInput = InstructionSignerInput,
   TAccountMerchant extends InstructionAccountInput = InstructionAccountInput,
-  TAccountMerchantToken extends InstructionAccountInput =
-    InstructionAccountInput,
+  TAccountOrder extends InstructionAccountInput = InstructionAccountInput,
+  TAccountOrderVault extends InstructionAccountInput = InstructionAccountInput,
   TAccountTesseraConfig extends InstructionAccountInput =
     InstructionAccountInput,
   TAccountBuyerAgent extends InstructionAccountInput = InstructionAccountInput,
   TAccountMerchantAgent extends InstructionAccountInput =
     InstructionAccountInput,
   TAccountTokenProgram extends InstructionAccountInput =
-    InstructionAccountInput,
-  TAccountAssociatedTokenProgram extends InstructionAccountInput =
     InstructionAccountInput,
   TAccountSystemProgram extends InstructionAccountInput =
     InstructionAccountInput,
@@ -201,16 +186,19 @@ export type BuyNowAsyncInput<
   /** The buyer signs and pays the rent: nobody can borrow in its name. */
   buyer: TAccountBuyer;
   merchant: TAccountMerchant;
-  merchantToken?: TAccountMerchantToken;
+  /** contents, address and parties are checked by `read_order` and `buy_now`. */
+  order: TAccountOrder;
+  /**
+   * The order's vault, ATA(mint, order): where the escrow looks for the
+   * payment. It exists from `open_order` until the order settles.
+   */
+  orderVault?: TAccountOrderVault;
   tesseraConfig?: TAccountTesseraConfig;
   buyerAgent?: TAccountBuyerAgent;
   merchantAgent?: TAccountMerchantAgent;
   tokenProgram?: TAccountTokenProgram;
-  associatedTokenProgram?: TAccountAssociatedTokenProgram;
   systemProgram?: TAccountSystemProgram;
   loanId: BuyNowInstructionDataArgs["loanId"];
-  amount: BuyNowInstructionDataArgs["amount"];
-  requestHash: BuyNowInstructionDataArgs["requestHash"];
 };
 
 export async function getBuyNowInstructionAsync<
@@ -221,12 +209,12 @@ export async function getBuyNowInstructionAsync<
   TAccountLoan extends InstructionAccountInput,
   TAccountBuyer extends InstructionSignerInput,
   TAccountMerchant extends InstructionAccountInput,
-  TAccountMerchantToken extends InstructionAccountInput,
+  TAccountOrder extends InstructionAccountInput,
+  TAccountOrderVault extends InstructionAccountInput,
   TAccountTesseraConfig extends InstructionAccountInput,
   TAccountBuyerAgent extends InstructionAccountInput,
   TAccountMerchantAgent extends InstructionAccountInput,
   TAccountTokenProgram extends InstructionAccountInput,
-  TAccountAssociatedTokenProgram extends InstructionAccountInput,
   TAccountSystemProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof TESSERA_PAYLATER_PROGRAM_ADDRESS,
 >(
@@ -238,12 +226,12 @@ export async function getBuyNowInstructionAsync<
     TAccountLoan,
     TAccountBuyer,
     TAccountMerchant,
-    TAccountMerchantToken,
+    TAccountOrder,
+    TAccountOrderVault,
     TAccountTesseraConfig,
     TAccountBuyerAgent,
     TAccountMerchantAgent,
     TAccountTokenProgram,
-    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -279,8 +267,12 @@ export async function getBuyNowInstructionAsync<
       InstructionAccountInputAddress<TAccountMerchant>
     >,
     ResolvedInstructionAccountMeta<
-      TAccountMerchantToken,
-      InstructionAccountInputAddress<TAccountMerchantToken>
+      TAccountOrder,
+      InstructionAccountInputAddress<TAccountOrder>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountOrderVault,
+      InstructionAccountInputAddress<TAccountOrderVault>
     >,
     ResolvedInstructionAccountMeta<
       TAccountTesseraConfig,
@@ -297,10 +289,6 @@ export async function getBuyNowInstructionAsync<
     ResolvedInstructionAccountMeta<
       TAccountTokenProgram,
       InstructionAccountInputAddress<TAccountTokenProgram>
-    >,
-    ResolvedInstructionAccountMeta<
-      TAccountAssociatedTokenProgram,
-      InstructionAccountInputAddress<TAccountAssociatedTokenProgram>
     >,
     ResolvedInstructionAccountMeta<
       TAccountSystemProgram,
@@ -328,8 +316,9 @@ export async function getBuyNowInstructionAsync<
       isSigner: false,
       isWritable: false,
     },
-    merchantToken: {
-      value: input.merchantToken ?? null,
+    order: { value: input.order ?? null, isSigner: false, isWritable: false },
+    orderVault: {
+      value: input.orderVault ?? null,
       isSigner: false,
       isWritable: true,
     },
@@ -350,11 +339,6 @@ export async function getBuyNowInstructionAsync<
     },
     tokenProgram: {
       value: input.tokenProgram ?? null,
-      isSigner: false,
-      isWritable: false,
-    },
-    associatedTokenProgram: {
-      value: input.associatedTokenProgram ?? null,
       isSigner: false,
       isWritable: false,
     },
@@ -420,15 +404,15 @@ export async function getBuyNowInstructionAsync<
       { programAddress },
     );
   }
-  if (!accounts.merchantToken.value) {
-    accounts.merchantToken.value = await getProgramDerivedAddress({
+  if (!accounts.orderVault.value) {
+    accounts.orderVault.value = await getProgramDerivedAddress({
       programAddress:
         "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" as Address<"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL">,
       seeds: [
         getAddressEncoder().encode(
           getAddressFromResolvedInstructionAccount(
-            "merchant",
-            accounts.merchant.value,
+            "order",
+            accounts.order.value,
           ),
         ),
         getBytesEncoder().encode(
@@ -487,10 +471,6 @@ export async function getBuyNowInstructionAsync<
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
   }
-  if (!accounts.associatedTokenProgram.value) {
-    accounts.associatedTokenProgram.value =
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" as Address<"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL">;
-  }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
@@ -505,12 +485,12 @@ export async function getBuyNowInstructionAsync<
       getAccountMeta("loan", accounts.loan),
       getAccountMeta("buyer", accounts.buyer),
       getAccountMeta("merchant", accounts.merchant),
-      getAccountMeta("merchantToken", accounts.merchantToken),
+      getAccountMeta("order", accounts.order),
+      getAccountMeta("orderVault", accounts.orderVault),
       getAccountMeta("tesseraConfig", accounts.tesseraConfig),
       getAccountMeta("buyerAgent", accounts.buyerAgent),
       getAccountMeta("merchantAgent", accounts.merchantAgent),
       getAccountMeta("tokenProgram", accounts.tokenProgram),
-      getAccountMeta("associatedTokenProgram", accounts.associatedTokenProgram),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
     data: getBuyNowInstructionDataEncoder().encode(
@@ -548,8 +528,12 @@ export async function getBuyNowInstructionAsync<
       InstructionAccountInputAddress<TAccountMerchant>
     >,
     ResolvedInstructionAccountMeta<
-      TAccountMerchantToken,
-      InstructionAccountInputAddress<TAccountMerchantToken>
+      TAccountOrder,
+      InstructionAccountInputAddress<TAccountOrder>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountOrderVault,
+      InstructionAccountInputAddress<TAccountOrderVault>
     >,
     ResolvedInstructionAccountMeta<
       TAccountTesseraConfig,
@@ -568,10 +552,6 @@ export async function getBuyNowInstructionAsync<
       InstructionAccountInputAddress<TAccountTokenProgram>
     >,
     ResolvedInstructionAccountMeta<
-      TAccountAssociatedTokenProgram,
-      InstructionAccountInputAddress<TAccountAssociatedTokenProgram>
-    >,
-    ResolvedInstructionAccountMeta<
       TAccountSystemProgram,
       InstructionAccountInputAddress<TAccountSystemProgram>
     >
@@ -586,16 +566,14 @@ export type BuyNowInput<
   TAccountLoan extends InstructionAccountInput = InstructionAccountInput,
   TAccountBuyer extends InstructionSignerInput = InstructionSignerInput,
   TAccountMerchant extends InstructionAccountInput = InstructionAccountInput,
-  TAccountMerchantToken extends InstructionAccountInput =
-    InstructionAccountInput,
+  TAccountOrder extends InstructionAccountInput = InstructionAccountInput,
+  TAccountOrderVault extends InstructionAccountInput = InstructionAccountInput,
   TAccountTesseraConfig extends InstructionAccountInput =
     InstructionAccountInput,
   TAccountBuyerAgent extends InstructionAccountInput = InstructionAccountInput,
   TAccountMerchantAgent extends InstructionAccountInput =
     InstructionAccountInput,
   TAccountTokenProgram extends InstructionAccountInput =
-    InstructionAccountInput,
-  TAccountAssociatedTokenProgram extends InstructionAccountInput =
     InstructionAccountInput,
   TAccountSystemProgram extends InstructionAccountInput =
     InstructionAccountInput,
@@ -608,16 +586,19 @@ export type BuyNowInput<
   /** The buyer signs and pays the rent: nobody can borrow in its name. */
   buyer: TAccountBuyer;
   merchant: TAccountMerchant;
-  merchantToken: TAccountMerchantToken;
+  /** contents, address and parties are checked by `read_order` and `buy_now`. */
+  order: TAccountOrder;
+  /**
+   * The order's vault, ATA(mint, order): where the escrow looks for the
+   * payment. It exists from `open_order` until the order settles.
+   */
+  orderVault: TAccountOrderVault;
   tesseraConfig: TAccountTesseraConfig;
   buyerAgent: TAccountBuyerAgent;
   merchantAgent: TAccountMerchantAgent;
   tokenProgram?: TAccountTokenProgram;
-  associatedTokenProgram?: TAccountAssociatedTokenProgram;
   systemProgram?: TAccountSystemProgram;
   loanId: BuyNowInstructionDataArgs["loanId"];
-  amount: BuyNowInstructionDataArgs["amount"];
-  requestHash: BuyNowInstructionDataArgs["requestHash"];
 };
 
 export function getBuyNowInstruction<
@@ -628,12 +609,12 @@ export function getBuyNowInstruction<
   TAccountLoan extends InstructionAccountInput,
   TAccountBuyer extends InstructionSignerInput,
   TAccountMerchant extends InstructionAccountInput,
-  TAccountMerchantToken extends InstructionAccountInput,
+  TAccountOrder extends InstructionAccountInput,
+  TAccountOrderVault extends InstructionAccountInput,
   TAccountTesseraConfig extends InstructionAccountInput,
   TAccountBuyerAgent extends InstructionAccountInput,
   TAccountMerchantAgent extends InstructionAccountInput,
   TAccountTokenProgram extends InstructionAccountInput,
-  TAccountAssociatedTokenProgram extends InstructionAccountInput,
   TAccountSystemProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof TESSERA_PAYLATER_PROGRAM_ADDRESS,
 >(
@@ -645,12 +626,12 @@ export function getBuyNowInstruction<
     TAccountLoan,
     TAccountBuyer,
     TAccountMerchant,
-    TAccountMerchantToken,
+    TAccountOrder,
+    TAccountOrderVault,
     TAccountTesseraConfig,
     TAccountBuyerAgent,
     TAccountMerchantAgent,
     TAccountTokenProgram,
-    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -685,8 +666,12 @@ export function getBuyNowInstruction<
     InstructionAccountInputAddress<TAccountMerchant>
   >,
   ResolvedInstructionAccountMeta<
-    TAccountMerchantToken,
-    InstructionAccountInputAddress<TAccountMerchantToken>
+    TAccountOrder,
+    InstructionAccountInputAddress<TAccountOrder>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountOrderVault,
+    InstructionAccountInputAddress<TAccountOrderVault>
   >,
   ResolvedInstructionAccountMeta<
     TAccountTesseraConfig,
@@ -703,10 +688,6 @@ export function getBuyNowInstruction<
   ResolvedInstructionAccountMeta<
     TAccountTokenProgram,
     InstructionAccountInputAddress<TAccountTokenProgram>
-  >,
-  ResolvedInstructionAccountMeta<
-    TAccountAssociatedTokenProgram,
-    InstructionAccountInputAddress<TAccountAssociatedTokenProgram>
   >,
   ResolvedInstructionAccountMeta<
     TAccountSystemProgram,
@@ -733,8 +714,9 @@ export function getBuyNowInstruction<
       isSigner: false,
       isWritable: false,
     },
-    merchantToken: {
-      value: input.merchantToken ?? null,
+    order: { value: input.order ?? null, isSigner: false, isWritable: false },
+    orderVault: {
+      value: input.orderVault ?? null,
       isSigner: false,
       isWritable: true,
     },
@@ -758,11 +740,6 @@ export function getBuyNowInstruction<
       isSigner: false,
       isWritable: false,
     },
-    associatedTokenProgram: {
-      value: input.associatedTokenProgram ?? null,
-      isSigner: false,
-      isWritable: false,
-    },
     systemProgram: {
       value: input.systemProgram ?? null,
       isSigner: false,
@@ -782,10 +759,6 @@ export function getBuyNowInstruction<
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
   }
-  if (!accounts.associatedTokenProgram.value) {
-    accounts.associatedTokenProgram.value =
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" as Address<"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL">;
-  }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
@@ -800,12 +773,12 @@ export function getBuyNowInstruction<
       getAccountMeta("loan", accounts.loan),
       getAccountMeta("buyer", accounts.buyer),
       getAccountMeta("merchant", accounts.merchant),
-      getAccountMeta("merchantToken", accounts.merchantToken),
+      getAccountMeta("order", accounts.order),
+      getAccountMeta("orderVault", accounts.orderVault),
       getAccountMeta("tesseraConfig", accounts.tesseraConfig),
       getAccountMeta("buyerAgent", accounts.buyerAgent),
       getAccountMeta("merchantAgent", accounts.merchantAgent),
       getAccountMeta("tokenProgram", accounts.tokenProgram),
-      getAccountMeta("associatedTokenProgram", accounts.associatedTokenProgram),
       getAccountMeta("systemProgram", accounts.systemProgram),
     ],
     data: getBuyNowInstructionDataEncoder().encode(
@@ -843,8 +816,12 @@ export function getBuyNowInstruction<
       InstructionAccountInputAddress<TAccountMerchant>
     >,
     ResolvedInstructionAccountMeta<
-      TAccountMerchantToken,
-      InstructionAccountInputAddress<TAccountMerchantToken>
+      TAccountOrder,
+      InstructionAccountInputAddress<TAccountOrder>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountOrderVault,
+      InstructionAccountInputAddress<TAccountOrderVault>
     >,
     ResolvedInstructionAccountMeta<
       TAccountTesseraConfig,
@@ -861,10 +838,6 @@ export function getBuyNowInstruction<
     ResolvedInstructionAccountMeta<
       TAccountTokenProgram,
       InstructionAccountInputAddress<TAccountTokenProgram>
-    >,
-    ResolvedInstructionAccountMeta<
-      TAccountAssociatedTokenProgram,
-      InstructionAccountInputAddress<TAccountAssociatedTokenProgram>
     >,
     ResolvedInstructionAccountMeta<
       TAccountSystemProgram,
@@ -887,12 +860,17 @@ export type ParsedBuyNowInstruction<
     /** The buyer signs and pays the rent: nobody can borrow in its name. */
     buyer: TAccountMetas[5];
     merchant: TAccountMetas[6];
-    merchantToken: TAccountMetas[7];
-    tesseraConfig: TAccountMetas[8];
-    buyerAgent: TAccountMetas[9];
-    merchantAgent: TAccountMetas[10];
-    tokenProgram: TAccountMetas[11];
-    associatedTokenProgram: TAccountMetas[12];
+    /** contents, address and parties are checked by `read_order` and `buy_now`. */
+    order: TAccountMetas[7];
+    /**
+     * The order's vault, ATA(mint, order): where the escrow looks for the
+     * payment. It exists from `open_order` until the order settles.
+     */
+    orderVault: TAccountMetas[8];
+    tesseraConfig: TAccountMetas[9];
+    buyerAgent: TAccountMetas[10];
+    merchantAgent: TAccountMetas[11];
+    tokenProgram: TAccountMetas[12];
     systemProgram: TAccountMetas[13];
   };
   data: BuyNowInstructionData;
@@ -931,12 +909,12 @@ export function parseBuyNowInstruction<
       loan: getNextAccount(),
       buyer: getNextAccount(),
       merchant: getNextAccount(),
-      merchantToken: getNextAccount(),
+      order: getNextAccount(),
+      orderVault: getNextAccount(),
       tesseraConfig: getNextAccount(),
       buyerAgent: getNextAccount(),
       merchantAgent: getNextAccount(),
       tokenProgram: getNextAccount(),
-      associatedTokenProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getBuyNowInstructionDataDecoder().decode(instruction.data),

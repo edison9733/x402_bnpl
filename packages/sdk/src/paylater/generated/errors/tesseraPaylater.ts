@@ -32,12 +32,24 @@ export const TESSERA_PAYLATER_ERROR__NOT_A_CREDIT_FILE = 0x1776; // 6006
 export const TESSERA_PAYLATER_ERROR__MERCHANT_TIER_TOO_LOW = 0x1777; // 6007
 /** CreditLimitExceeded: The purchase is above the buyer's available credit */
 export const TESSERA_PAYLATER_ERROR__CREDIT_LIMIT_EXCEEDED = 0x1778; // 6008
-/** PoolEmpty: The pool does not hold enough to pay the merchant */
+/** PoolEmpty: The pool does not hold enough to fund the order */
 export const TESSERA_PAYLATER_ERROR__POOL_EMPTY = 0x1779; // 6009
+/** NotAnOrder: Not a Tessera escrow order */
+export const TESSERA_PAYLATER_ERROR__NOT_AN_ORDER = 0x177a; // 6010
+/** NotTheBuyer: The order was not opened for this buyer */
+export const TESSERA_PAYLATER_ERROR__NOT_THE_BUYER = 0x177b; // 6011
+/** NotTheMerchant: The order was not opened by this merchant */
+export const TESSERA_PAYLATER_ERROR__NOT_THE_MERCHANT = 0x177c; // 6012
+/** OrderNotAwaitingPayment: The order is not awaiting payment */
+export const TESSERA_PAYLATER_ERROR__ORDER_NOT_AWAITING_PAYMENT = 0x177d; // 6013
+/** OrderAlreadyFunded: The order's vault already holds the price */
+export const TESSERA_PAYLATER_ERROR__ORDER_ALREADY_FUNDED = 0x177e; // 6014
+/** PaymentWindowClosed: The order's payment window has closed */
+export const TESSERA_PAYLATER_ERROR__PAYMENT_WINDOW_CLOSED = 0x177f; // 6015
 /** NotOverdue: The grace period after the due date has not passed yet */
-export const TESSERA_PAYLATER_ERROR__NOT_OVERDUE = 0x177a; // 6010
+export const TESSERA_PAYLATER_ERROR__NOT_OVERDUE = 0x1780; // 6016
 /** Overflow: Arithmetic overflow */
-export const TESSERA_PAYLATER_ERROR__OVERFLOW = 0x177b; // 6011
+export const TESSERA_PAYLATER_ERROR__OVERFLOW = 0x1781; // 6017
 
 export type TesseraPaylaterError =
   | typeof TESSERA_PAYLATER_ERROR__AMOUNT_TOO_SMALL
@@ -47,8 +59,14 @@ export type TesseraPaylaterError =
   | typeof TESSERA_PAYLATER_ERROR__MERCHANT_TIER_TOO_LOW
   | typeof TESSERA_PAYLATER_ERROR__MINT_MISMATCH
   | typeof TESSERA_PAYLATER_ERROR__NOT_A_CREDIT_FILE
+  | typeof TESSERA_PAYLATER_ERROR__NOT_AN_ORDER
   | typeof TESSERA_PAYLATER_ERROR__NOT_OVERDUE
+  | typeof TESSERA_PAYLATER_ERROR__NOT_THE_BUYER
+  | typeof TESSERA_PAYLATER_ERROR__NOT_THE_MERCHANT
+  | typeof TESSERA_PAYLATER_ERROR__ORDER_ALREADY_FUNDED
+  | typeof TESSERA_PAYLATER_ERROR__ORDER_NOT_AWAITING_PAYMENT
   | typeof TESSERA_PAYLATER_ERROR__OVERFLOW
+  | typeof TESSERA_PAYLATER_ERROR__PAYMENT_WINDOW_CLOSED
   | typeof TESSERA_PAYLATER_ERROR__POOL_EMPTY
   | typeof TESSERA_PAYLATER_ERROR__SELF_DEALING
   | typeof TESSERA_PAYLATER_ERROR__UNAUTHORIZED;
@@ -64,9 +82,15 @@ if (process.env["NODE_ENV"] !== "production") {
     [TESSERA_PAYLATER_ERROR__MERCHANT_TIER_TOO_LOW]: `The merchant's Tessera tier is too low for pay-later`,
     [TESSERA_PAYLATER_ERROR__MINT_MISMATCH]: `Wrong token mint`,
     [TESSERA_PAYLATER_ERROR__NOT_A_CREDIT_FILE]: `Not a Tessera credit file`,
+    [TESSERA_PAYLATER_ERROR__NOT_AN_ORDER]: `Not a Tessera escrow order`,
     [TESSERA_PAYLATER_ERROR__NOT_OVERDUE]: `The grace period after the due date has not passed yet`,
+    [TESSERA_PAYLATER_ERROR__NOT_THE_BUYER]: `The order was not opened for this buyer`,
+    [TESSERA_PAYLATER_ERROR__NOT_THE_MERCHANT]: `The order was not opened by this merchant`,
+    [TESSERA_PAYLATER_ERROR__ORDER_ALREADY_FUNDED]: `The order's vault already holds the price`,
+    [TESSERA_PAYLATER_ERROR__ORDER_NOT_AWAITING_PAYMENT]: `The order is not awaiting payment`,
     [TESSERA_PAYLATER_ERROR__OVERFLOW]: `Arithmetic overflow`,
-    [TESSERA_PAYLATER_ERROR__POOL_EMPTY]: `The pool does not hold enough to pay the merchant`,
+    [TESSERA_PAYLATER_ERROR__PAYMENT_WINDOW_CLOSED]: `The order's payment window has closed`,
+    [TESSERA_PAYLATER_ERROR__POOL_EMPTY]: `The pool does not hold enough to fund the order`,
     [TESSERA_PAYLATER_ERROR__SELF_DEALING]: `Buyer and merchant must be different wallets`,
     [TESSERA_PAYLATER_ERROR__UNAUTHORIZED]: `Signer is not allowed to do this`,
   };

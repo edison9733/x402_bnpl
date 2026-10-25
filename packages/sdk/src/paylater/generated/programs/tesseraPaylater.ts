@@ -82,7 +82,7 @@ import {
 import { findLinePda, findLoanPda, findPoolPda } from "../pdas";
 
 export const TESSERA_PAYLATER_PROGRAM_ADDRESS =
-  "7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU" as Address<"7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU">;
+  "LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D" as Address<"LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D">;
 
 export enum TesseraPaylaterAccount {
   CreditLine,
@@ -291,7 +291,7 @@ export function identifyTesseraPaylaterInstruction(
 }
 
 export type ParsedTesseraPaylaterInstruction<
-  TProgram extends string = "7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU",
+  TProgram extends string = "LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D",
 > =
   | ({
       instructionType: TesseraPaylaterInstruction.BuyNow;

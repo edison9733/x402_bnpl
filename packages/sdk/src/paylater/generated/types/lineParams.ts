@@ -44,11 +44,15 @@ export type LineParams = {
   /** After the due date, how long before anyone may mark the loan in default. */
   graceSecs: number;
   /**
-   * Share of each purchase the pool keeps; the merchant gets the rest at once.
-   * The buyer repays the full price and pays no interest.
+   * The pool's charge, as a share of the price. The buyer owes it on top of
+   * the price at repayment; there is no interest. The merchant is paid by
+   * the escrow, in full minus the escrow's own fee, and pays the pool nothing.
    */
   feeBps: number;
-  /** The pool only pays merchants that have earned at least this Tessera tier. */
+  /**
+   * The pool only funds orders from merchants that have earned at least
+   * this Tessera tier.
+   */
   minMerchantTier: number;
   /** Smallest purchase the pool finances. */
   minLoan: bigint;
@@ -69,11 +73,15 @@ export type LineParamsArgs = {
   /** After the due date, how long before anyone may mark the loan in default. */
   graceSecs: number;
   /**
-   * Share of each purchase the pool keeps; the merchant gets the rest at once.
-   * The buyer repays the full price and pays no interest.
+   * The pool's charge, as a share of the price. The buyer owes it on top of
+   * the price at repayment; there is no interest. The merchant is paid by
+   * the escrow, in full minus the escrow's own fee, and pays the pool nothing.
    */
   feeBps: number;
-  /** The pool only pays merchants that have earned at least this Tessera tier. */
+  /**
+   * The pool only funds orders from merchants that have earned at least
+   * this Tessera tier.
+   */
   minMerchantTier: number;
   /** Smallest purchase the pool finances. */
   minLoan: number | bigint;

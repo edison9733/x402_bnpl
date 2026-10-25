@@ -579,8 +579,8 @@ const usdcOf = (u: bigint) => (Number(u) / 1e6).toFixed(2);
 
 function PayLater() {
   const steps = [
-    ['Buy now', 'The pool pays the merchant at once, minus a 2% fee. The buyer agent signs; nobody can borrow in its name.'],
-    ['Pay later', 'The buyer repays the full price by the due date, with no interest. Each on-time repayment raises its limit by 25%, up to double.'],
+    ['Buy now', 'The pool pays the escrow order the merchant quoted, in the buyer\'s place. The escrow pays the merchant on delivery, and the buyer keeps its refund and dispute protection. The buyer agent signs; nobody can borrow in its name.'],
+    ['Pay later', 'The buyer repays the price plus a 2% pool fee by the due date, with no interest. Each on-time repayment raises its limit by 25%, up to double.'],
     ['Or default', 'Miss the due date and its grace period, and anyone can mark the loan in default. The line freezes at zero, in public.'],
   ];
   const path = usePath();
@@ -601,7 +601,7 @@ function PayLater() {
           </Reveal>
           <Reveal delay={0.1} className="min-w-0">
             <p className="text-[1.08rem] leading-relaxed" style={{ color: '#4b483e' }}>
-              Fund the agent roughly, once. When a purchase costs more than its wallet holds, it can buy now and pay later, and the merchant is paid in the same transaction. It can run a tab: buy several things, then settle every loan in one transaction. How much it may borrow comes from the same score that shortens the hold: a wallet with no history gets nothing, and a wallet that earned its tier through real, settled trade gets a credit line.
+              Fund the agent roughly, once. When a purchase costs more than its wallet holds, it can buy now and pay later: a pool pays its escrow order, so the purchase is protected like any other. It can run a tab: buy several things, then settle every loan in one transaction. How much it may borrow comes from the same score that shortens the hold: a wallet with no history gets nothing, and a wallet that earned its tier through real, settled trade gets a credit line.
             </p>
             <p className="mono mt-4 text-[0.76rem]" style={{ color: '#878371' }}>
               Preview: a second Solana program, tested on a local validator (npm run test:paylater; try it by hand with npm run paylater:local). Not deployed to devnet yet. The escrow program is unchanged.

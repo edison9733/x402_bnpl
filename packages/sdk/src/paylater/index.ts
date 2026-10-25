@@ -2,10 +2,22 @@
  * Client for the pay-later program: generated instructions and decoders, plus
  * one stable name per address and the credit-limit formula.
  */
-import { getBase58Decoder, getBase64Encoder, type Address, type GetProgramAccountsApi, type Rpc } from '@solana/kit';
+import {
+  getBase58Decoder,
+  getBase64Encoder,
+  type Address,
+  type GetAccountInfoApi,
+  type GetProgramAccountsApi,
+  type Rpc,
+  type TransactionSigner,
+} from '@solana/kit';
 import type { ProgramAccountsRpc } from '../chain.js';
+import { fetchOrder, OrderState, type Order, type Params } from '../generated/index.js';
+import { getConfirmFundedInstructionAsync } from '../generated/instructions/confirmFunded.js';
 import { findAta } from '../pda.js';
+import { newOrderId } from '../util.js';
 import { getLoanDecoder, LOAN_DISCRIMINATOR, LoanState, type Loan } from './generated/index.js';
+import { getBuyNowInstructionAsync } from './generated/instructions/buyNow.js';
 import { findLinePda } from './generated/pdas/line.js';
 import { findLoanPda } from './generated/pdas/loan.js';
 import { findPoolPda } from './generated/pdas/pool.js';
@@ -16,6 +28,51 @@ export * from './limit.js';
 
 /** Where `buyer` sits in a Loan account: after the discriminator and the 32-byte loan id. */
 const LOAN_BUYER_OFFSET = 8n + 32n;
+
+/** What clears a loan: the price the pool paid into escrow plus the pool's fee. */
+export const owedOf = (loan: Pick<Loan, 'amount' | 'fee'>): bigint => loan.amount + loan.fee;
+
+/**
+ * Why `buy_now` would refuse to fund this order for this buyer, in the order
+ * the program checks, or undefined if it would not. `vaultBalance` is what
+ * the order's vault already holds. The credit limit and the merchant's tier
+ * are checked separately (`available`, `LineParams.minMerchantTier`).
+ */
+export function orderRefusal(
+  order: Pick<Order, 'buyer' | 'state' | 'amount' | 'createdAt'>,
+  vaultBalance: bigint,
+  buyer: Address,
+  now: bigint,
+  escrow: Pick<Params, 'unpaidSecs'>,
+): string | undefined {
+  if (order.buyer !== buyer) return 'the order was not opened for this buyer';
+  if (order.state !== OrderState.AwaitingPayment) return 'the order is not awaiting payment';
+  if (vaultBalance >= order.amount) return 'the order is already paid';
+  if (now > order.createdAt + BigInt(escrow.unpaidSecs)) return "the order's payment window has closed; ask the merchant for a new quote";
+  return undefined;
+}
+
+/**
+ * The instructions that buy an escrow order on credit: `buy_now`, which has
+ * the pool pay the price into the order's vault, then the escrow's
+ * `confirm_funded`, so the order is Funded in the same transaction. The order
+ * is one the merchant already opened for `buyer`; its merchant and mint are
+ * read from it.
+ */
+export async function buyOrderOnCredit(
+  rpc: Rpc<GetAccountInfoApi>,
+  buyer: TransactionSigner,
+  order: Address,
+  loanId: Uint8Array = newOrderId(),
+) {
+  const { data } = await fetchOrder(rpc, order);
+  const [buyNow, confirm, loan] = await Promise.all([
+    getBuyNowInstructionAsync({ mint: data.mint, buyer, merchant: data.merchant, order, loanId }),
+    getConfirmFundedInstructionAsync({ order, mint: data.mint }),
+    loanPdaOf(buyer.address, loanId),
+  ]);
+  return { order: data, loanId, loan, instructions: [buyNow, confirm] };
+}
 
 /** Every loan a wallet has taken, settled or not, newest first. */
 export async function fetchLoansOf(rpc: Rpc<GetProgramAccountsApi>, buyer: Address): Promise<{ address: Address; data: Loan }[]> {

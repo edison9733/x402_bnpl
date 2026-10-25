@@ -62,11 +62,19 @@ export type Loan = {
   loanId: ReadonlyUint8Array;
   buyer: Address;
   merchant: Address;
-  /** What the buyer owes: the full price. */
+  /**
+   * The escrow order the pool funded. The escrow pays the merchant when the
+   * order settles; a refund goes to the buyer, and the loan is still owed.
+   */
+  order: Address;
+  /**
+   * The order's price: what the pool paid into the escrow vault, and the
+   * principal the buyer owes.
+   */
   amount: bigint;
-  /** What the pool kept; the merchant received `amount - fee`. */
+  /** The pool's charge, owed on top: the buyer repays `amount + fee`. */
   fee: bigint;
-  /** Hash of what was bought (the A2A task or the x402 resource). */
+  /** Hash of what was bought, copied from the order. */
   requestHash: ReadonlyUint8Array;
   state: LoanState;
   buyerTier: number;
@@ -89,11 +97,19 @@ export type LoanArgs = {
   loanId: ReadonlyUint8Array;
   buyer: Address;
   merchant: Address;
-  /** What the buyer owes: the full price. */
+  /**
+   * The escrow order the pool funded. The escrow pays the merchant when the
+   * order settles; a refund goes to the buyer, and the loan is still owed.
+   */
+  order: Address;
+  /**
+   * The order's price: what the pool paid into the escrow vault, and the
+   * principal the buyer owes.
+   */
   amount: number | bigint;
-  /** What the pool kept; the merchant received `amount - fee`. */
+  /** The pool's charge, owed on top: the buyer repays `amount + fee`. */
   fee: number | bigint;
-  /** Hash of what was bought (the A2A task or the x402 resource). */
+  /** Hash of what was bought, copied from the order. */
   requestHash: ReadonlyUint8Array;
   state: LoanStateArgs;
   buyerTier: number;
@@ -120,6 +136,7 @@ export function getLoanEncoder(): FixedSizeEncoder<LoanArgs> {
       ["loanId", fixEncoderSize(getBytesEncoder(), 32)],
       ["buyer", getAddressEncoder()],
       ["merchant", getAddressEncoder()],
+      ["order", getAddressEncoder()],
       ["amount", getU64Encoder()],
       ["fee", getU64Encoder()],
       ["requestHash", fixEncoderSize(getBytesEncoder(), 32)],
@@ -145,6 +162,7 @@ export function getLoanDecoder(): FixedSizeDecoder<Loan> {
     ["loanId", fixDecoderSize(getBytesDecoder(), 32)],
     ["buyer", getAddressDecoder()],
     ["merchant", getAddressDecoder()],
+    ["order", getAddressDecoder()],
     ["amount", getU64Decoder()],
     ["fee", getU64Decoder()],
     ["requestHash", fixDecoderSize(getBytesDecoder(), 32)],
@@ -220,5 +238,5 @@ export async function fetchAllMaybeLoan(
 }
 
 export function getLoanSize(): number {
-  return 198;
+  return 230;
 }
