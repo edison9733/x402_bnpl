@@ -20,6 +20,7 @@
     "test:paylater-402": "tsx scripts/test-paylater-402.ts",
     "paylater:local": "tsx scripts/paylater-local.ts",
     "setup:devnet": "tsx scripts/setup-devnet.ts",
+    "setup:paylater": "tsx scripts/setup-paylater-devnet.ts",
     "agents": "npm run start -w @tessera/agents",
     "swarm": "npm run swarm -w @tessera/agents --",
     "web": "npm run dev -w @tessera/web",

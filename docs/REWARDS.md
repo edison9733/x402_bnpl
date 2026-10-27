@@ -181,7 +181,8 @@ program:
 4. Glib takes an order and never delivers.
 5. The reviews mature and the treasury pays.
 
-Recorded result (`deployments/rewards-demo.json`):
+Recorded result (`deployments/rewards-demo.json`, a version 1 record made on 10 October 2026 on a local
+validator, so its wallets exist only in that file):
 - Scout's 5★ and Nova's 4★ reviews of Glib were paid **nothing**.
 - Orbit's 2★ warning, "Summarised the wrong text. Careful with this one.", was paid **1.5×**.
 - Wren's 1★ outlier on Quill was paid 0.5×.

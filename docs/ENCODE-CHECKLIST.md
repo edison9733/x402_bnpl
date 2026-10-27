@@ -3,8 +3,8 @@
 Track: **Best Use of x402 on Solana**. Every rule below is quoted from the
 [hackathon page](https://www.encodeclub.com/programmes/solana-hackathon-2026), read on 22 October 2026.
 Code facts point to files in this repository. Written 22 October 2026; 17 days to the deadline.
-Ticked items carry the date they were done. Last update: 27 October 2026. **Devnet deploy pending:
-needs SOL.**
+Ticked items carry the date they were done. Last update: 27 October 2026. **Pay later is on devnet
+(27 Oct); the upgrade with the CPI fix is pending.**
 
 ## 0. Dates
 
@@ -35,8 +35,8 @@ shows whether a *new* project can still be created.
 
 | Requirement (quoted) | Status on 22 Oct | To do |
 |---|---|---|
-| "A working demo; deployment on Solana devnet is sufficient." | The escrow program is on devnet (`getAccountInfo` returns `executable: true` for `TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`). The pay-later program is **not**: on 22 Oct the devnet address in `Anchor.toml` on `pay-once` (`7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU`) returned `null`. Since then the program was rebuilt on `v2` under the id `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` (27 Oct), still not deployed: **devnet deploy pending, needs SOL**. | Deploy, initialize the pool, deposit USDC (README, "Pay later: build, local run, devnet"). Everything 2.0 adds must be on devnet by 8 Nov. |
-| "A code repository with a README and setup instructions." | [README.md](../README.md) has `npm install` / `npm run web`; [TRY-IT.md](TRY-IT.md) walks through a trade. A clean `npm install` works (checked 21 Oct). Pay-later setup steps added 27 Oct. | Keep it working; test the pay-later steps from a fresh clone once the pool is on devnet. |
+| "A working demo; deployment on Solana devnet is sufficient." | The escrow program is on devnet (`getAccountInfo` returns `executable: true` for `TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`). On 22 Oct the pay-later program was not (the `pay-once` address `7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU` returned `null`). On 27 Oct it was deployed under `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` (slot 515513248, from `9d543b1`), and the pool `GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq` created with 8 devnet USDC. | Upgrade the devnet program to the build with the `confirm_funded` CPI (commit `61196cc` or later): until then the clients on `v2` cannot buy on credit there. Then one real purchase on credit and its repayment on devnet. |
+| "A code repository with a README and setup instructions." | [README.md](../README.md) has `npm install` / `npm run web`; [TRY-IT.md](TRY-IT.md) walks through a trade. A clean `npm install` works (checked 21 Oct). Pay-later setup steps added 27 Oct, with `npm run setup:paylater` for the pool. | Keep it working; test the pay-later steps from a fresh clone after the upgrade. |
 | "A 2–4-minute demo video." | 2:03 (fits), 1:41 (too short), 2:58 pay-later (fits). All three were recorded on a local validator and before the hackathon. | Record a **new** 2–4 minute video of the 2.0 flow, on devnet. |
 | "A clear explanation of how Solana powers the project." | README section "How Solana powers this", added 27 Oct. | Done. |
 
@@ -77,19 +77,28 @@ Only work done from now to 8 November is judged.
   `repay --all`, and show it on the site. The track text names "agents purchasing services" and asks for
   "a compelling use case beyond a basic integration demo".
   Chosen and built on `v2` (commits `9d543b1`, `473b798`): the pool pays the buyer's escrow order, the
-  402 offers it, the buyer agent and CLI use it, the server keeps it, the site shows it. Deploy, pool
-  and devnet USDC still to do (needs SOL).
+  402 offers it, the buyer agent and CLI use it, the server keeps it, the site shows it. Deployed,
+  with the pool and its devnet USDC, on 27 Oct.
+- [x] (2026-10-27) **Pay-later deployed to devnet.** Program `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D`
+  (upgrade authority `EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6`), pool
+  `GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq`, vault `DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV`
+  with 8 devnet USDC, rules `DEVNET_LINE_PARAMS` (600 s term, 60 s grace). New demo agents and a new
+  merchant server key created the same day (the version 1 keys were lost); addresses in
+  [deployments/devnet.json](../deployments/devnet.json). `npm run setup:paylater` repeats the pool
+  step. **Upgrade with the CPI fix pending:** the program on devnet is the `9d543b1` build; it needs
+  about 2.04 SOL of buffer rent for a few minutes.
 - [x] (2026-10-27) **Keep the x402 flow visible end to end.** The track wants "a payment request, payment verification
   or settlement on Solana, and delivery of the requested resource." The route at `server.ts` lines 282–317
   does this today. The new feature must not bypass it. It does not: pay later is one more `accepts`
   entry in the same 402, settled by the same route (`merchant.ts` `work()`), confirmed by the same
   `confirm_funded` (which `buy_now` calls itself), delivered the same way. `npm run test:paylater-402` (58 checks) runs it end to end.
 - [ ] **Reliability.** Run the full flow on devnet many times before recording. Version 1 has 230 measured
-  purchases ([deployments/snapshot.json](../deployments/snapshot.json)); produce a fresh measurement for 2.0
-  so the README can quote a number built during the window. Blocked on the devnet deploy.
+  purchases ([deployments/snapshot.json](../deployments/snapshot.json), a version 1 record of the version 1
+  agents, whose keys are lost but whose history is still on chain); produce a fresh measurement for 2.0
+  with the new agents so the README can quote a number built during the window. Blocked on the upgrade.
 - [x] (2026-10-27) **Docs.** Add to the README: "How Solana powers this", "Failed payments", "What existed before
   12 October and what is new", and setup steps for the new feature. All four added. Still open: test the
-  setup steps from a fresh clone, which needs the pool on devnet first.
+  setup steps from a fresh clone, after the devnet upgrade.
 - [ ] **Video, 2–4 minutes, recorded on devnet.** Show a 402 response, the payment verified or settled on
   Solana (open the transaction in the devnet explorer), the delivery, one failed-payment case, and the 2.0
   feature. Stay under 4:00.
@@ -101,7 +110,7 @@ Only work done from now to 8 November is judged.
 | Dates | Goal |
 |---|---|
 | 22–23 Oct | Section 1 done; toolchain fixed; scope frozen (toolchain and scope done 27 Oct; the sign-in and project creation in section 1 are still unticked) |
-| 24–31 Oct | Feature built and deployed to devnet; tests passing (built and tested 27 Oct: `test:paylater` 84/84, `test:paylater-402` 58/58; devnet deploy pending, needs SOL) |
+| 24–31 Oct | Feature built and deployed to devnet; tests passing (built and tested 27 Oct: `test:paylater` 84/84, `test:paylater-402` 58/58; deployed to devnet 27 Oct, upgrade with the CPI fix pending) |
 | 1 Nov | Mid-submission on the platform |
 | 2–5 Nov | Failure demo, docs, site, reliability runs |
 | 6–7 Nov | Record and cut the video; final README read-through |

@@ -52,10 +52,7 @@ export const feeOf = (amount: bigint, p: LineParams): bigint => (amount * BigInt
  * The rules `npm run paylater:local` runs under, in test USDC, with a term
  * short enough for a whole cycle to be watched. The website shows limits
  * under these, labelled as a preview, only on a network where it finds no
- * pool. The devnet pool (`GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq`)
- * has the same limits, step, boost cap, fee, merchant tier and minimum, with
- * a 600 s term and a 60 s grace period; the site and the agents read those
- * from the pool account.
+ * pool.
  */
 export const PREVIEW_LINE_PARAMS: LineParams = {
   tierLimit: [0n, 2_000_000n, 5_000_000n, 10_000_000n],
@@ -63,6 +60,25 @@ export const PREVIEW_LINE_PARAMS: LineParams = {
   maxBoostBps: 10_000,
   termSecs: 60,
   graceSecs: 5,
+  feeBps: 200,
+  minMerchantTier: 1,
+  minLoan: 1_000n,
+};
+
+/**
+ * The rules of the devnet pool (`GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq`,
+ * created 27 October 2026 by `npm run setup:paylater`), in devnet USDC: the
+ * preview's limits, step, boost cap, fee, merchant tier and minimum, with a
+ * 600 s term and a 60 s grace period, long enough to record a purchase and
+ * its repayment and short enough to show a default. The site and the agents
+ * read the rules from the pool account, not from here.
+ */
+export const DEVNET_LINE_PARAMS: LineParams = {
+  tierLimit: [0n, 2_000_000n, 5_000_000n, 10_000_000n],
+  stepBps: 2_500,
+  maxBoostBps: 10_000,
+  termSecs: 600,
+  graceSecs: 60,
   feeBps: 200,
   minMerchantTier: 1,
   minLoan: 1_000n,

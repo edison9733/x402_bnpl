@@ -7,10 +7,24 @@ protected exactly like one the buyer paid for. The escrow program is not changed
 its accounts and pays into its vaults, and its built binary is identical with or without this program
 in the workspace.
 
-**Status.** It runs and is tested on a local validator next to the real escrow program, end to end
-through the merchant server's x402 route. It is not deployed to devnet yet (the deploy needs devnet
-SOL). Its program id, from the keypair the build generates, is
-`LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` (`Anchor.toml`, `declare_id!`, the generated SDK).
+**Status.** It is on devnet since 27 October 2026, and tested on a local validator next to the real
+escrow program, end to end through the merchant server's x402 route.
+
+| | Devnet |
+|---|---|
+| Program | `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` (`Anchor.toml`, `declare_id!`, the generated SDK), deployed 27 October 2026 in slot 515513248 from commit `9d543b1` |
+| Upgrade and pool authority | `EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6` |
+| Pool | `GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq`, rules `DEVNET_LINE_PARAMS` (below) |
+| Pool vault | `DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV`, 8 devnet USDC on 27 October, no loans yet |
+| Escrow it lends into | `TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`, config `DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2` |
+
+The same addresses are in [`deployments/devnet.json`](../deployments/devnet.json). **Upgrade pending.**
+The program on devnet is the build of `9d543b1`, from before `buy_now` called the escrow's
+`confirm_funded` itself (step 2 below): there `buy_now` leaves the order awaiting payment and the
+merchant confirms it in a separate transaction. Until the program is upgraded to the current build,
+the clients in this repository cannot buy on credit on devnet: their `buy_now` passes the escrow
+program as an account that build does not take, and the merchant's simulation refuses it. The pool
+account's layout is the same in both builds, so the upgrade keeps the pool.
 
 ## How it works
 
@@ -30,15 +44,20 @@ SOL). Its program id, from the keypair the build generates, is
    payment window, and that its vault does not already hold the price. The price and the request hash
    are read from the order, not from the caller. The buyer's tier and score are recomputed live from
    its Tessera credit file, the merchant must be at Building or above, and the price must fit inside
-   the buyer's remaining limit. The buyer pays the loan account's rent and nothing else.
+   the buyer's remaining limit. The buyer pays the rent of the loan account and, on its first
+   purchase, of its credit line (0.00181864 and 0.00118364 SOL on devnet, so 0.00300228 SOL for a
+   first purchase; 0.00249168 and 0.00162168 SOL on a local validator), and nothing else. The loan's
+   rent comes back when the repaid loan is closed; the line stays.
 3. **The escrow does the rest.** The merchant delivers, the hold runs, and the escrow pays the merchant
    the price minus its own fee (1%). The buyer can dispute; a merchant that never delivers is refunded
    against, as usual. The pool charges the merchant nothing.
-4. **Pay later.** `repay` moves the price plus the pool's fee (2% under the preview rules) into the
-   pool. No interest. Anyone may repay for the buyer. The pool books the fee when it is repaid, not
+4. **Pay later.** `repay` moves the price plus the pool's fee (2%, on devnet and in the preview) into
+   the pool. No interest. Anyone may repay for the buyer. The pool books the fee when it is repaid, not
    when the loan opens, so the pool's vault holds what was deposited, minus what was withdrawn and
    lent, plus what was repaid and the fees earned. Only the price counts against the limit; the fee
-   is owed on top. Repaying on time raises the limit, in proportion to the size of the loan.
+   is owed on top. Repaying on time raises the limit in proportion to the size of the loan: a loan
+   the size of the tier limit adds a whole step (2,500 bps, a quarter of the unboosted limit), a
+   loan of a tenth of it a tenth of a step, up to a cap (10,000 bps, double). See [The limit](#the-limit).
 5. **Or run a tab.** An agent can buy several things, each inside its remaining limit, and settle
    every loan it still owes in one transaction (`tessera repay --all`). Each loan keeps its own due
    date, so the earliest one sets when the tab must be paid.
@@ -109,16 +128,28 @@ boost = min(sum over loans repaid on time of step × min(amount, tier_limit[tier
 - The program ([`credit.rs`](../programs/tessera-paylater/src/credit.rs)) and the SDK
   ([`limit.ts`](../packages/sdk/src/paylater/limit.ts)) compute the same number. The test checks they agree.
 
-Preview rules (`PREVIEW_LINE_PARAMS`), in test USDC:
+The rules, in the SDK next to each other (`packages/sdk/src/paylater/limit.ts`). They differ only in
+time:
 
-| | New | Building | Established | Trusted |
-|---|---|---|---|---|
-| Limit at a perfect score | 0 | 2 | 5 | 10 |
+| | Devnet pool (`DEVNET_LINE_PARAMS`) | Local preview (`PREVIEW_LINE_PARAMS`) |
+|---|---|---|
+| Where | the pool on devnet | `npm run paylater:local`, `npm run test:paylater`, `npm run test:paylater-402`, and the website on a network with no pool |
+| Limit at a perfect score, New / Building / Established / Trusted | 0 / 2 / 5 / 10 devnet USDC | 0 / 2 / 5 / 10 test USDC |
+| Step, boost cap | 2,500 bps, 10,000 bps | 2,500 bps, 10,000 bps |
+| Term, grace period | 600 s, 60 s | 60 s, 5 s |
+| Fee | 200 bps (2%) | 200 bps (2%) |
+| Merchant at least | Building | Building |
+| Smallest loan | 0.001 USDC | 0.001 USDC |
 
-A loan the size of the tier limit, repaid on time, adds 25%, a smaller one its share of that, up to double. The loan term is 60 seconds and the grace period 5 seconds, so a whole cycle can be watched.
-The pool only funds orders from merchants at **Building** or above, and nothing below 0.001 USDC.
+A loan the size of the tier limit, repaid on time, adds 25%, a smaller one its share of that, up to
+double. The preview's term is short so a whole cycle can be watched; the devnet term is long enough
+to record a purchase and its repayment, and short enough to show a default. The website and the
+agents read the rules from the pool account, not from the SDK.
 
 ## Checks
+
+`cargo test -p tessera-paylater` (**6 / 6**) checks `credit.rs` on its own: the limit, the fee and
+the boost a repayment earns.
 
 `npm run test:paylater` (**84 / 84**, run on 27 October 2026; also 84 / 84 with `ESCROW_SO` set to the escrow bytes dumped from devnet) starts a local validator with both
 programs. Wallets earn their tiers through real escrow orders, then every purchase on credit goes
@@ -175,20 +206,23 @@ order in the same instruction; the shop in the script then delivers and, once th
 escrow. The shop is part of the script, not the merchant server, so the 402 path is not in this
 world: `npm run test:paylater-402` runs it, with the real server, from start to finish.
 
-Over x402, once the program and the pool are on devnet (see the setup steps in the
-[README](../README.md#pay-later-build-local-run-devnet)): `npm run agents`, then
-`npm run buy -- --buyer scout --merchant atlas --pay-later`, `npm run tessera -- credit <scout>`, and
-`npm run tessera -- repay --all --keypair .keys/scout.json --send`.
+Over x402 on devnet, once the program there is upgraded (the setup steps, `npm run setup:paylater`
+for the pool, are in the [README](../README.md#pay-later-build-local-run-devnet)): `npm run agents`,
+then `npm run buy -- --buyer nova --merchant quill --pay-later`, `npm run tessera -- credit <nova>`,
+and `npm run tessera -- repay --all --keypair .keys/agents/nova.json --send`. Nova and Echo were the
+buyers at Building on 27 October; a New buyer such as Scout is told it is not eligible.
 
 ## Limits
 
-- **Not on devnet yet.** The program is built and tested on a local validator only. The deploy, the
-  pool's `initialize` and its first `deposit` have not been run on devnet, and there is no CLI
-  command for the last two: `scripts/paylater-local.ts` sends them on the local validator, and a
-  devnet script is to do. Until then the website shows the preview rules, labelled as such.
-- **A refund goes to the buyer, not to the pool.** If the escrow refunds an order the pool paid for
-  (the merchant never delivers, a late payment is cancelled, a dispute goes the buyer's way), the
-  USDC lands in the buyer's token account and the loan is still owed. The buyer is expected to repay
+- **Devnet runs the build from before the fix, until the upgrade.** In the `9d543b1` build on devnet,
+  `buy_now` pays the order's vault but leaves the order awaiting payment, and the escrow lets the
+  order's buyer `cancel_unpaid` it, which hands the vault to the buyer. So until the upgrade a buyer
+  at Building or above can send `buy_now` and `cancel_unpaid` together and keep up to its limit in
+  cash; the loan is still owed and defaults like any other, and the line freezes. The pool holds
+  8 USDC and a Building limit is at most 2 USDC.
+- **A refund goes to the buyer, not to the pool, and the loan stays owed.** If the escrow refunds an
+  order the pool paid for (the merchant never delivers, a late payment is cancelled, a dispute goes
+  the buyer's way), the USDC lands in the buyer's token account and the loan is still owed. The buyer is expected to repay
   out of the refund; if it does not, the loan defaults like any other. Routing refunds to the pool
   would need the escrow to know about loans, which this version deliberately avoids.
 - **A default does not lower the Tessera score.** The escrow program does not know about pay-later.
@@ -216,6 +250,12 @@ Over x402, once the program and the pool are on devnet (see the setup steps in t
   merchant misses a delivery it never agreed to: the loan stays owed, and the merchant takes the
   missed-delivery penalty. The escrow in this repository has the merchant sign `open_order`, which
   closes that; on devnet, `buy_now` would have to require the merchant's signature itself.
+- **A dispute on devnet cannot be resolved by this deployment.** The escrow config's authority
+  (`5i7zzV9hQUCbpg8MXSNJB3QQkL6zscDd8VQKow46vg7E`) and its arbiter
+  (`3GydKy3acrVxvwyF26oDMwvbxVjrQ5yBDEc1GzUoVKz2`) are version 1 keys that were lost, and in the
+  build on devnet only the order's arbiter may resolve a dispute. A disputed order, one the pool paid
+  for included, stays Disputed with its money in the vault, and the loan stays owed. The config's
+  rules cannot be changed either.
 - **The boost is earned at the tier a loan opened at.** A loan's share of a step is measured against
   the limit of the tier the buyer held when it opened, under the rules in force when it is repaid, so
   a step earned at Building counts in full at Trusted. Every loan still pays the pool fee and needs

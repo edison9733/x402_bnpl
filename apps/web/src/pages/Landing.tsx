@@ -574,7 +574,7 @@ function Lanes() {
   );
 }
 
-const PL = paylater.PREVIEW_LINE_PARAMS;
+const PL = paylater.DEVNET_LINE_PARAMS;
 const usdcOf = (u: bigint) => (Number(u) / 1e6).toFixed(2);
 
 function PayLater() {
@@ -603,8 +603,8 @@ function PayLater() {
             <p className="text-[1.08rem] leading-relaxed" style={{ color: '#4b483e' }}>
               Fund the agent roughly, once. When a purchase costs more than its wallet holds, it can buy now and pay later: a pool pays its escrow order, so the purchase is protected like any other. It can run a tab: buy several things, then settle every loan in one transaction. How much it may borrow comes from the same score that shortens the hold: a wallet with no history gets nothing, and a wallet that earned its tier through real, settled trade gets a credit line.
             </p>
-            <p className="mono mt-4 text-[0.76rem]" style={{ color: '#878371' }}>
-              Preview: a second Solana program, tested on a local validator (npm run test:paylater; try it by hand with npm run paylater:local). Not deployed to devnet yet. The escrow program is unchanged.
+            <p className="mono mt-4 text-[0.76rem]" style={{ color: '#878371', overflowWrap: 'anywhere' }}>
+              A second Solana program, on devnet since 27 October 2026 (program LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D, pool GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq): loans there are due in 600 s, with 60 s of grace. Tested on a local validator too (npm run test:paylater; try it by hand with npm run paylater:local, where the term is 60 s). The escrow program is unchanged.
             </p>
           </Reveal>
         </div>
@@ -630,7 +630,7 @@ function PayLater() {
               ))}
             </div>
             <div className="mono text-[0.76rem] md:text-right" style={{ color: '#878371' }}>
-              limit at a perfect score, test USDC
+              limit at a perfect score, devnet USDC
               <br />
               limit = tier limit × score ÷ 1000 × on-time boost
             </div>

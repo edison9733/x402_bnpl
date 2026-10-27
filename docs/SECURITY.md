@@ -49,9 +49,12 @@ done:
 | D18 | The merchant server forgot quotes on restart and delivered nothing for orders funded after it, so the merchant took the missed-delivery penalty. | High | Quotes and delivery results are written to disk atomically; funded orders are completed or refunded before the deadline; delivery fails closed if its evidence cannot be saved. | agents smoke test |
 | D19 | The review-reward rebate could pay the same reviews twice if a later batch failed. | Critical | Each batch is recorded as pending, then paid, before the next one is sent; an exclusive lock; a missing ledger refuses to pay; payouts carry memos so a lost ledger can be rebuilt from the chain. | rewards tests; `demo:rewards` |
 
-**Both audits' program fixes are deployed on devnet** (program `TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`).
-They are in the source and pass the local suite. No account layout changed, so every existing account
-kept working through the upgrade.
+**Both audits' program fixes are in the source and pass the local suite, but they are not on devnet.**
+The escrow program there (`TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`) was last deployed on 4 October
+2026 (slot 507449356), before both audits, and its upgrade authority is a version 1 key that was lost,
+so it cannot be upgraded. On devnet, for example, `open_order` does not need the merchant's signature
+(B13 is open there), and a dispute the arbiter never answers is never split. The tables below describe
+the source.
 
 ## Principles
 

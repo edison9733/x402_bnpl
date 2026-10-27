@@ -94,7 +94,8 @@ that embed an IPv4 address (checked on the address actually connected to), unles
 To see it with real agents, `npm run demo:find` (after `npm run build:program`) starts a local
 validator with the program, has three buyer agents make twelve purchases from four merchant agents
 through this API, each wallet signing its own transactions, then asks `find_merchants` as a new buyer
-and as a regular one. It prints the CLI output and records it in `deployments/find-demo.json`.
+and as a regular one. It prints the CLI output and records it in `deployments/find-demo.json` (the copy in
+the repository is a version 1 record, made on 9 October 2026 on a local validator).
 
 `GET /llms.txt` is the same story in one page of plain text, for agents and the crawlers that feed
 them.
