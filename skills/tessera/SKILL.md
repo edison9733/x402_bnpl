@@ -57,7 +57,12 @@ A `status` other than `ok` is never "fine by default":
    `sort: "fastest"`). Its list can be 30 s old, so still do step 1.
 1. `check_payment { merchant, buyer, amount }` → `decision`.
 2. Ask the merchant for its price. A Tessera merchant answers HTTP 402 whose `payTo` is an
-   escrow **order address**, not its own wallet.
+   escrow **order address**, not its own wallet. Where the pay-later pool exists, the 402 also
+   carries an `accepts` entry with scheme `tessera-paylater` (after the standard ones) whose `extra`
+   says your live credit limit and whether you are `eligible`: then the pool can pay the order for
+   you and you repay the price plus the pool's fee by the due date. The MCP and API tools do not do
+   this; the CLI does: `tessera buy-later <merchant agent url> <skill> --keypair ~/my.json`, then
+   `tessera credit <your wallet>` and `tessera repay --all --keypair ~/my.json --send`.
 3. `open_escrow { role: "buyer", merchant, buyer, amount, order: <payTo> }`. The API reads the order
    from the chain and refuses (`verification_failed`, with the `field`) unless the buyer, merchant,
    amount, mint and state all match. If you know what you ordered, pass it as `request` too.

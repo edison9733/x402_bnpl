@@ -22,7 +22,10 @@ credit score decides how long the money waits. Strangers wait. Agents with a rec
 | Agent Registry | The four honest merchant agents (atlas, quill, vera, pixel) are registered in the [Solana Agent Registry](https://solana.com/agent-registry) (ERC-8004) on devnet. See [docs/ERC-8004.md](docs/ERC-8004.md). |
 | Status | Devnet only. Unaudited by a third party. The traffic on devnet is this project's own agents. See [what is real](#what-is-real-and-what-is-not). |
 
-Built for the Colosseum Crypto World's Fair hackathon (Solana track), October 2026.
+Built for the Colosseum Crypto World's Fair hackathon (Solana track), October 2026. Entered in the
+Encode Club Solana Hackathon 2026, track "Best Use of x402 on Solana": what was built before that
+window and what is new in it is listed under
+[What existed before 12 October 2026 and what is new](#what-existed-before-12-october-2026-and-what-is-new).
 
 ---
 
@@ -166,8 +169,9 @@ The same score that shortens the hold can set a credit line. A second program,
 The limit is `tier limit × score ÷ 1000 × on-time boost`, read live from the buyer's Tessera credit
 file. A New wallet gets nothing. The escrow program is unchanged; pay-later only reads its accounts
 and pays into its vaults with the same plain token transfer an x402 payment is.
-**It runs on a local validator only and is not deployed to devnet.** Rules, checks and limits:
-[docs/PAYLATER.md](docs/PAYLATER.md).
+**It runs on a local validator and is not deployed to devnet yet** (the deploy needs devnet SOL; the
+steps are under [Pay later: build, local run, devnet](#pay-later-build-local-run-devnet)). Rules,
+checks and limits: [docs/PAYLATER.md](docs/PAYLATER.md).
 
 ## The score
 
@@ -186,6 +190,174 @@ It is integer arithmetic over public accounts. There are two implementations: th
 ([`score.rs`](programs/tessera/src/score.rs)) and the SDK's ([`score.ts`](packages/sdk/src/score.ts)),
 which the website uses. They run the same integer arithmetic, and `npm run test:local` checks that they
 agree. Full write-up: [docs/SCORING.md](docs/SCORING.md).
+
+## How Solana powers this
+
+Every decision Tessera makes is made from accounts on Solana, and everything that moves money is a
+Solana transaction. There is no database behind it: the programs, the agents, the API and the website
+all read the same accounts, and anyone can recompute what they show.
+
+**The escrow program** ([`programs/tessera`](programs/tessera)). Every quote is an order account, a
+PDA of `["order", order_id]`, and its vault is that account's associated token account for USDC. An
+order is a state machine: `AwaitingPayment → Funded → Delivered → Released`, or `Refunded`,
+`Disputed → Resolved`, or `Cancelled` ([`state.rs`](programs/tessera/src/state.rs) line 178). Every
+payout is a token transfer signed by the order PDA, so neither side can move the money alone.
+
+**The credit file and the score.** Each wallet has an Agent account, a PDA of `["agent", wallet]`,
+holding the counters the score is built from: settled volume by counterparty tier, active periods,
+distinct counterparties, ratings, penalties. The score is integer arithmetic over that one account
+([`score.rs`](programs/tessera/src/score.rs)). The program runs it when an order opens and sets the
+hold from it; the website and the SDK run the same arithmetic in the browser
+([`score.ts`](packages/sdk/src/score.ts)). Nothing about a wallet's standing lives off-chain.
+
+**The `payTo` trick.** x402's `exact` scheme on Solana is a plain SPL token transfer, and the
+facilitator derives the destination token account from `payTo`. The merchant quotes the order account
+as `payTo` ([`apps/agents/src/merchant.ts`](apps/agents/src/merchant.ts), `quote()`), so a standard
+x402 payment, settled by a public facilitator, lands in the order's vault with no custom scheme. The
+program never takes anyone's word that it was paid: `confirm_funded`
+([`lib.rs`](programs/tessera/src/lib.rs) lines 218–238) is permissionless, reads the vault's balance,
+and refuses a payment that arrives after the quote's payment window.
+
+**Pay later lends into the escrow.** The pay-later program
+([`programs/tessera-paylater`](programs/tessera-paylater)) keeps one pool (`["pool"]`) with its own
+USDC vault, a credit line per buyer (`["line", buyer]`) and a loan per purchase
+(`["loan", buyer, loan_id]`). `buy_now` ([`lib.rs`](programs/tessera-paylater/src/lib.rs) lines
+103–184) is handed the escrow's order account, checks it is a real order (owned by the escrow program,
+at the address its id derives, lines 281–287), reads the price from it, reads both parties' Agent
+accounts and the escrow's config and recomputes their live scores with the escrow's own formula, and
+then transfers the price from the pool's vault into the order's vault. That is the same transfer an
+x402 payment is, so the escrow's `confirm_funded` accepts it unchanged and the escrow program did not
+change for it. The buyer repays the price plus the pool's 2% fee into the pool; a loan past its grace
+period is marked in default by anyone and the line freezes.
+
+**What is read and what is written.**
+
+| | Read, with no signature | Written, as signed transactions |
+|---|---|---|
+| Escrow program | Config, Agent credit files, orders, vault balances (`getAccountInfo`, `getProgramAccounts`) | `open_order` (merchant), the x402 transfer into the vault (buyer, settled by the facilitator), `confirm_funded` (anyone), `deliver` (merchant), `release`, `refund`, `cancel_unpaid`, `open_dispute`, `resolve_dispute` (a party, the arbiter, or anyone after a deadline), `submit_review` (a party) |
+| Pay-later program | Pool, credit lines, loans | `buy_now` (buyer signs, the merchant pays the network fee), `repay` (anyone, for the buyer), `mark_default` (anyone), `initialize`, `deposit`, `withdraw` (the pool's authority) |
+
+The website only reads, with no wallet. The API builds unsigned transactions and never sends one it
+built. The agents sign with their own keys. A buyer paying through a facilitator needs no SOL; a
+buyer on credit needs none either, because the merchant is the fee payer of its `buy_now`.
+
+**Devnet addresses.**
+
+| | |
+|---|---|
+| Network | `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` (devnet) |
+| Escrow program | [`TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`](https://explorer.solana.com/address/TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ?cluster=devnet) |
+| Escrow config | [`DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2`](https://explorer.solana.com/address/DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2?cluster=devnet) |
+| USDC mint (devnet, Circle) | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` |
+| Pay-later program | `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` in `Anchor.toml`, `declare_id!` and the SDK. **Not deployed yet**: `getAccountInfo` on it returns null, and the agents offer pay later only once `fetchMaybePool` finds the pool on the network they run on. |
+
+## Failed payments
+
+A payment can fail before it moves, while it moves, or after. Each case below is handled by code, and
+in none of them is money left stuck: it either never moves or goes back to the buyer. Line numbers
+are at the commit this README is in.
+
+1. **The 402 asks more than the buyer allows.** Before paying, the buyer agent reads the price the
+   merchant's agent card advertises and takes `--max` if lower; a 402 above that is refused and
+   nothing is signed ([`apps/agents/src/http402.ts`](apps/agents/src/http402.ts) lines 43 and 57–59;
+   over A2A [`apps/agents/src/buyer.ts`](apps/agents/src/buyer.ts) line 139). It then reads the order
+   named as `payTo` from the chain and refuses unless it is its own order, for that amount, in that
+   mint, still awaiting payment (`verifyOrderForPayment`, `http402.ts` lines 64–80).
+2. **The facilitator rejects the payment, or settlement fails.**
+   [`apps/agents/src/facilitator.ts`](apps/agents/src/facilitator.ts) throws at lines 110 (no
+   facilitator reachable), 117 (verify failed) and 122 (settle failed); the merchant delivers nothing.
+   Over HTTP the answer is 502 with the note "Do not pay again. If the escrow was funded, the merchant
+   refunds it before the delivery deadline" ([`apps/agents/src/server.ts`](apps/agents/src/server.ts)
+   lines 311–315); over A2A it is `INVALID_PAYLOAD` ([`apps/agents/src/a2a.ts`](apps/agents/src/a2a.ts)
+   lines 268–269). The facilitator's word is never the proof: after settling, the merchant reads the
+   vault ([`merchant.ts`](apps/agents/src/merchant.ts) lines 528–541) and the program confirms from
+   the balance. A payment that did land after a failed answer sits in the order's vault, and the
+   merchant's crank finishes or refunds the order (`server.ts` lines 508–526).
+3. **A quote nobody pays.** The payment window is `unpaidSecs`, 300 s on devnet
+   ([`constants.ts`](packages/sdk/src/constants.ts) line 51). `confirm_funded` refuses a payment after
+   it ([`programs/tessera/src/lib.rs`](programs/tessera/src/lib.rs) lines 228–231), and the merchant
+   refuses one too (`merchant.ts` lines 514–516 and 535–537). `cancel_unpaid` (`lib.rs` line 377)
+   closes the quote and sends anything in the vault back to the buyer (lines 394–400): either party at
+   any time, or the merchant's payer once the window has passed. The agents' crank cancels every unpaid
+   quote past its window (`server.ts` lines 645–652), then closes the tombstone for its rent.
+4. **Funded, and the merchant never delivers.** The delivery deadline is `deliverSecs`, 300 s on
+   devnet (`constants.ts` line 50). After it, anyone may call `refund` (`lib.rs` lines 298–319: while
+   the order is `Funded`, the merchant at any time, anyone once the deadline has passed); the buyer
+   gets the whole amount and the fee is 0. The crank does it at the deadline (`server.ts` lines
+   508–526), the CLI does it with `tessera reclaim <order>` ([docs/TRY-IT.md](docs/TRY-IT.md), step 11),
+   and the merchant's score takes a 10% missed-delivery penalty.
+5. **A pay-later header that fails verification.** Nothing is signed until every check passes.
+   The `accepted` entry must be one that was quoted (`merchant.ts` lines 492–496). `settlePayLater`
+   ([`apps/agents/src/paylater.ts`](apps/agents/src/paylater.ts) lines 132–154) requires a
+   `payload.transaction` (line 135) and hands it to `checkBuyNowTransaction`
+   ([`packages/sdk/src/paylater/index.ts`](packages/sdk/src/paylater/index.ts) lines 203–269), which
+   refuses a transaction that is not legacy or version 0, uses lookup tables, has a fee payer other
+   than the merchant's wallet, signers other than the merchant and the buyer, no buyer signature, a
+   priority fee above `MAX_CU_PRICE` (1,000,000 micro-lamports per unit), any instruction other than
+   compute-budget settings and one `buy_now` of the pay-later program, or a `buy_now` whose order,
+   vault, buyer, merchant, mint or loan account is not this order's. The merchant then simulates it
+   (`paylater.ts` lines 153–154), so the program's own refusals (`NotTheBuyer`, `OrderAlreadyFunded`,
+   `PaymentWindowClosed`, `CreditLimitExceeded`, `PoolEmpty` and the rest,
+   [`programs/tessera-paylater/src/lib.rs`](programs/tessera-paylater/src/lib.rs) lines 107–134)
+   stop it before anything is sent. A refusal is a `PaymentRefused`: HTTP 400 without the "do not pay
+   again" note (`server.ts` lines 311–315), `INVALID_PAYLOAD` over A2A, and the buyer may pay another
+   way. The 402 already says `eligible: false` with a reason when the program would refuse
+   (`paylater.ts` lines 78–91), and the buyer agent does not try then (`buyer.ts` line 137,
+   `http402.ts` line 55).
+6. **A pay-later loan not repaid.** Each loan carries `due_at` and `default_after` (a 60 s term and a
+   5 s grace period under the preview rules). `mark_default`
+   ([`programs/tessera-paylater/src/lib.rs`](programs/tessera-paylater/src/lib.rs) lines 240–255) may
+   be called by anyone once `default_after` has passed: the loan is `Defaulted`, the buyer's limit is 0
+   from then on ([`limit.ts`](packages/sdk/src/paylater/limit.ts) line 21), the debt stays and can
+   still be repaid late. The agents server is the keeper: `markOverdue` (`apps/agents/src/paylater.ts`
+   lines 172–190) reads the open loans and marks every one past its grace period, at most 20 per pass,
+   run by `keep()` (`server.ts` lines 689–699) every `KEEPER_MS` (default 30 s,
+   [`config.ts`](apps/agents/src/config.ts) line 65). The buyer's next 402 says its line is frozen.
+   If the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays
+   owed (`lib.rs` lines 97–102); a buyer that keeps it defaults like any other.
+
+## What existed before 12 October 2026 and what is new
+
+The Encode Club hackathon judges only work done in its window. The tag `v1-submission` (11 October
+2026) marks version 1, and every commit dated 12 October or earlier is prior work: `git log --date=short`
+shows the dates, and `git diff c5e048c..v2 --stat` (`c5e048c` is the last commit of 12 October) is the
+whole in-window diff.
+
+**Before (prior work):** the escrow program on devnet, its score, reviews, disputes and arbiter
+([`programs/tessera`](programs/tessera)); the merchant and buyer agents, the swarm, the crank, the
+x402 route and the facilitator path ([`apps/agents`](apps/agents)); the HTTP API, MCP server, skill
+and CLI ([`apps/api`](apps/api), [`apps/mcp`](apps/mcp), [`skills/tessera`](skills/tessera),
+[`apps/cli`](apps/cli)); the website, the decks and all three demo videos ([`apps/web`](apps/web));
+review rewards and the Agent Registry bridge ([`scripts`](scripts)); and the pay-later program as a
+preview in which `buy_now` took the price as an argument and paid the merchant's token account
+directly, outside the escrow, with the CLI commands `credit`, `buy-later --order`, `repay`,
+`repay --all` and `mark-default`, `scripts/paylater-local.ts`, `scripts/test-paylater.ts` and
+`docs/PAYLATER.md`, on a local validator only and with no place in the 402.
+
+**New in the window** (commits from 22 October on):
+
+- **Pay later lends into the escrow.** `buy_now` now reads the escrow's order, pays the order's vault
+  and leaves the rest to the escrow; the fee is owed by the buyer at repayment; a refund by the escrow
+  leaves the loan owed. `programs/tessera-paylater/src/lib.rs`, `state.rs`, `errors.rs`; the generated
+  client under `packages/sdk/src/paylater/generated`; `packages/sdk/src/paylater/index.ts`.
+- **The x402 pay-later option.** A merchant's 402 carries a `tessera-paylater` entry after its
+  `exact` ones, with the buyer's live limit and whether the pool would fund it; the buyer answers with
+  a signed `buy_now`; the merchant checks it, signs as fee payer, sends it and delivers.
+  `apps/agents/src/paylater.ts` (new), `merchant.ts`, `server.ts`, `a2a.ts`, `chain.ts`, `config.ts`;
+  in the SDK `PayLaterOffer`, `buyNowForMerchant`, `checkBuyNowTransaction`, `buyOrderOnCredit`,
+  `fetchOpenLoans`; `docs/A2A-EXTENSION.md`.
+- **The buyer agent and CLI flow.** `npm run buy -- --pay-later` and `npm run buy:http -- --pay-later`
+  (`apps/agents/src/buyer.ts`, `buy.ts`, `http402.ts`); `tessera buy-later <merchant agent url> <skill>`
+  and `--input` (`apps/cli/src/paylater.ts`, `cli.ts`); `tessera credit` shows due dates.
+- **The keeper.** `markOverdue` in `apps/agents/src/paylater.ts`, run by `keep()` in `server.ts`.
+- **The website.** `apps/web/src/lib/paylater.ts` (new) reads the pool, a wallet's line and its
+  loans; the Agents and Market pages show them where the pool exists (`Agents.tsx`, `Market.tsx`).
+- **Tests and docs.** `scripts/test-paylater-402.ts` (new, 45 checks), `scripts/test-paylater.ts`
+  rewritten for the escrow flow (72 checks), `scripts/paylater-local.ts`, `scripts/lib.ts`
+  (`TESSERA_KEYS_DIR`); `docs/PAYLATER.md`, `docs/ENCODE-CHECKLIST.md`, this README.
+
+The escrow program (`programs/tessera`) was not changed in the window; the program on devnet is the
+one deployed before it. The pay-later program is not deployed to devnet yet.
 
 ## What is checked
 
@@ -284,6 +456,44 @@ needs `npm run agents`.
 [`.env.example`](.env.example) lists the names of every environment variable used. Values are never
 committed.
 
+### Pay later: build, local run, devnet
+
+`npm run build:program` builds both programs (`programs/tessera` and `programs/tessera-paylater`).
+After any build that changes an IDL, `npm run codegen` regenerates `packages/sdk/src/generated` and
+`packages/sdk/src/paylater/generated` with Codama.
+
+```bash
+npm run build:program
+npm run codegen
+npm run test:paylater        # 72 checks: both programs on a local validator
+npm run test:paylater-402    # 45 checks: the merchant server's 402, the CLI, the buyer agent, the keeper
+npm run paylater:local       # a local world: tiered wallets, a funded pool, a shop with open quotes
+npm run tessera -- credit <alice> --rpc http://127.0.0.1:18999
+npm run tessera -- buy-later --order <quote> --keypair <alice.json> --rpc http://127.0.0.1:18999 --send
+npm run tessera -- repay --all --keypair <alice.json> --rpc http://127.0.0.1:18999 --send
+```
+
+On devnet, once the program is deployed (not done yet: the deploy needs devnet SOL, and the owner does it):
+
+```bash
+anchor deploy --provider.cluster devnet --program-name tessera_paylater
+# id LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D, from target/deploy/tessera_paylater-keypair.json
+```
+
+Then the pool: `initialize` (signed by the program's upgrade authority, with the line rules) and
+`deposit` (devnet USDC from <https://faucet.circle.com>). There is no CLI command for these two yet;
+`scripts/paylater-local.ts` lines 255–260 send the same two instructions
+(`getInitializeInstructionAsync`, `getDepositInstructionAsync` from the SDK) on the local validator,
+and a devnet script is to do. From then on every merchant 402 offers pay later, the keeper runs, and
+a buyer can use it:
+
+```bash
+npm run agents                                             # 402s offer pay later; keeper every KEEPER_MS (30 s)
+npm run buy -- --buyer scout --merchant atlas --pay-later  # buys on credit over A2A, prints the loan and due date
+npm run tessera -- credit <scout's address>                # limit, owed, each loan's due time
+npm run tessera -- repay --all --keypair .keys/scout.json --send
+```
+
 ### Hosting the API and the agents (Railway)
 
 [docs/RAILWAY.md](docs/RAILWAY.md): one `Dockerfile`, a config per service in `railway/`, and the
@@ -311,7 +521,7 @@ These are read at build time, so redeploy after changing them.
 
 ```
 programs/tessera/     Anchor program: escrow state machine, score, reviews, disputes
-programs/tessera-paylater/  Pay-later preview: credit lines from the Tessera score (reads the escrow's accounts)
+programs/tessera-paylater/  Pay later: credit lines from the Tessera score; the pool pays the escrow's orders
 packages/sdk/         Typed client (Codama), PDA helpers, payment verification,
                       the score mirror, the reference model, attack simulations
 apps/agents/          Merchant agents (A2A + x402), buyer agent, swarm, crank, arbiter

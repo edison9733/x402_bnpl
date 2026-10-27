@@ -51,6 +51,14 @@ an agent needs to see where an order stands, and some agents can sign but have n
 The full request and response shapes are in the OpenAPI document the API serves at
 `GET /v1/openapi.json`, generated from the same route table the server runs.
 
+**Pay later is a CLI door only.** A merchant's 402 can carry one more `accepts` entry, scheme
+`tessera-paylater`, in which the pay-later pool offers to pay the quoted order for the buyer against
+its live credit limit ([PAYLATER.md](PAYLATER.md), "Over x402"). None of the tools above build that
+payment; the CLI does, reading the chain itself: `tessera buy-later <merchant agent url> <skill>
+[--input JSON] --keypair PATH` runs the 402, the on-chain check of the order and one signed `buy_now`;
+`tessera credit <wallet>` shows the limit and what is owed; `tessera repay --all --keypair PATH --send`
+settles every loan at once.
+
 ## How `find_merchants` ranks
 
 It is built for an agent choosing in one call, not for a person browsing. Reviews are already folded
