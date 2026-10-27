@@ -178,7 +178,9 @@ function PayLaterLine({ wallet, tier, score: sc }: { wallet: string; tier: numbe
           {(Number(paylater.limit(paylater.NO_LINE, paylater.PREVIEW_LINE_PARAMS, tier, sc)) / 1e6).toFixed(2)} test USDC
           {tier === 0 && ' (no credit until it earns a tier)'}
         </span>
-        <Link to="/pay-later" className="mono link text-[0.72rem]">preview rules · the pool is not on {NETWORK_LABEL} yet</Link>
+        <Link to="/pay-later" className="mono link text-[0.72rem]">
+          preview rules · {pl.status === 'none' ? `no pool on ${NETWORK_LABEL}` : `reading the pool on ${NETWORK_LABEL}…`}
+        </Link>
       </div>
     );
   }

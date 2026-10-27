@@ -84,10 +84,16 @@ const waitFor = async (doc: Document, test: () => boolean, ms: number) => {
  */
 async function buyTour(doc: Document) {
   await waitFor(doc, () => /\$\d+\.\d\d USDC/.test(doc.body.innerText), 10_000);
-  if (!/Paying with the built-in devnet test wallet/.test(doc.body.innerText)) return;
+  // innerText applies CSS text-transform, and this label is set in capitals.
+  if (!/Paying with the built-in devnet test wallet/i.test(doc.body.innerText)) return;
   if (/\$0\.[01]\d USDC/.test(doc.body.innerText)) {
-    press(doc, 'Get test funds');
-    await waitFor(doc, () => !/\$0\.[01]\d USDC/.test(doc.body.innerText), 20_000);
+    // The deck asked the faucet when it opened; let that drip land before asking
+    // again, since the faucet allows only a few requests an hour per address.
+    await waitFor(doc, () => !/\$0\.[01]\d USDC/.test(doc.body.innerText), 10_000);
+    if (/\$0\.[01]\d USDC/.test(doc.body.innerText)) {
+      press(doc, 'Get test funds');
+      await waitFor(doc, () => !/\$0\.[01]\d USDC/.test(doc.body.innerText), 20_000);
+    }
   }
   press(doc, 'Buy', 3);
   await sleep(1500);
@@ -136,41 +142,6 @@ const box = (x: number, y: number, w: number, title: string, sub: string, delay:
   </motion.g>
 );
 
-/** `tessera find`, as recorded by `npm run demo:find` on a local validator with the real program. */
-function FindScene() {
-  const best = session('best');
-  const regular = session('returning');
-  const lines: [string, string][] = [
-    ['$', best.command],
-    ...best.output.map((l): [string, string] => [/^\s*"/.test(l) ? 'q' : /^ ?\d+\./.test(l) ? 'r' : 'o', l]),
-    ['', ''],
-    ['$', regular.command],
-    ...regular.output.filter((l) => !/^\s*"/.test(l)).map((l): [string, string] => [/INSTANT/.test(l) ? 'ok' : 'o', l]),
-  ];
-  return (
-    <Frame pad={72}>
-      <Kicker>Choosing who to pay · find_merchants, recorded {recordedAt}</Kicker>
-      <div style={{ marginTop: 22, borderRadius: 22, background: '#050605', border: '1px solid #272b21', padding: '22px 30px', flex: 1 }}>
-        {lines.map(([tag, line], k) => (
-          <motion.div
-            key={k}
-            className="mono"
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.4 + k * 0.32 }}
-            style={{ fontSize: 17.5, lineHeight: 1.62, whiteSpace: 'pre', overflow: 'hidden', color: tag === '$' ? white : tag === 'ok' ? mint : tag === 'r' ? '#e9e6d8' : tag === 'q' ? '#8b8a7c' : /missed/.test(line) ? '#ec835a' : '#c9c6b6' }}
-          >
-            {line || ' '}
-          </motion.div>
-        ))}
-      </div>
-      <div className="mono" style={{ fontSize: 14, color: '#5d5c52', marginTop: 12 }}>
-        Twelve purchases between real agents, each signed by its own wallet, on a local validator running the real program. Reproduce: {reproduce}
-      </div>
-    </Frame>
-  );
-}
-
 /** New in 2.0: the pay-later flow, and the two lines of `buy_now` that keep it inside the escrow. */
 function PayLaterFlowScene() {
   const steps: [string, string][] = [
@@ -213,38 +184,38 @@ function PayLaterFlowScene() {
   );
 }
 
-/** The pay-later commands from the README. The settle line is filled in from the devnet run. */
+/** A real run on devnet, 27 October 2026, copied from the terminal (long lines shortened with …). */
 const PAYLATER_TERMINAL = [
-  ['$', 'npm run agents'],
-  ['#', '# merchants on devnet: every 402 offers tessera-paylater; the keeper runs every 30 s'],
   ['$', 'npm run buy -- --buyer nova --merchant atlas --pay-later'],
-  ['#', '# 402 → signed buy_now → the merchant sends it → pool pays the vault, escrow confirms → delivered'],
-  ['#', '# prints the order, the loan, what is owed (0.20 + 0.004 pool fee) and the due date, 600 s on'],
-  ['ok', 'settle tx  explorer.solana.com/tx/ttLNpyhU…MkoHw?cluster=devnet  (27 Oct, real)'],
-  ['', ''],
-  ['$', "npm run tessera -- credit <nova's address>"],
-  ['#', "# limit, owed, each loan's due time"],
+  ['', '[nova] Atlas/telemetry: 0.20 USDC into escrow j8Bfe9k5, hold 45s (merchant Building, me Building, pair trusted)'],
+  ['', '[nova] Atlas/telemetry: on credit; limit 0.602 USDC, owing 0.00; fee 0.004, due in 600s'],
+  ['ok', 'settle tx  explorer.solana.com/tx/ttLNpyhU…MkoHw   # BuyNow pays the vault, ConfirmFunded inside it'],
+  ['', 'loan       hEppTpuw…  owe 0.204 USDC (0.20 + 0.004 pool fee) by 14:00:47 UTC'],
+  ['', 'hash check matches the hash committed on-chain'],
+  ['ok', 'final      Released'],
   ['$', 'npm run tessera -- repay --all --keypair .keys/agents/nova.json --send'],
-  ['#', '# every loan still owed, settled in one transaction'],
-  ['', ''],
-  ['$', 'npm run tessera -- buy-later <merchant agent url> <skill> --keypair PATH'],
-  ['#', '# the same purchase from the CLI: caps the price, checks the order on-chain, signs one buy_now'],
+  ['', 'REPAY ALL  0.204 USDC in one transaction'],
+  ['ok', 'confirmed: 2tyLtJe2…yAU2r6'],
+  ['$', 'npm run tessera -- credit Acy1…t7PW'],
+  ['', 'limit 0.74825 USDC · owes 0.00 USDC · record: 1 loan, 1 on time · limit boost +2.50%'],
+  ['$', 'npm run buy -- --buyer scout --merchant atlas --pay-later'],
+  ['no', 'NOT BOUGHT not eligible for pay later: the buyer has no credit yet (New, score 242)'],
 ] as const;
 
 function PayLaterCommandsScene() {
   return (
     <Frame pad={84}>
-      <Kicker>Pay later over x402 · the commands, from the README</Kicker>
+      <Kicker>Pay later over x402 · a real run on devnet, 27 Oct 2026</Kicker>
       <div style={{ marginTop: 26, borderRadius: 22, background: '#050605', border: '1px solid #272b21', padding: '26px 32px', flex: 1 }}>
         {PAYLATER_TERMINAL.map(([tag, line], k) => (
-          <motion.div key={k} className="mono" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.5 + k * 0.9 }} style={{ fontSize: 19, lineHeight: 1.75, color: tag === 'ok' ? mint : tag === '$' ? white : '#8b8a7c', whiteSpace: 'pre', overflow: 'hidden' }}>
+          <motion.div key={k} className="mono" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.5 + k * 1.1 }} style={{ fontSize: 18.5, lineHeight: 1.72, color: tag === 'ok' ? mint : tag === 'no' ? '#ec835a' : tag === '$' ? white : '#c9c6b6', whiteSpace: 'pre', overflow: 'hidden', marginTop: tag === '$' && k > 0 ? 10 : 0 }}>
             {tag === '$' ? '$ ' : '  '}
-            {line || ' '}
+            {line}
           </motion.div>
         ))}
       </div>
       <div className="mono" style={{ fontSize: 14, color: '#5d5c52', marginTop: 12 }}>
-        Nova is a Building buyer on devnet (score 301, limit 0.60 USDC). A New buyer's 402 says eligible: false, with the reason, and the buyer does not try.
+        The limit follows the score: 0.602 USDC in Nova's 402, 0.74825 after the on-time repayment (score 365, boost +2.5% for a 0.20 loan). Output lines shortened with …; links in the README, "First purchase on credit on devnet".
       </div>
     </Frame>
   );
@@ -392,57 +363,15 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
   },
   {
     id: 'paylater-commands',
-    seconds: 16,
-    say: 'These are the commands from the README. Run the merchant agents on devnet: every 402 now offers pay later, and the server keeps the pool, marking late loans. Nova, a Building buyer, buys on credit over A2A. It prints the order, the transaction, the loan and when it is due. Then credit shows what it owes, and repay all settles every loan at once.',
+    seconds: 24,
+    say: 'This is a real run on devnet. Nova, a Building buyer, buys a report on credit. One transaction: the pool pays the escrow, and the escrow confirms it. Nova owes twenty point four cents, due in ten minutes. The report arrives, its hash matches, and the money is released. Nova repays every loan in one transaction, and its limit goes up. Scout is new, so its 402 says no, and it signs nothing.',
     render: () => <PayLaterCommandsScene />,
   },
   {
     id: 'failed',
     seconds: 24,
-    say: 'What happens when a payment fails. If the 402 asks more than the buyer allows, it signs nothing. If the facilitator fails, nothing is delivered and the buyer is told not to pay again. A quote nobody pays expires, and anything in its vault goes back. A merchant that never delivers is refunded against. New in 2.0: a forged pay-later header is refused before the merchant signs anything, and a loan not repaid is marked in default by the keeper, which freezes the line. In every case the money either never moves or goes back to the buyer.',
+    say: 'When a payment fails: if the 402 asks more than the buyer allows, it signs nothing. If the facilitator fails, nothing is delivered and the buyer is told not to pay again. An unpaid quote expires and its vault goes back. A merchant that never delivers is refunded. New in 2.0: a forged pay-later header is refused before the merchant signs, and an unpaid loan is marked in default, which freezes the line.',
     render: () => <FailedScene />,
-  },
-  {
-    id: 'find',
-    seconds: 13,
-    say: 'Before buying, an agent asks who to buy from. One call ranks merchants by reviews that cost real sales. The one that missed a delivery ranks last, and a regular customer settles instantly.',
-    render: () => <FindScene />,
-  },
-  {
-    id: 'score',
-    seconds: 18,
-    say: 'The score is integer arithmetic over those accounts, written once in Rust and once in TypeScript. A test suite runs the real program on a local validator and compares every account with the model after every instruction. Two hundred and ninety-four checks, attacks included.',
-    render: () => (
-      <Frame pad={84}>
-        <Kicker>One formula, three places: program, SDK, browser</Kicker>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 44, marginTop: 30, alignItems: 'start' }}>
-          <Rise delay={0.3}>
-            <pre className="mono" style={{ fontSize: 20.5, lineHeight: 1.7, margin: 0, padding: '28px 32px', borderRadius: 22, background: '#10120e', border: '1px solid #272b21', color: '#c9c6b6' }}>
-{`let history  = isqrt(credit * 1_000_000 / credit_full).min(1000);
-let effective = age_periods.min(active_periods * 3);
-let tenure   = (effective * 1000 / tenure_full).min(1000);
-let diversity = (points * 1000 / diversity_full).min(1000);
-
-let evidence = (450 * history + 300 * tenure
-              + 250 * diversity) / 1000;
-
-`}<span style={{ color: mint }}>{'let score = evidence * rating * behaviour / (1000 * BPS);'}</span>
-            </pre>
-          </Rise>
-          <div style={{ display: 'grid', gap: 26 }}>
-            <Rise delay={0.7}>
-              <div className="display" style={{ fontSize: 100, color: white, lineHeight: 1 }}>395<span style={{ fontSize: 46, color: '#8b8a7c' }}> / 395</span></div>
-              <div style={{ fontSize: 23, marginTop: 8 }}>checks against the real program, each account compared with a reference model</div>
-            </Rise>
-            <Rise delay={1.0}>
-              <div className="display" style={{ fontSize: 100, color: white, lineHeight: 1 }}>44<span style={{ fontSize: 46, color: '#8b8a7c' }}> / 44</span></div>
-              <div style={{ fontSize: 23, marginTop: 8 }}>formula tests: every guarantee we state is one</div>
-            </Rise>
-          </div>
-        </div>
-        <Source>programs/tessera/src/score.rs · packages/sdk/src/score.ts · npm run test:local · npm run test:formula</Source>
-      </Frame>
-    ),
   },
   {
     id: 'checkout',
@@ -471,7 +400,7 @@ let evidence = (450 * history + 300 * tenure
   {
     id: 'stack',
     seconds: 13,
-    say: 'The stack: Anchor, Solana Kit and Codama, x402 with a second option the merchant settles itself, A2A, and the Solana Agent Registry. Agents call it over an API, MCP, a skill or a CLI. It is devnet only, with test money, single keys and no audit, and an escrow refund leaves a loan owed.',
+    say: 'The stack: Anchor, Solana Kit and Codama, x402 with a second option the merchant settles itself, and A2A. It is devnet only, with test money, single keys and no audit.',
     render: () => (
       <Frame pad={84}>
         <Kicker>Stack, and what is not done</Kicker>
@@ -530,8 +459,14 @@ function usePrefund() {
     void (async () => {
       try {
         const burner = await loadBurner();
-        const token = await fetchMaybeToken(readRpc, await findAta(burner.address, USDC_DEVNET));
-        if (token.exists && token.data.amount >= 150_000n) return;
+        let funded = false;
+        try {
+          const token = await fetchMaybeToken(readRpc, await findAta(burner.address, USDC_DEVNET));
+          funded = token.exists && token.data.amount >= 150_000n;
+        } catch {
+          // A rate-limited read says nothing about the balance; ask anyway; the faucet drips once per wallet.
+        }
+        if (funded) return;
         await fetch(`${AGENTS_URL}/api/faucet`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: burner.address }) });
       } catch {
         // the purchase slide asks for funds itself if this did not work

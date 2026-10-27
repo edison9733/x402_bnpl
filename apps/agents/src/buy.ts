@@ -31,7 +31,12 @@ const buyer = new BuyerAgent(buyerId, clientForSigner(await loadKeypair(keyPath(
   log: console.log,
 });
 
-const p = await buyer.buy(agentCardUrl(merchant), skill, input);
+// A refusal before anything is signed (not eligible for credit, a price above
+// the ceiling, an order that does not check out) is an answer, not a crash.
+const p = await buyer.buy(agentCardUrl(merchant), skill, input).catch((e: unknown) => {
+  console.log(`\nNOT BOUGHT ${e instanceof Error ? e.message : String(e)}`);
+  process.exit(1);
+});
 console.log(`\norder      ${explorerAddress(p.order)}`);
 const via = { x402: 'x402 facilitator (buyer paid no SOL)', direct: 'a direct transfer', 'pay-later': 'the pay-later pool (the buyer paid only the rent of its loan account, in SOL)' }[p.mode];
 console.log(`amount     ${fromUnits(BigInt(p.terms.amount))} USDC, paid via ${via}`);
