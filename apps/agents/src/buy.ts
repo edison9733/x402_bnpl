@@ -2,7 +2,10 @@
  * One purchase, start to finish, by one buyer agent.
  *
  *   npm run buy -w @tessera/agents -- --buyer scout --merchant atlas --skill telemetry --mode x402
- *   npm run buy -w @tessera/agents -- --buyer scout --merchant atlas --pay-later     the pool pays; scout owes it the price plus the fee
+ *   npm run buy -w @tessera/agents -- --buyer nova --merchant atlas --pay-later      the pool pays; nova owes it the price plus the fee
+ *
+ * On credit the buyer needs a tier: on devnet nova and echo are at Building, and a New wallet such as
+ * scout is told it is not eligible.
  */
 import { fromUnits } from '@tessera/sdk';
 import { agentCardUrl, keyPath } from '../../../scripts/cast.js';

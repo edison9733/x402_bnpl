@@ -25,6 +25,7 @@ import {
   type GetMinimumBalanceForRentExemptionApi,
   type GetProgramAccountsApi,
   type Instruction,
+  type ReadonlyUint8Array,
   type Rpc,
   type Transaction,
   type TransactionSigner,
@@ -32,7 +33,7 @@ import {
 import type { ProgramAccountsRpc } from '../chain.js';
 import { fetchOrder, OrderState, type Order, type Params } from '../generated/index.js';
 import { findAta } from '../pda.js';
-import { newOrderId } from '../util.js';
+import { bytesEqual, newOrderId, toHex } from '../util.js';
 import { getCreditLineSize, getLoanDecoder, getLoanSize, LOAN_DISCRIMINATOR, LoanState, type Loan } from './generated/index.js';
 import { getBuyNowInstructionAsync, parseBuyNowInstruction } from './generated/instructions/buyNow.js';
 import { findLinePda } from './generated/pdas/line.js';
@@ -130,11 +131,31 @@ export function orderRefusal(
 }
 
 /**
+ * The terms a buyer agreed to, which its `buy_now` carries and the program
+ * requires the order to match: the price and the hash of the request. They
+ * are what the buyer checked, never re-read from the order after the check,
+ * so an order swapped in at the same address after the buyer signed (the
+ * escrow build on devnet lets a party close an unpaid order and open another
+ * there within seconds) makes the buy_now fail instead of costing more.
+ */
+export type BuyNowTerms = { amount: bigint; requestHash: ReadonlyUint8Array };
+
+/** Why `order` does not carry the terms the buyer agreed to, or undefined if it does. */
+export function termsRefusal(order: Pick<Order, 'amount' | 'requestHash'>, terms: BuyNowTerms): string | undefined {
+  if (order.amount !== terms.amount) return `the order's price is ${order.amount} units, not the ${terms.amount} agreed`;
+  if (!bytesEqual(order.requestHash, terms.requestHash)) return `the order's request hash is ${toHex(order.requestHash)}, not the one agreed`;
+  return undefined;
+}
+
+/**
  * The instructions that buy an escrow order on credit: one `buy_now`, which
  * has the pool pay the price into the order's vault and the escrow confirm
  * the order in the same instruction (the program calls the escrow's
  * `confirm_funded` itself), so the order is Funded when it lands. The order
  * is one the merchant already opened for `buyer`; its mint is read from it.
+ * `terms` is the price and request the buyer checked; without them, the
+ * order's own as read now (the caller has just read and checked them). The
+ * program refuses the buy_now if the order does not carry them when it runs.
  *
  * `buy_now` needs the signatures of both the buyer and the order's merchant,
  * so a buyer cannot send it alone: `merchant` is the order's merchant as a
@@ -147,12 +168,16 @@ export async function buyOrderOnCredit(
   buyer: TransactionSigner,
   order: Address,
   merchant: TransactionSigner,
+  terms?: BuyNowTerms,
   loanId: Uint8Array = newOrderId(),
 ) {
   const { data } = await fetchOrder(rpc, order);
   if (data.merchant !== merchant.address) throw new Error(`order ${order} was opened by the merchant ${data.merchant}, not ${merchant.address}`);
+  const agreed = terms ?? { amount: data.amount, requestHash: data.requestHash };
+  const off = termsRefusal(data, agreed);
+  if (off) throw new Error(`order ${order}: ${off}`);
   const [buyNow, loan] = await Promise.all([
-    getBuyNowInstructionAsync({ mint: data.mint, buyer, merchant, order, loanId }),
+    getBuyNowInstructionAsync({ mint: data.mint, buyer, merchant, order, loanId, amount: agreed.amount, requestHash: agreed.requestHash }),
     loanPdaOf(buyer.address, loanId),
   ]);
   return { order: data, loanId, loan, instructions: [buyNow] };
@@ -166,20 +191,26 @@ export async function buyOrderOnCredit(
  * order's merchant's (one signature when they are the same wallet). The
  * merchant checks it against its quote, signs and sends it; when it lands the
  * pool has paid the order and the escrow has confirmed it. The order is one
- * the merchant opened for `buyer`; its merchant is read from it.
+ * the merchant opened for `buyer`; its merchant is read from it. `terms` is
+ * the price and request the buyer verified (the quoted price it checked, the
+ * hash of what it asked for): the buy_now carries them, so it pays exactly
+ * that or fails, whatever sits at the order's address when it runs.
  */
 export async function buyNowForMerchant(
   rpc: Rpc<GetAccountInfoApi & GetLatestBlockhashApi>,
   buyer: TransactionSigner,
   order: Address,
   feePayer: Address,
+  terms: BuyNowTerms,
   loanId: Uint8Array = newOrderId(),
 ): Promise<{ transaction: string; loan: Address; loanId: Uint8Array; order: Order }> {
   const { data } = await fetchOrder(rpc, order);
+  const off = termsRefusal(data, terms);
+  if (off) throw new Error(`order ${order}: ${off}`);
   // Placeholders: the merchant's side signs for these two (one wallet when
   // the merchant pays its own fees).
   const [buyNow, loan, { value: latest }] = await Promise.all([
-    getBuyNowInstructionAsync({ mint: data.mint, buyer, merchant: createNoopSigner(data.merchant), order, loanId }),
+    getBuyNowInstructionAsync({ mint: data.mint, buyer, merchant: createNoopSigner(data.merchant), order, loanId, amount: terms.amount, requestHash: terms.requestHash }),
     loanPdaOf(buyer.address, loanId),
     rpc.getLatestBlockhash({ commitment: 'confirmed' }).send(),
   ]);
@@ -204,6 +235,10 @@ export type ExpectedBuyNow = {
   merchant: Address;
   mint: Address;
   feePayer: Address;
+  /** The price this merchant quoted: the `buy_now` must carry exactly this amount. */
+  amount: bigint;
+  /** The hash of the request this merchant quoted for: the `buy_now` must carry it. */
+  requestHash: ReadonlyUint8Array;
 };
 
 /** The transaction a buyer handed over is not the one `buy_now` the merchant will sign for. */
@@ -217,14 +252,18 @@ export class BuyNowTransactionError extends Error {
 /**
  * The highest priority fee a merchant signs for, in micro-lamports per compute
  * unit. With the unit limit capped at `BUY_NOW_COMPUTE_UNITS` the most a
- * transaction can cost it in priority fee is 400,000 x 1,000,000 micro-lamports
- * = 0.0004 SOL, on top of the base fee. Without a unit-limit instruction the
- * runtime's default of 200,000 units per instruction applies, which is lower.
+ * transaction can cost it in priority fee is 400,000 x 10,000 micro-lamports
+ * = 4,000 lamports, under one signature's base fee. The buyer picks the
+ * price, and a buyer can make a signed buy_now fail after it passed the
+ * merchant's simulation (by cancelling the order in a race), so the cap is
+ * kept to what a busy devnet or mainnet slot needs, not more. Without a
+ * unit-limit instruction the runtime's default of 200,000 units per
+ * instruction applies, which is lower.
  */
-export const MAX_CU_PRICE = 1_000_000n;
+export const MAX_CU_PRICE = 10_000n;
 
-/** `buy_now`'s data: the 8-byte discriminator and the 32-byte loan id. */
-const BUY_NOW_DATA_SIZE = 8 + 32;
+/** `buy_now`'s data: the 8-byte discriminator, the 32-byte loan id, the u64 price and the 32-byte request hash. */
+const BUY_NOW_DATA_SIZE = 8 + 32 + 8 + 32;
 /** The accounts `buy_now` takes, in the program's order (`BuyNow` in lib.rs). */
 const BUY_NOW_ACCOUNTS = 15;
 
@@ -238,13 +277,15 @@ const BUY_NOW_ACCOUNTS = 15;
  * other, and whose instructions are compute-budget settings (at most one unit
  * limit, of at most `BUY_NOW_COMPUTE_UNITS`, and at most one unit price, of at
  * most `MAX_CU_PRICE`) followed by exactly one `buy_now` of this program for
- * the expected order, every one of its accounts the one this order derives
+ * the expected order and the quoted terms, every one of its accounts the one this order derives
  * (its buyer, merchant, mint and vault, the loan its loan id derives, the
  * pool, the buyer's line, the escrow program and its config, both credit
  * files). The merchant's own key signs this transaction, so nothing else may
  * ride in it: no instruction of any other program, no second pay-later
  * instruction. Everything else about the purchase (the limit, the window, the
- * tiers) is the program's to decide when the transaction runs. Returns the
+ * tiers) is the program's to decide when the transaction runs, except the
+ * terms: the `buy_now` must carry the price and request hash this merchant
+ * quoted, which the program then requires the order to match. Returns the
  * decoded transaction and the loan it would open, or throws a
  * `BuyNowTransactionError`.
  */
@@ -268,12 +309,16 @@ export async function checkBuyNowTransaction(
   if (msg.version !== 0 && msg.version !== 'legacy') refuse('only legacy and version-0 transactions are accepted');
   if ('addressTableLookups' in msg && (msg.addressTableLookups?.length ?? 0) > 0) refuse('the transaction uses address lookup tables');
   const keys = msg.staticAccounts;
+  // The decoder does not insist on it and the buyer wrote the message: a key
+  // listed twice would let a signer slot stand for another (and the runtime
+  // would refuse the transaction anyway).
+  if (new Set(keys).size !== keys.length) refuse('the transaction lists an account more than once');
   if (keys[0] !== e.feePayer) refuse(`the fee payer is ${keys[0]}, not the merchant's wallet`);
   if (e.buyer === e.feePayer || e.buyer === e.merchant) refuse('the buyer cannot be the merchant or the merchant\'s wallet');
   // Exactly these signers, each once: the fee payer, the buyer and the
   // order's merchant, which `buy_now` requires (one fewer when the merchant
-  // pays the fee itself). Account keys are unique, so a count and a
-  // membership test make it an exact match.
+  // pays the fee itself). The keys are unique (checked above), so a count
+  // and a membership test make it an exact match.
   const signerSet = new Set<Address>([e.feePayer, e.buyer, e.merchant]);
   const signers = keys.slice(0, msg.header.numSignerAccounts);
   if (signers.length !== signerSet.size || !signers.every((s) => signerSet.has(s))) {
@@ -340,13 +385,17 @@ export async function checkBuyNowTransaction(
     if (a.buyer.address !== e.buyer) refuse('buy_now is not for this order\'s buyer');
     if (a.merchant.address !== e.merchant) refuse('buy_now does not name this order\'s merchant');
     if (a.mint.address !== e.mint) refuse('buy_now is in the wrong mint');
+    if (d.amount !== e.amount) refuse(`buy_now carries a price of ${d.amount} units, not the ${e.amount} quoted`);
+    if (!bytesEqual(d.requestHash, e.requestHash)) refuse('buy_now carries another request hash than the one quoted');
     const loanId = Uint8Array.from(d.loanId);
     const loan = await loanPdaOf(e.buyer, loanId);
     if (a.loan.address !== loan) refuse('the loan account is not the one the loan id derives');
     // And every other account is the one this order derives: the pool, its
     // vault, the buyer's line, the escrow program and config, both credit
     // files, the token and system programs, in the program's order.
-    const want = await getBuyNowInstructionAsync({ mint: e.mint, buyer: createNoopSigner(e.buyer), merchant: createNoopSigner(e.merchant), order: e.order, orderVault: e.vault, loanId });
+    const want = await getBuyNowInstructionAsync({
+      mint: e.mint, buyer: createNoopSigner(e.buyer), merchant: createNoopSigner(e.merchant), order: e.order, orderVault: e.vault, loanId, amount: e.amount, requestHash: e.requestHash,
+    });
     want.accounts.forEach((w, i) => {
       if (accounts[i]!.address !== w.address) refuse(`buy_now account ${i + 1} is ${accounts[i]!.address}, not ${w.address}`);
     });

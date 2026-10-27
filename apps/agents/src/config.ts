@@ -45,6 +45,25 @@ export const config = {
   maxOpenQuotes: num('MAX_OPEN_QUOTES', 40, 1),
   /** Requests one client may make per minute that open an order on-chain. */
   quotesPerMinute: num('QUOTES_PER_MINUTE', 20, 1),
+  /**
+   * Wallets with no credit file one client may have quoted for in an hour.
+   * Such a quote makes the wallet's credit file, whose rent the ops wallet
+   * pays and never gets back (shared by every merchant of this server).
+   */
+  maxNewWalletsPerHour: num('MAX_NEW_WALLETS_PER_HOUR', 10, 1),
+  /**
+   * Below this much SOL (in lamports) the ops wallet opens no new quotes: what
+   * it has left pays the network fees that settle, release and refund the
+   * orders already open, and the keeper's.
+   */
+  quoteSolFloorLamports: num('QUOTE_SOL_FLOOR_LAMPORTS', 30_000_000, 0),
+  /**
+   * The demo faucet drips only while the ops wallet keeps at least this much
+   * SOL (in lamports) after the drip, so visitors cannot spend what fronts
+   * quote rent and pays settlement fees. 0.1 SOL is the rent of about twenty
+   * open quotes plus thousands of fees.
+   */
+  faucetSolFloorLamports: num('FAUCET_SOL_FLOOR_LAMPORTS', 100_000_000, 0),
   /** Requests of any kind one client may make per minute. */
   requestsPerMinute: num('REQUESTS_PER_MINUTE', 120, 1),
   /**

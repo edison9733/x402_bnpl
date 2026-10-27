@@ -38,4 +38,8 @@ pub enum PayLaterError {
     NotOverdue,
     #[msg("Arithmetic overflow")]
     Overflow,
+    #[msg("The order's price is not the price the buyer agreed to")]
+    PriceMismatch,
+    #[msg("The order's request hash is not the request the buyer agreed to")]
+    RequestMismatch,
 }

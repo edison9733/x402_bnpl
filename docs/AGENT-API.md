@@ -61,12 +61,18 @@ by the buyer; `tessera credit <wallet>` shows the limit and what is owed; `tesse
 
 Who signs the pay-later header: the buyer signs the `buy_now` in `payload.transaction`, with the
 merchant's ops wallet (`extra.feePayer`) named as fee payer and the order's merchant named as a
-signer, and leaves those two signatures empty. `buy_now` requires the signatures of both the buyer
-and the order's merchant, so the pool only pays orders their merchant agreed to; the merchant's
-server checks the transaction, then signs it as fee payer and as the merchant (one signature when
-they are the same wallet) and sends it. A buyer cannot send a `buy_now` on its own:
-`tessera buy-later --order <order> --keypair PATH --merchant-keypair PATH` does, and so needs the
-merchant's key too, which only a local world where you hold both has (`npm run paylater:local`).
+signer, and leaves those two signatures empty. The `buy_now` carries the price and request hash the
+buyer verified, and the program refuses an order that does not carry exactly those. In this source
+`buy_now` requires the signatures of both the buyer and the order's merchant, so the pool only pays
+orders their merchant agreed to, at the price their buyer agreed to; the merchant's server checks
+the transaction and that the order at the quoted address is the one it opened, then signs it as fee
+payer and as the merchant (one signature when they are the same wallet) and sends it. A buyer cannot
+send a `buy_now` on its own: `tessera buy-later --order <order> --keypair PATH --merchant-keypair
+PATH` does, and so needs the merchant's key too, which only a local world where you hold both has
+(`npm run paylater:local`). **On devnet these two rules wait for the next upgrade:** the pay-later
+program there is the `61196cc` build, which neither requires the merchant's signature nor reads the
+price from the buyer's instruction, so a buyer there can send a `buy_now` alone and a merchant can
+reprice an order behind a buyer's signature ([SECURITY.md](SECURITY.md#pay-later) P1, P2).
 
 ## How `find_merchants` ranks
 

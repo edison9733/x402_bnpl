@@ -10,9 +10,14 @@
  * itself), so from there the order is delivered like any other.
  *
  * The merchant is its own facilitator here. Two of its keys sign, so it signs
- * nothing but one `buy_now` for its own order (checked in the SDK,
- * `paylater.checkBuyNowTransaction`): no other instruction can ride along on
- * those signatures, and what it risks is the network fee. It simulates first.
+ * nothing but one `buy_now` for its own order at its own quoted price and
+ * request (checked in the SDK, `paylater.checkBuyNowTransaction`; the program
+ * then requires the order to carry that price and request): no other
+ * instruction can ride along on those signatures, and what it risks is the
+ * network fee. It simulates first. A buyer can still make a signed buy_now
+ * fail after the simulation (by cancelling its order in a race), which costs
+ * the merchant that fee; a wallet whose purchases keep failing that way is
+ * not offered credit for an hour.
  */
 import {
   getBase64EncodedWireTransaction,
@@ -23,8 +28,8 @@ import {
   type Address,
 } from '@solana/kit';
 import type { PaymentPayload, PaymentRequirements, SettleResponse } from '@x402/core/types';
-import { fromUnits, paylater, score, TIER_NAMES, type Config } from '@tessera/sdk';
-import { read, readAgent, send, sendSigned, vaultBalance, type Actor } from './chain.js';
+import { fromHex, fromUnits, paylater, score, TIER_NAMES, type Config } from '@tessera/sdk';
+import { read, readAgent, send, sendSigned, TransactionFailed, vaultBalance, type Actor } from './chain.js';
 import { config } from './config.js';
 import type { EscrowTerms } from './merchant.js';
 import { chainNow } from '../../../scripts/lib.js';
@@ -37,7 +42,23 @@ export class PaymentRefused extends Error {
   }
 }
 
-const sol = (lamports: bigint) => (Number(lamports) / 1e9).toFixed(4);
+const sol = (lamports: bigint, dp = 4) => (Number(lamports) / 1e9).toFixed(dp);
+
+/**
+ * buy_now transactions that this server signed and that then failed on-chain,
+ * by buyer, over the last hour. Each cost the ops wallet its fee and the buyer
+ * nothing it would miss, so past `MAX_FAILED_LANDINGS` the buyer is not
+ * offered credit again until the hour is up.
+ */
+const failedLandings = new Map<string, number[]>();
+const MAX_FAILED_LANDINGS = 3;
+function recentFailures(buyer: string): number {
+  const kept = (failedLandings.get(buyer) ?? []).filter((t) => t > Date.now() - 3_600_000);
+  if (kept.length) failedLandings.set(buyer, kept);
+  else failedLandings.delete(buyer);
+  return kept.length;
+}
+const tooManyFailures = 'this wallet\'s last purchases on credit failed on-chain after the merchant signed them; pay with exact, or try credit again in an hour';
 
 export type PoolInfo = { pool: Address; params: paylater.LineParams; mint: Address; vault: Address; liquidity: bigint };
 
@@ -92,7 +113,9 @@ export async function payLaterOption(
   let reason =
     buyer.defaults > 0
       ? 'the buyer\'s line is frozen by a default'
-      : buyer.limit === 0n
+      : recentFailures(q.buyer) >= MAX_FAILED_LANDINGS
+        ? tooManyFailures
+        : buyer.limit === 0n
         ? `the buyer has no credit yet (${TIER_NAMES[buyer.tier]}, score ${buyer.score})`
         : q.amount > available
           ? `the price is above the buyer's remaining credit (${fromUnits(available)} USDC)`
@@ -105,10 +128,20 @@ export async function payLaterOption(
                 : undefined;
   if (!reason) {
     // The buyer pays the rent of its loan account and, the first time, its
-    // line: a wallet holding only USDC cannot buy on credit until it has that much SOL.
-    const [held, rent] = await Promise.all([read(async () => (await m.ops.rpc.getBalance(q.buyer).send()).value), paylater.buyNowRent(m.ops.rpc, buyer.hasLine)]);
+    // line: a wallet holding only USDC cannot buy on credit until it has that
+    // much SOL. And the runtime refuses to leave a wallet with some SOL but
+    // less than its own rent-exempt minimum, so it needs exactly the rent, or
+    // the rent plus that minimum.
+    const [held, rent, keep] = await Promise.all([
+      read(async () => (await m.ops.rpc.getBalance(q.buyer).send()).value),
+      paylater.buyNowRent(m.ops.rpc, buyer.hasLine),
+      read(() => m.ops.rpc.getMinimumBalanceForRentExemption(0n).send()),
+    ]);
+    const what = `rent for its loan account${buyer.hasLine ? '' : ' and its credit line'}`;
     if (held < rent) {
-      reason = `the buyer holds ${sol(held)} SOL, less than the ${sol(rent)} SOL of rent for its loan account${buyer.hasLine ? '' : ' and its credit line'}`;
+      reason = `the buyer holds ${sol(held)} SOL, less than the ${sol(rent, 8)} SOL of ${what}`;
+    } else if (held > rent && held - rent < keep) {
+      reason = `the buyer holds ${sol(held, 8)} SOL: after the ${sol(rent, 8)} SOL of ${what} it would keep less than a wallet's rent-exempt minimum (${sol(keep, 8)} SOL), which the runtime refuses; hold exactly the rent, or at least ${sol(rent + keep, 8)} SOL`;
     }
   }
   const offer: paylater.PayLaterOffer = {
@@ -147,7 +180,7 @@ const programError = (err: unknown, logs: readonly string[] | null | undefined):
   }
   const text = typeof err === 'string' ? err : JSON.stringify(err, (_, v) => (typeof v === 'bigint' ? Number(v) : v));
   const tail = (logs ?? []).slice(-3).join(' | ');
-  const hint = /insufficient lamports|insufficient funds for rent/i.test(`${text} ${tail}`) ? '; the buyer pays the rent of its loan account in SOL, and the merchant the network fee' : '';
+  const hint = /insufficient ?lamports|insufficient ?funds ?for ?rent/i.test(`${text} ${tail}`) ? '; the buyer pays the rent of its loan account in SOL, and the merchant the network fee' : '';
   return `the simulation failed (${text})${tail ? `: ${tail}` : ''}${hint}`;
 };
 
@@ -155,13 +188,14 @@ export type Settled = { response: SettleResponse; loan: Address; signature: stri
 
 /**
  * Settle a `tessera-paylater` payment: check the buyer's transaction against
- * this order, sign it as fee payer (`ops`) and as the order's merchant
- * (`merchant`, the key of the merchant agent that quoted it), simulate, send
- * and wait for it to land. Nothing is signed unless every check passes, and
- * only for an order of the merchant whose key is passed in. Nothing is sent
- * unless the simulation passes too, and a first broadcast the RPC's preflight
- * refuses was not forwarded either, so each of those is a `PaymentRefused`
- * and the buyer may try another way.
+ * this order and its quoted price and request, sign it as fee payer (`ops`)
+ * and as the order's merchant (`merchant`, the key of the merchant agent that
+ * quoted it), simulate, send and wait for it to land. Nothing is signed
+ * unless every check passes, and only for an order of the merchant whose key
+ * is passed in. Nothing is sent unless the simulation passes too, and a first
+ * broadcast the RPC's preflight refuses was not forwarded either; a buy_now
+ * that landed and failed changed nothing but the fee. Each of those is a
+ * `PaymentRefused`, and the buyer may try another way.
  */
 export async function settlePayLater(ops: Actor, merchant: Actor, payment: PaymentPayload, terms: EscrowTerms): Promise<Settled> {
   const t0 = Date.now();
@@ -169,6 +203,7 @@ export async function settlePayLater(ops: Actor, merchant: Actor, payment: Payme
   if (typeof transaction !== 'string') throw new PaymentRefused('payment does not match: a tessera-paylater payment carries payload.transaction, the buyer\'s signed buy_now');
   // The merchant's key signs only its own orders.
   if (terms.merchant !== merchant.identity.address) throw new PaymentRefused('payment does not match: this order is not this merchant\'s');
+  if (recentFailures(terms.buyer) >= MAX_FAILED_LANDINGS) throw new PaymentRefused(tooManyFailures);
   let checked: Awaited<ReturnType<typeof paylater.checkBuyNowTransaction>>;
   try {
     checked = await paylater.checkBuyNowTransaction(transaction, {
@@ -178,6 +213,8 @@ export async function settlePayLater(ops: Actor, merchant: Actor, payment: Payme
       merchant: terms.merchant,
       mint: terms.mint,
       feePayer: ops.identity.address,
+      amount: BigInt(terms.amount),
+      requestHash: fromHex(terms.requestHash),
     });
   } catch (e) {
     if (e instanceof paylater.BuyNowTransactionError) throw new PaymentRefused(`payment does not match: ${e.message}`);
@@ -201,6 +238,14 @@ export async function settlePayLater(ops: Actor, merchant: Actor, payment: Payme
     // forwarded to the network. `sendSigned` has already checked it did not land.
     if (isSolanaError(e, SOLANA_ERROR__JSON_RPC__SERVER_ERROR_SEND_TRANSACTION_PREFLIGHT_FAILURE)) {
       throw new PaymentRefused(`the pay-later program refused the purchase: ${programError(e.cause ?? e.message, (e.context as { logs?: string[] }).logs)}`);
+    }
+    // It landed and failed (the order changed between the simulation and the
+    // send). Atomic: nothing was paid and no loan opened, so the buyer may pay
+    // another way; the merchant paid the fee, and counts it against the buyer.
+    if (e instanceof TransactionFailed) {
+      failedLandings.set(terms.buyer, [...(failedLandings.get(terms.buyer) ?? []), Date.now()]);
+      console.warn(`[paylater] ${terms.buyer.slice(0, 8)}: a signed buy_now failed on-chain (${recentFailures(terms.buyer)} in the last hour)`);
+      throw new PaymentRefused(`the purchase on credit failed on-chain and nothing was paid: ${e.message}`);
     }
     throw e;
   }

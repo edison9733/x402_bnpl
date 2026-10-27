@@ -14,7 +14,12 @@
  *      buyer open an order in a merchant's name without that merchant's
  *      signature (the build on devnet), the pool will not fund it, so the
  *      buyer cannot have the pool pay an order the merchant never accepted
- *      and take the refund as cash;
+ *      and take the refund as cash. The buy_now carries the price and
+ *      request hash the buyer agreed to: another price or request is
+ *      refused, and where the escrow lets a party close an unpaid order and
+ *      open another at its address at once (the build on devnet), a merchant
+ *      that reprices the order behind the buyer's signed buy_now gets
+ *      nothing: the buy_now fails;
  *   2. a wallet with a tier buys, the pool pays the escrow and the order is
  *      Funded in the same instruction: a buyer that sends buy_now and
  *      cancel_unpaid together has the whole transaction fail on-chain, and
@@ -27,11 +32,15 @@
  *      line is frozen;
  *   4. the merchant never delivers: the escrow refunds the buyer, and the loan
  *      is still owed and is repaid;
- *   5. pool accounting, and the main refusal paths as real transactions.
+ *   5. pool accounting, and the main refusal paths as real transactions;
+ *   6. the merchant server's crank closes the settled orders whose rent it
+ *      fronted once their review window is over, with the account list the
+ *      escrow build takes, and leaves the ones still inside it.
  *
  * One purchase of the tab in 2c goes through the CLI (`tessera buy-later
  * --order`), which sends the buy_now itself and so needs the merchant's key
- * as well as the buyer's.
+ * as well as the buyer's, and the tab is settled with `tessera repay --all`,
+ * which closes each loan it repays and returns its rent to the buyer.
  *
  * Every limit the program applies is recomputed off-chain from the same
  * public accounts (packages/sdk/src/paylater/limit.ts) and must match. The
@@ -56,6 +65,7 @@ import {
   configPda,
   fetchAgent,
   fetchConfig,
+  fetchMaybeOrder,
   fetchOrder,
   fromUnits,
   getCancelUnpaidInstructionAsync,
@@ -92,7 +102,7 @@ import {
   type Cluster,
   type ScriptClient,
 } from './lib.js';
-import { closeOrder, closeOrderAccountList } from '../apps/agents/src/chain.js';
+import { closableOrders, closeOrderAccountList, closeSettledOrders } from '../apps/agents/src/chain.js';
 
 // Its own port, so it never attaches to `npm run paylater:local` or another suite's validator.
 const RPC_PORT = Number(process.env.PAYLATER_TEST_RPC_PORT ?? 19599);
@@ -432,9 +442,19 @@ try {
    * where the merchant agrees, as its server does over x402. The buyer's
    * transaction carries both signatures.
    */
-  const buyIx = async (buyer: ScriptClient, merchant: TransactionSigner, order: Address, loanId = newOrderId()) => ({
+  /** The terms a buyer agrees to for an order: its price and request hash as they stand now (or placeholders, for an account that is not an order). */
+  const termsOf = async (order: Address): Promise<paylater.BuyNowTerms> => {
+    try {
+      const o = await fetchMaybeOrder(rpc, order);
+      if (o.exists) return { amount: o.data.amount, requestHash: o.data.requestHash };
+    } catch {
+      // not an order
+    }
+    return { amount: 1_000n, requestHash };
+  };
+  const buyIx = async (buyer: ScriptClient, merchant: TransactionSigner, order: Address, terms?: paylater.BuyNowTerms, loanId = newOrderId()) => ({
     loanId,
-    ix: await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant, order, loanId }),
+    ix: await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant, order, loanId, ...(terms ?? (await termsOf(order))) }),
   });
   /**
    * The same instruction with the merchant's account a plain read-only one:
@@ -580,6 +600,7 @@ try {
     alice.sendTransaction([
       await paylater.getBuyNowInstructionAsync({
         mint: otherMint, vault: await tok.ata(pool), orderVault: qAlice.vault, buyer: alice.identity, merchant: m1.identity, order: qAlice.order, loanId: newOrderId(),
+        amount: 1_000n, requestHash,
       }),
     ]),
   );
@@ -604,6 +625,64 @@ try {
     alice.sendTransaction([(await buyIx(alice, m1.identity, qPaid.order)).ix]),
   );
   await m1.sendTransaction([getRefundInstruction(await settleInput(qPaid.order, alice, m1, m1))]);
+  // The price and the request hash the buyer agreed to ride in the buy_now,
+  // and the order must carry exactly those when it runs.
+  const qTerms = await quote(alice, m1, 2_000n);
+  await expectFail('a buy_now for less than the order asks', 'PriceMismatch', async () =>
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qTerms.order, { amount: 1_000n, requestHash })).ix]),
+  );
+  await expectFail('a buy_now for more than the order asks', 'PriceMismatch', async () =>
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qTerms.order, { amount: 3_000n, requestHash })).ix]),
+  );
+  await expectFail('a buy_now for another request than the order\'s', 'RequestMismatch', async () =>
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qTerms.order, { amount: 2_000n, requestHash: new Uint8Array(32).fill(1) })).ix]),
+  );
+  // The attack that closes. A merchant holding a buyer's signed buy_now (over
+  // x402 it is handed one, and adds its own signature) cancels its quote and
+  // opens another order at the same address before sending it: the same id,
+  // the same buyer, a higher price. Had buy_now read the price from the
+  // order, the pool would pay whatever the order now asks, up to the buyer's
+  // whole available credit. It carries the price the buyer agreed to instead.
+  const idS = newOrderId();
+  const { order: qS } = await orderAddresses(idS, mint);
+  const openS = async (amount: bigint) =>
+    server.sendTransaction([
+      await getOpenOrderInstructionAsync({ mint, buyer: alice.identity.address, merchant: m1.identity, payer: server.identity, orderId: idS, amount, requestHash, minHoldSecs: 0 }),
+    ]);
+  await openS(2_000n);
+  const signedS = await buyIx(alice, m1.identity, qS);
+  eq('alice agrees to m1\'s quote at 0.002 USDC: her buy_now carries that price', paylater.getBuyNowInstructionDataDecoder().decode(signedS.ix.data).amount, 2_000n);
+  await m1.sendTransaction([await getCancelUnpaidInstructionAsync({ order: qS, mint, payer: server.identity.address, authority: m1.identity })]);
+  const reopened = await openS(2n * USDC).then(
+    () => true,
+    (e) => {
+      if (/already in use/.test(errText(e))) return false;
+      throw e;
+    },
+  );
+  const poolAtSwap = await tok.balance(pool);
+  const swapRun = await failsOnChain(alice, [signedS.ix]);
+  const loanS = (await rpc.getAccountInfo(await paylater.loanPdaOf(alice.identity.address, signedS.loanId)).send()).value;
+  if (reopened) {
+    log.info('this escrow build lets a party close an unpaid order and open another at the same address at once (the build on devnet)');
+    const oS = (await fetchOrder(rpc, qS)).data;
+    eq('m1 cancelled its quote and reopened the same id for alice at 2 USDC, at the same address', [oS.buyer, oS.merchant, oS.amount, oS.state], [alice.identity.address, m1.identity.address, 2n * USDC, OrderState.AwaitingPayment]);
+    eq('alice\'s buy_now for 0.002 USDC, sent against the repriced order, lands and fails (PriceMismatch): the pool pays nothing and no loan opens', [
+      swapRun !== undefined,
+      swapRun?.logs.some((l) => /Error Code: PriceMismatch/.test(l)),
+      await tok.balance(pool),
+      await tok.balance(qS),
+      loanS,
+    ], [true, true, poolAtSwap, 0n, null]);
+  } else {
+    log.info('this escrow build keeps a cancelled order as a tombstone, so no order can be opened at its address within a blockhash lifetime (the current source)');
+    eq('m1 could not reopen the id: the order stays Cancelled, and alice\'s buy_now for it lands and fails, the pool paying nothing', [
+      (await fetchOrder(rpc, qS)).data.state,
+      swapRun !== undefined,
+      await tok.balance(pool),
+      loanS,
+    ], [OrderState.Cancelled, true, poolAtSwap, null]);
+  }
   // A quote whose payment window has closed: confirm_funded would refuse the money, so the pool does too.
   const qLate = await quote(alice, m1, 1_000n);
   const late = (await fetchOrder(rpc, qLate.order)).data;
@@ -849,9 +928,23 @@ try {
   const listed = paylater.owed(await paylater.fetchLoansOf(rpc, alice.identity.address));
   eq('the chain lists her three open loans', listed.map((l) => l.address).sort(), [...tab].sort());
   eq('with the price plus the fee owed on each', listed.map((l) => paylater.owedOf(l.data)), [each + paylater.feeOf(each, LINE), each + paylater.feeOf(each, LINE), each + paylater.feeOf(each, LINE)]);
-  await alice.sendTransaction(await Promise.all(tab.map((loan) => repayIx(loan, alice))));
+  // The tab is settled with the CLI, which closes each loan it repays in the
+  // same transaction: the buyer gets every loan account's rent back.
+  const loanRent = await rpc.getMinimumBalanceForRentExemption(BigInt(paylater.getLoanSize())).send();
+  const aliceSol = (await rpc.getBalance(alice.identity.address).send()).value;
+  const repaidAll = await cli(['repay', '--all', '--keypair', keyFile(alice), '--send']);
   const settled = await lineOf(alice);
-  eq('one transaction settled the tab: nothing owed, three more on-time repayments', settled.exists && [settled.data.outstanding, settled.data.repaidOnTime - lineTab.data.repaidOnTime], [0n, 3]);
+  eq('tessera repay --all settled the tab in one transaction: nothing owed, three more on-time repayments', [
+    repaidAll.status,
+    /in one transaction/.test(repaidAll.stdout),
+    settled.exists && settled.data.outstanding,
+    settled.exists && settled.data.repaidOnTime - lineTab.data.repaidOnTime,
+  ], [0, true, 0n, 3]);
+  eq('and closed the three loans it repaid: their accounts are gone and their rent is back with alice, less one network fee', [
+    await Promise.all(tab.map(async (loan) => (await rpc.getAccountInfo(loan).send()).value)),
+    (await rpc.getBalance(alice.identity.address).send()).value - aliceSol,
+    paylater.owed(await paylater.fetchLoansOf(rpc, alice.identity.address)).length,
+  ], [[null, null, null], 3n * loanRent - 5_000n, 0]);
   await expectFail('a stranger closes alice\'s loan to take the rent', 'Unauthorized', async () =>
     stranger.sendTransaction([paylater.getCloseLoanInstruction({ loan: loanA, buyer: stranger.identity.address })]),
   );
@@ -950,24 +1043,39 @@ try {
   );
 
   // ------------------------------------- 6. the server takes its rent back
-  // The merchant server fronts each quote's rent and closes the order for it
-  // once the review window has passed. The escrow on devnet is an older build
-  // whose close_order takes one account fewer, so this also runs with
-  // ESCROW_SO pointed at it.
-  log.step('6. The merchant server closes a settled order and gets its rent back');
+  // The merchant server fronts each quote's rent, and its crank closes every
+  // settled order it paid for (Released, Refunded, Resolved) once the review
+  // window has passed: the same function runs here. The escrow on devnet is
+  // an older build whose close_order takes one account fewer, so this also
+  // runs with ESCROW_SO pointed at it.
+  log.step('6. The merchant server\'s crank closes the settled orders it paid the rent for, once their review window is over');
   const oldest = settledOrders[0]!;
   const settledOrder = (await fetchOrder(rpc, oldest)).data;
   await waitForChainTime(server, settledOrder.settledAt + BigInt(PARAMS.reviewSecs) + 1n);
-  const orderRent = (await rpc.getBalance(oldest).send()).value;
+  // One settled just now: inside its review window, so it stays.
+  await escrowOrder(alice, m1, USDC / 2n);
+  const recent = settledOrders.at(-1)!;
+  const cfgNow = (await fetchConfig(rpc, configAddr)).data;
+  const now6 = await chainTime(server);
+  const due = await closableOrders(server, cfgNow, now6);
+  eq('the oldest settled order is due to be closed, the one settled just now is not, and every one due was paid for by the server and is settled', [
+    due.some((d) => d.address === oldest),
+    due.some((d) => d.address === recent),
+    due.every((d) => d.data.payer === server.identity.address && [OrderState.Released, OrderState.Refunded, OrderState.Resolved].includes(d.data.state)),
+  ], [true, false, true]);
+  const states = new Set(due.map((d) => OrderState[d.data.state]));
+  log.info(`${due.length} settled orders are due: ${[...states].join(', ')}`);
+  const take = Math.min(12, due.length);
+  const rents = new Map<string, bigint>();
+  for (const d of due.slice(0, take)) rents.set(d.address, (await rpc.getBalance(d.address).send()).value);
   const serverBefore = (await rpc.getBalance(server.identity.address).send()).value;
-  await closeOrder(server, oldest, settledOrder);
-  const gone = await rpc.getAccountInfo(oldest, { encoding: 'base64' }).send();
+  const closed = await closeSettledOrders(server, cfgNow, now6, { max: take });
   const serverAfter = (await rpc.getBalance(server.identity.address).send()).value;
   log.info(`close_order took the ${closeOrderAccountList()} account list on this escrow build`);
-  eq('the order account is closed', gone.value, null);
-  eq('the server got the rent back, less one network fee', serverAfter - serverBefore, orderRent - 5_000n);
-  await closeOrder(server, settledOrders[1]!, (await fetchOrder(rpc, settledOrders[1]!)).data);
-  eq('a second close uses the account list the first one found', (await rpc.getAccountInfo(settledOrders[1]!, { encoding: 'base64' }).send()).value, null);
+  eq(`the crank closed the ${take} oldest, the oldest of all among them`, [closed.length, closed.includes(oldest), closed.every((a) => rents.has(a))], [take, true, true]);
+  eq('their accounts are gone', (await Promise.all(closed.map(async (a) => (await rpc.getAccountInfo(a, { encoding: 'base64' }).send()).value))).every((v) => v === null), true);
+  eq('the server got their rent back, less one network fee each', serverAfter - serverBefore, [...rents.values()].reduce((a, b) => a + b, 0n) - 5_000n * BigInt(closed.length));
+  eq('the order still inside its review window is still there', (await fetchMaybeOrder(rpc, recent)).exists, true);
 } catch (e) {
   failures += 1;
   console.log(`\n   FAIL the run stopped on an unexpected error:\n${errText(e).slice(0, 1500)}`);

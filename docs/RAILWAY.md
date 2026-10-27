@@ -55,7 +55,10 @@ Railway has no `.keys/` folder; the keys go in one secret variable instead.
    non-root `node` user; if Railway mounts the volume as root and the server cannot write to it, set
    `RAILWAY_RUN_UID` = `0` on the service.
 5. Optional limits: `QUOTES_PER_MINUTE` (20), `MAX_UNPAID_PER_BUYER` (3), `MAX_UNPAID_PER_CLIENT` (5),
-   `MAX_OPEN_QUOTES` (40), `REQUESTS_PER_MINUTE` (120), `RPC_TIMEOUT_MS` (8000).
+   `MAX_OPEN_QUOTES` (40), `REQUESTS_PER_MINUTE` (120), `RPC_TIMEOUT_MS` (8000),
+   `MAX_NEW_WALLETS_PER_HOUR` (10 wallets one client may have credit files made for),
+   `QUOTE_SOL_FLOOR_LAMPORTS` (30,000,000: below this the ops wallet opens no quotes) and
+   `FAUCET_SOL_FLOOR_LAMPORTS` (100,000,000: the faucet never takes the ops wallet below this).
 
 Check: `https://<agents domain>/health` lists the facilitators, and
 `https://<agents domain>/agents` lists the merchants.

@@ -62,6 +62,7 @@ console.log(`402: pay ${fromUnits(BigInt(option.amount))} USDC to ${option.payTo
 if (offer) console.log(`     or pay later: limit ${fromUnits(BigInt(offer.buyerLimit))} USDC, owing ${fromUnits(BigInt(offer.buyerOutstanding))}; fee ${fromUnits(BigInt(offer.fee))}, due in ${offer.termSecs}s`);
 
 // 2. Check on-chain that payTo is this order's escrow and the order is ours.
+const requestHash = await hashOf({ sku: skill, input: {} });
 for (let i = 0; ; i += 1) {
   try {
     await verifyOrderForPayment(buyer.rpc, {
@@ -71,7 +72,7 @@ for (let i = 0; ; i += 1) {
       amount: BigInt(option.amount),
       mint: address(option.asset),
       payTo: address(option.payTo),
-      requestHash: await hashOf({ sku: skill, input: {} }),
+      requestHash,
     });
     break;
   } catch (e) {
@@ -86,8 +87,9 @@ let payload: PaymentPayload;
 let loan: string | undefined;
 if (offer) {
   // One buy_now for the verified order, the merchant's wallet as fee payer, this buyer's signature on it;
-  // the merchant adds the fee payer's and its own, which buy_now requires, before it sends it.
-  const built = await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, address(option.payTo), address(offer.feePayer));
+  // the merchant adds the fee payer's and its own, which buy_now requires, before it sends it. It
+  // carries the price and request just checked, so it pays exactly that order or fails.
+  const built = await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, address(option.payTo), address(offer.feePayer), { amount: BigInt(option.amount), requestHash });
   loan = built.loan;
   payload = { x402Version: 2, resource: required.resource, accepted: option, payload: { transaction: built.transaction } };
 } else {

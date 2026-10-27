@@ -180,7 +180,7 @@ export class BuyerAgent {
     let loanAddress: Address | undefined;
     if (offer) {
       this.log(`${card.name}/${skill}: on credit; limit ${fromUnits(BigInt(offer.buyerLimit))} USDC, owing ${fromUnits(BigInt(offer.buyerOutstanding))}; fee ${fromUnits(BigInt(offer.fee))}, due in ${offer.termSecs}s`);
-      ({ task: done, loan: loanAddress } = await this.payOnCredit(card.url, quoted.id, required, option, verified.order));
+      ({ task: done, loan: loanAddress } = await this.payOnCredit(card.url, quoted.id, required, option, verified.order, { amount, requestHash: expected.requestHash }));
     } else if (this.opts.mode === 'x402') {
       done = await this.payOverX402(card.url, quoted.id, required, verified.order, amount);
     } else {
@@ -250,8 +250,17 @@ export class BuyerAgent {
    * sends it; the pool pays the escrow; this buyer owes the pool the price
    * plus its fee by the due date.
    */
-  private async payOnCredit(url: string, taskId: string, required: PaymentRequired, option: PaymentRequirements, order: Address): Promise<{ task: Task; loan: Address }> {
-    const { transaction, loan } = await paylater.buyNowForMerchant(this.actor.rpc, this.actor.identity, order, address(String(option.extra.feePayer)));
+  private async payOnCredit(
+    url: string,
+    taskId: string,
+    required: PaymentRequired,
+    option: PaymentRequirements,
+    order: Address,
+    terms: paylater.BuyNowTerms,
+  ): Promise<{ task: Task; loan: Address }> {
+    // The price and request this buyer verified ride in the buy_now: if the
+    // order at this address is not that one when it runs, it fails.
+    const { transaction, loan } = await paylater.buyNowForMerchant(this.actor.rpc, this.actor.identity, order, address(String(option.extra.feePayer)), terms);
     const payload: PaymentPayload = { x402Version: 2, resource: required.resource, accepted: option, payload: { transaction } };
     const task = await this.rpc(url, {
       message: {

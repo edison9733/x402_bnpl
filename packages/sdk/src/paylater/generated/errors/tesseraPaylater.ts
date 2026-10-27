@@ -50,6 +50,10 @@ export const TESSERA_PAYLATER_ERROR__PAYMENT_WINDOW_CLOSED = 0x177f; // 6015
 export const TESSERA_PAYLATER_ERROR__NOT_OVERDUE = 0x1780; // 6016
 /** Overflow: Arithmetic overflow */
 export const TESSERA_PAYLATER_ERROR__OVERFLOW = 0x1781; // 6017
+/** PriceMismatch: The order's price is not the price the buyer agreed to */
+export const TESSERA_PAYLATER_ERROR__PRICE_MISMATCH = 0x1782; // 6018
+/** RequestMismatch: The order's request hash is not the request the buyer agreed to */
+export const TESSERA_PAYLATER_ERROR__REQUEST_MISMATCH = 0x1783; // 6019
 
 export type TesseraPaylaterError =
   | typeof TESSERA_PAYLATER_ERROR__AMOUNT_TOO_SMALL
@@ -68,6 +72,8 @@ export type TesseraPaylaterError =
   | typeof TESSERA_PAYLATER_ERROR__OVERFLOW
   | typeof TESSERA_PAYLATER_ERROR__PAYMENT_WINDOW_CLOSED
   | typeof TESSERA_PAYLATER_ERROR__POOL_EMPTY
+  | typeof TESSERA_PAYLATER_ERROR__PRICE_MISMATCH
+  | typeof TESSERA_PAYLATER_ERROR__REQUEST_MISMATCH
   | typeof TESSERA_PAYLATER_ERROR__SELF_DEALING
   | typeof TESSERA_PAYLATER_ERROR__UNAUTHORIZED;
 
@@ -91,6 +97,8 @@ if (process.env["NODE_ENV"] !== "production") {
     [TESSERA_PAYLATER_ERROR__OVERFLOW]: `Arithmetic overflow`,
     [TESSERA_PAYLATER_ERROR__PAYMENT_WINDOW_CLOSED]: `The order's payment window has closed`,
     [TESSERA_PAYLATER_ERROR__POOL_EMPTY]: `The pool does not hold enough to fund the order`,
+    [TESSERA_PAYLATER_ERROR__PRICE_MISMATCH]: `The order's price is not the price the buyer agreed to`,
+    [TESSERA_PAYLATER_ERROR__REQUEST_MISMATCH]: `The order's request hash is not the request the buyer agreed to`,
     [TESSERA_PAYLATER_ERROR__SELF_DEALING]: `Buyer and merchant must be different wallets`,
     [TESSERA_PAYLATER_ERROR__UNAUTHORIZED]: `Signer is not allowed to do this`,
   };

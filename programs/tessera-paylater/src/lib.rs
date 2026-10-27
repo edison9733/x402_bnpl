@@ -91,13 +91,19 @@ pub mod tessera_paylater {
     /// merchant signs too.
     ///
     /// The order is one the merchant has already opened for this buyer (the
-    /// x402 quote), still awaiting payment and inside its payment window. The
-    /// price and the request hash are read from it. The merchant's signature
-    /// is what makes "the merchant opened it" true on every escrow build: the
-    /// one on devnet lets anyone open an order in a merchant's name, and an
-    /// order the merchant never accepted would never be delivered, so the
-    /// escrow would refund the pool's money to the buyer as cash. Over x402
-    /// the merchant's server signs (it is the fee payer as well). The payment is the plain
+    /// x402 quote), still awaiting payment and inside its payment window.
+    /// `amount` and `request_hash` are the price and the request the buyer
+    /// agreed to, and the order must carry exactly those: what both parties
+    /// sign is the terms, not just the order's address. On the escrow build on
+    /// devnet a party can close an unpaid order and open another at the same
+    /// address within seconds, so without them a merchant holding a buyer's
+    /// signed buy_now could reprice the order before sending it, up to the
+    /// buyer's whole available credit. The merchant's signature is what makes
+    /// "the merchant opened it" true on every escrow build: the one on devnet
+    /// lets anyone open an order in a merchant's name, and an order the
+    /// merchant never accepted would never be delivered, so the escrow would
+    /// refund the pool's money to the buyer as cash. Over x402 the merchant's
+    /// server signs (it is the fee payer as well). The payment is the plain
     /// token transfer the escrow's `confirm_funded` looks for, and this
     /// instruction calls `confirm_funded` itself, right after the transfer, so
     /// the order is Funded before the instruction ends. Nobody, the buyer
@@ -114,7 +120,7 @@ pub mod tessera_paylater {
     /// is still owed: the buyer repays out of the refund. This version does
     /// not route refunds to the pool; that needs the escrow to know about
     /// loans, which it deliberately does not.
-    pub fn buy_now(ctx: Context<BuyNow>, loan_id: [u8; 32]) -> Result<()> {
+    pub fn buy_now(ctx: Context<BuyNow>, loan_id: [u8; 32], amount: u64, request_hash: [u8; 32]) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         let a = &ctx.accounts;
         let p = a.pool.params;
@@ -124,9 +130,10 @@ pub mod tessera_paylater {
         require_keys_eq!(order.buyer, a.buyer.key(), PayLaterError::NotTheBuyer);
         require_keys_eq!(order.merchant, a.merchant.key(), PayLaterError::NotTheMerchant);
         require_keys_eq!(order.mint, a.mint.key(), PayLaterError::MintMismatch);
+        require!(order.amount == amount, PayLaterError::PriceMismatch);
+        require!(order.request_hash == request_hash, PayLaterError::RequestMismatch);
         require!(order.state == tessera::state::OrderState::AwaitingPayment, PayLaterError::OrderNotAwaitingPayment);
-        require!(a.order_vault.amount < order.amount, PayLaterError::OrderAlreadyFunded);
-        let amount = order.amount;
+        require!(a.order_vault.amount < amount, PayLaterError::OrderAlreadyFunded);
         require!(amount >= p.min_loan, PayLaterError::AmountTooSmall);
 
         let cfg = read_config(&a.tessera_config)?;
@@ -187,7 +194,7 @@ pub mod tessera_paylater {
         loan.order = ctx.accounts.order.key();
         loan.amount = amount;
         loan.fee = fee;
-        loan.request_hash = order.request_hash;
+        loan.request_hash = request_hash;
         loan.state = LoanState::Open;
         loan.buyer_tier = buyer.tier;
         loan.buyer_score = buyer.score;

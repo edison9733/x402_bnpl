@@ -79,15 +79,21 @@ The a2a-x402 standalone flow, with three additions.
    plain HTTP) is `{ "x402Version": 2, "accepted": <that entry>, "payload": { "transaction": "<base64>" } }`
    where the transaction is a legacy or version-0 transaction with the merchant's `feePayer` as fee
    payer, holding exactly one `buy_now` of the pay-later program for this order, after at most one
-   compute unit limit (at most 400,000 units) and one unit price (at most 1,000,000 micro-lamports).
-   Its signers are exactly the fee payer, the buyer and the order's merchant (read-only; one wallet
-   when the merchant is its own fee payer), and only the buyer's signature is on it: `buy_now`
-   requires the order's merchant's signature as well as the buyer's, so the pool only pays orders
-   their merchant agreed to, and the merchant adds it. The merchant is its own facilitator: it
-   decodes the transaction, checks the signers, the program, the instruction, that every account of
-   the `buy_now` is the one this order derives (the order, its buyer, vault, merchant and mint among
-   them), that the buyer signed, then signs as fee payer and as the order's merchant, simulates and
-   sends; the receipt is the signature. The `buy_now` has the escrow confirm the order
+   compute unit limit (at most 400,000 units) and one unit price (at most 10,000 micro-lamports).
+   The `buy_now` is `buy_now(loan_id, amount, request_hash)`: it carries the quoted price and the
+   hash of the request, which the buyer verified on-chain, and the program refuses an order that does
+   not carry exactly those. Its signers are exactly the fee payer, the buyer and the order's merchant
+   (read-only; one wallet when the merchant is its own fee payer), each listed once, and only the
+   buyer's signature is on it: `buy_now` requires the order's merchant's signature as well as the
+   buyer's, so the pool only pays orders their merchant agreed to, and the merchant adds it. (Both
+   rules are in this source; the pay-later program on devnet is the older `61196cc` build, which has
+   neither until the next upgrade, see [PAYLATER.md](PAYLATER.md#limits).) The merchant is its own
+   facilitator: it reads the order at the quoted address and refuses one that is not the order it
+   opened (price, request hash, hold, rent payer, time opened), decodes the transaction, checks the
+   signers, the program, the instruction, that the `buy_now` carries the quoted price and request
+   hash and that every account of it is the one this order derives (the order, its buyer, vault,
+   merchant and mint among them), that the buyer signed, then signs as fee payer and as the order's
+   merchant, simulates and sends; the receipt is the signature. The `buy_now` has the escrow confirm the order
    itself, so the order is funded when it lands and there is no separate `confirm_funded`. A transaction that fails any check is refused before anything is signed (HTTP 400,
    `INVALID_PAYLOAD` over A2A). `paylater.buyNowForMerchant` in `@tessera/sdk` builds the
    transaction; `paylater.checkBuyNowTransaction` is the merchant's check.

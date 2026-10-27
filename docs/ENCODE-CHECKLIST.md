@@ -3,7 +3,7 @@
 Track: **Best Use of x402 on Solana**. Every rule below is quoted from the
 [hackathon page](https://www.encodeclub.com/programmes/solana-hackathon-2026), read on 22 October 2026.
 Code facts point to files in this repository. Written 22 October 2026; 17 days to the deadline.
-Ticked items carry the date they were done. Last update: 27 October 2026. **Pay later is on devnet
+Ticked items carry the date they were done. Last update: 28 October 2026. **Pay later is on devnet
 (27 Oct), upgraded the same day to the build with the CPI fix (`61196cc`, slot 515711875).**
 
 ## 0. Dates
@@ -51,12 +51,14 @@ FAQ: judged on "what has actually been built and works, technical depth, and how
 | Failure | Where it is handled today |
 |---|---|
 | The buyer refuses a 402 that asks more than its ceiling | [`apps/agents/src/http402.ts`](../apps/agents/src/http402.ts) lines 58–60 |
-| The facilitator rejects the payment, or settlement fails | [`apps/agents/src/facilitator.ts`](../apps/agents/src/facilitator.ts) lines 110–122 throw; the route answers with an error and no delivery, and the note "Do not pay again" ([`apps/agents/src/server.ts`](../apps/agents/src/server.ts) lines 311–315) |
+| The facilitator rejects the payment, or settlement fails | [`apps/agents/src/facilitator.ts`](../apps/agents/src/facilitator.ts) lines 110–122 throw; the route answers with an error and no delivery, and the note "Do not pay again" ([`apps/agents/src/server.ts`](../apps/agents/src/server.ts) lines 313–317) |
 | A quote is never paid | `cancel_unpaid`, [`programs/tessera/src/lib.rs`](../programs/tessera/src/lib.rs) line 377 |
-| Paid, and the merchant never delivers | `refund`, `lib.rs` line 298; the crank refunds at the deadline (`server.ts` lines 508–526) |
-| A pay-later header that fails verification (new) | `checkBuyNowTransaction`, [`packages/sdk/src/paylater/index.ts`](../packages/sdk/src/paylater/index.ts) lines 251–357; `settlePayLater`, [`apps/agents/src/paylater.ts`](../apps/agents/src/paylater.ts) lines 166–193 |
-| A pay-later loan not repaid (new) | `mark_default`, [`programs/tessera-paylater/src/lib.rs`](../programs/tessera-paylater/src/lib.rs) lines 271–286; the keeper, `apps/agents/src/paylater.ts` lines 222–241 |
-| A purchase on credit its merchant never agreed to (new) | `buy_now` requires the order's merchant's signature, [`programs/tessera-paylater/src/lib.rs`](../programs/tessera-paylater/src/lib.rs) line 504; the merchant's server adds it after its checks, `apps/agents/src/paylater.ts` lines 171 and 188–189. Not on devnet until the next upgrade (devnet runs the `61196cc` build) |
+| Paid, and the merchant never delivers | `refund`, `lib.rs` line 298; the crank refunds at the deadline (`server.ts` lines 531–549) |
+| A pay-later header that fails verification (new) | `checkBuyNowTransaction`, [`packages/sdk/src/paylater/index.ts`](../packages/sdk/src/paylater/index.ts) lines 292–406; `settlePayLater`, [`apps/agents/src/paylater.ts`](../apps/agents/src/paylater.ts) lines 200–230 |
+| A pay-later loan not repaid (new) | `mark_default`, [`programs/tessera-paylater/src/lib.rs`](../programs/tessera-paylater/src/lib.rs) lines 278–293; the keeper, `apps/agents/src/paylater.ts` lines 267–288 |
+| A purchase on credit its merchant never agreed to (new) | `buy_now` requires the order's merchant's signature, [`programs/tessera-paylater/src/lib.rs`](../programs/tessera-paylater/src/lib.rs) line 511; the merchant's server adds it after its checks, `apps/agents/src/paylater.ts` lines 205 and 225–226. Not on devnet until the next upgrade (devnet runs the `61196cc` build) |
+| A merchant reprices the order behind the buyer's signed `buy_now` (new) | `buy_now(loan_id, amount, request_hash)` refuses an order whose price or request hash is not the one the buyer signed for, `lib.rs` lines 133–134; the merchant's check requires the quoted ones, `index.ts` (`checkBuyNowTransaction`). Not on devnet until the next upgrade |
+| A buyer swaps the order at the quoted address (new) | `quotedOrderRefusal`, [`packages/sdk/src/verify.ts`](../packages/sdk/src/verify.ts); the merchant compares before signing (`apps/agents/src/merchant.ts` lines 618–621) and before confirming or delivering (lines 652–653, 688–689) |
 
 - [x] (2026-10-27) README section "Failed payments" listing these cases (all seven, with file:line).
 - [ ] One segment of the video showing at least one of them live.
@@ -89,13 +91,13 @@ Only work done from now to 8 November is judged.
   step. Upgraded on 27 Oct to the build with the CPI fix (`61196cc`, slot 515711875); the deployed bytes
   hash the same as a local build of that commit.
 - [x] (2026-10-27) **Keep the x402 flow visible end to end.** The track wants "a payment request, payment verification
-  or settlement on Solana, and delivery of the requested resource." The route at `server.ts` lines 282–317
+  or settlement on Solana, and delivery of the requested resource." The route at `server.ts` lines 284–319
   does this today. The new feature must not bypass it. It does not: pay later is one more `accepts`
   entry in the same 402, settled by the same route (`merchant.ts` `work()`), confirmed by the same
   `confirm_funded` (which `buy_now` calls itself), delivered the same way. The buyer signs the
   `buy_now`; the merchant's server checks it and adds its two signatures, as fee payer and as the
   order's merchant, which `buy_now` requires so the pool only pays orders their merchant agreed to.
-  `npm run test:paylater-402` (63 checks) runs it end to end.
+  `npm run test:paylater-402` (68 checks) runs it end to end.
 - [ ] **Reliability.** Run the full flow on devnet many times before recording. Version 1 has 230 measured
   purchases ([deployments/snapshot.json](../deployments/snapshot.json), a version 1 record of the version 1
   agents, whose keys are lost but whose history is still on chain); produce a fresh measurement for 2.0
@@ -114,7 +116,7 @@ Only work done from now to 8 November is judged.
 | Dates | Goal |
 |---|---|
 | 22–23 Oct | Section 1 done; toolchain fixed; scope frozen (toolchain and scope done 27 Oct; the sign-in and project creation in section 1 are still unticked) |
-| 24–31 Oct | Feature built and deployed to devnet; tests passing (built and tested 27 Oct: `test:paylater` 87/87, `test:paylater-402` 58/58; deployed to devnet and upgraded with the CPI fix 27 Oct; then `buy_now` made to require the merchant's signature, `test:paylater` 93/93 and 94/94 on the devnet escrow's bytes, `test:paylater-402` 63/63, not yet on devnet) |
+| 24–31 Oct | Feature built and deployed to devnet; tests passing (built and tested 27 Oct: `test:paylater` 87/87, `test:paylater-402` 58/58; deployed to devnet and upgraded with the CPI fix 27 Oct; then `buy_now` made to require the merchant's signature, `test:paylater` 93/93 and 94/94 on the devnet escrow's bytes, `test:paylater-402` 63/63, not yet on devnet; 28 Oct, `buy_now` made to carry the agreed price and request hash, the server to check the order at its quoted address, repaid loans and settled orders closed for their rent: `test:paylater` 101/101 and 103/103 on the devnet escrow's bytes, `test:paylater-402` 68/68 and 72/72, `test:formula` 55/55, not yet on devnet) |
 | 1 Nov | Mid-submission on the platform |
 | 2–5 Nov | Failure demo, docs, site, reliability runs |
 | 6–7 Nov | Record and cut the video; final README read-through |

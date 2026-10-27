@@ -14,6 +14,10 @@
  *   tessera buy-later --order <order> --keypair PATH --merchant-keypair PATH [--send]
  *   tessera repay <loan> --keypair PATH [--send]
  *   tessera repay --all --keypair PATH [--send]      every loan still owed, in one transaction
+ *
+ * A repayment closes the loan it clears in the same transaction
+ * (`close_loan`, right after `repay`), so the buyer gets the loan account's
+ * rent back; its credit line keeps the record.
  *   tessera mark-default <loan> --keypair PATH [--send]
  */
 import {
@@ -61,8 +65,9 @@ export const PAYLATER_HELP = `Pay later (reads the chain itself; no API)
                                                  the same for an escrow order you already hold a quote for, sent by
                                                  you: buy_now needs the order's merchant's signature too, so this
                                                  is for a local world where you hold its key (paylater:local)
-  repay <loan> --keypair PATH [--send]           pay a loan back in full (anyone may repay for the buyer)
-  repay --all --keypair PATH [--send]            pay every loan you still owe, in one transaction
+  repay <loan> --keypair PATH [--send]           pay a loan back in full (anyone may repay for the buyer); the loan
+                                                 is closed in the same transaction and its rent goes back to the buyer
+  repay --all --keypair PATH [--send]            pay every loan you still owe, in one transaction, closing each one
   mark-default <loan> --keypair PATH [--send]    anyone, once a loan is past its due date and grace period`;
 
 const TIERS = ['New', 'Building', 'Established', 'Trusted'] as const;
@@ -90,8 +95,18 @@ type Opts = {
   die: (m: string) => never;
 };
 
-/** Repay instructions per transaction: each adds one loan account, so a tab of this size fits a v0 transaction comfortably. */
+/**
+ * Loans repaid per transaction. Each adds one loan account and two
+ * instructions (`repay`, then `close_loan`, which returns the loan's rent to
+ * the buyer), so a tab of this size fits a v0 transaction comfortably.
+ */
 const REPAYS_PER_TX = 8;
+
+/** Repay a loan and close it: `close_loan` runs once `repay` has marked it repaid, so both go in one transaction. */
+async function repayAndClose(mint: Address, loan: Address, buyer: Address, payer: KeyPairSigner): Promise<Instruction[]> {
+  const [line, payerToken] = await Promise.all([paylater.linePdaOf(buyer), findAta(payer.address, mint)]);
+  return [await paylater.getRepayInstructionAsync({ mint, loan, line, payer, payerToken }), paylater.getCloseLoanInstruction({ loan, buyer })];
+}
 
 export async function payLater(cmd: string, a1: string | undefined, a2: string | undefined, o: Opts): Promise<void> {
   const rpc = createSolanaRpc(o.rpcUrl);
@@ -202,11 +217,10 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     const total = owedTotal(tab);
     console.log(`tab for ${short(kp.address)}: ${tab.length} loan${tab.length === 1 ? '' : 's'}, ${usdc(total)} owed`);
     for (const { address: a, data: d } of tab) console.log(describeOwed(a, d, now));
-    const [line, payerToken] = await Promise.all([paylater.linePdaOf(kp.address), findAta(kp.address, pool.data.mint)]);
-    const ixs = await Promise.all(tab.map(({ address: loan }) => paylater.getRepayInstructionAsync({ mint: pool.data.mint, loan, line, payer: kp, payerToken })));
-    const batches = Math.ceil(ixs.length / REPAYS_PER_TX);
-    console.log(`REPAY ALL  ${usdc(total)} in ${batches === 1 ? 'one transaction' : `${batches} transactions`}`);
-    for (let i = 0; i < ixs.length; i += REPAYS_PER_TX) await sendOrPrint(kp, ixs.slice(i, i + REPAYS_PER_TX));
+    const each = await Promise.all(tab.map(({ address: loan }) => repayAndClose(pool.data.mint, loan, kp.address, kp)));
+    const batches = Math.ceil(each.length / REPAYS_PER_TX);
+    console.log(`REPAY ALL  ${usdc(total)} in ${batches === 1 ? 'one transaction' : `${batches} transactions`}; each loan is closed and its rent comes back to you`);
+    for (let i = 0; i < each.length; i += REPAYS_PER_TX) await sendOrPrint(kp, each.slice(i, i + REPAYS_PER_TX).flat());
     return;
   }
 
@@ -240,7 +254,8 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     if (amount > b.available) o.die(`${usdc(amount)} is above your available credit (${usdc(b.available)})`);
     if (m.tier < p.minMerchantTier) o.die(`the pool only funds orders from merchants at ${TIERS[p.minMerchantTier]} or above`);
     const fee = paylater.feeOf(amount, p);
-    const { loan, instructions } = await paylater.buyOrderOnCredit(rpc, kp, orderAddr, merchantKp);
+    // The price and request just shown and checked ride in the buy_now.
+    const { loan, instructions } = await paylater.buyOrderOnCredit(rpc, kp, orderAddr, merchantKp, { amount, requestHash: d.requestHash });
     console.log(`BUY NOW  ${usdc(amount)}: the pool pays the escrow vault and the order is confirmed funded; the escrow pays the merchant on delivery`);
     console.log(`you repay ${usdc(amount + fee)} (${usdc(amount)} + ${usdc(fee)} pool fee) within ${p.termSecs} s, no interest`);
     console.log(`loan ${loan}`);
@@ -261,22 +276,17 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     console.log(`loan ${short(loanAddr)}  buyer ${short(d.buyer)}  owes ${usdc(owes)}  ${wait < 0n ? `${-left} s past due, grace over` : `grace ends in ${wait + 1n} s`}`);
     return sendOrPrint(kp, [await paylater.getMarkDefaultInstructionAsync({ loan: loanAddr, line: await paylater.linePdaOf(d.buyer) })]);
   }
-  console.log(`loan ${short(loanAddr)}  ${STATE[d.state]}  owes ${usdc(owes)} (${usdc(d.amount)} + ${usdc(d.fee)} fee)  ${left >= 0n ? `due in ${left} s: on time` : `${-left} s late`}`);
-  const ix = await paylater.getRepayInstructionAsync({
-    mint: pool.data.mint,
-    loan: loanAddr,
-    line: await paylater.linePdaOf(d.buyer),
-    payer: kp,
-    payerToken: await findAta(kp.address, pool.data.mint),
-  });
-  return sendOrPrint(kp, [ix]);
+  console.log(`loan ${short(loanAddr)}  ${STATE[d.state]}  owes ${usdc(owes)} (${usdc(d.amount)} + ${usdc(d.fee)} fee)  ${left >= 0n ? `due in ${left} s: on time` : `${-left} s late`}; closed once repaid, its rent back to ${short(d.buyer)}`);
+  return sendOrPrint(kp, await repayAndClose(pool.data.mint, loanAddr, d.buyer, kp));
 
   /**
    * The whole purchase over x402, on credit. The merchant's URL is the base
    * its agent card and `/x402/<skill>` hang off (the card's own URL is
    * accepted too). Nothing the merchant sends is trusted: the price is capped
    * by what its card advertises, the order is read from the chain and checked
-   * against what was asked, and the only thing signed is one buy_now for it.
+   * against what was asked, and the only thing signed is one buy_now for it,
+   * carrying that price and request hash, which the program requires the
+   * order to match when it runs.
    * The merchant adds its signatures (fee payer, and the order's merchant,
    * which buy_now requires) and sends it.
    */
@@ -351,7 +361,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
 
     // 3. Sign one buy_now for it, with the merchant's wallet as fee payer, and hand it over:
     //    the merchant signs it as fee payer and as the order's merchant, and sends it.
-    const built = await paylater.buyNowForMerchant(rpc, kp, verified.order, feePayer);
+    const built = await paylater.buyNowForMerchant(rpc, kp, verified.order, feePayer, { amount, requestHash: expected.requestHash });
     const payload = { x402Version: 2, accepted: option, payload: { transaction: built.transaction } };
     console.log(`BUY LATER  signed buy_now for ${short(verified.order)}; the merchant adds its signature, pays the network fee and sends it`);
     const second = await get(askUrl, { 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify(payload), 'utf8').toString('base64') });

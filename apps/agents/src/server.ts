@@ -30,6 +30,7 @@ import { chainNow, clientForSigner, forgetEnvKeys, loadKeypair, sleep, tokenHelp
 import { agentCard, handleRpc } from './a2a.js';
 import {
   closeOrder,
+  closeSettledOrders,
   findOrders,
   getConfig,
   OrderState,
@@ -38,6 +39,7 @@ import {
   release,
   resolveDispute,
   send,
+  solBalance,
   submitReview,
   cancelUnpaid,
   type Actor,
@@ -379,6 +381,7 @@ app.post('/api/orders/:order/fulfil', fulfilLimit, async (req, res) => {
 // Devnet only: a little SOL and test USDC so a visitor (or the site's
 // built-in test wallet) can try a purchase without hunting for a faucet.
 const DRIP_USDC = 800_000n;
+const DRIP_LAMPORTS = 20_000_000n;
 const dripped = new Set<string>();
 const dripping = new Set<string>();
 /** When each drip in the last hour was handed out, or has been promised: a slot is taken before the first await. */
@@ -420,11 +423,24 @@ app.post('/api/faucet', faucetLimit, taking, async (req, res) => {
     dripping.add(to);
     slot = Date.now();
     drips.push(slot);
+    // The ops wallet also fronts every quote's rent and pays the fees that
+    // settle orders and buy on credit: the faucet never takes it below the
+    // floor that keeps those going. A drip costs the SOL sent, the new
+    // token account's rent and the fee (0.01 SOL covers the last two).
+    const held = await solBalance(ops, ops.identity.address);
+    const floor = BigInt(config.faucetSolFloorLamports);
+    if (held < floor + DRIP_LAMPORTS + 10_000_000n) {
+      if (slot !== undefined) drips.splice(drips.indexOf(slot), 1);
+      slot = undefined;
+      return void res.status(503).json({
+        error: `the demo faucet is paused: the server's ops wallet holds ${(Number(held) / 1e9).toFixed(4)} SOL and keeps at least ${(Number(floor) / 1e9).toFixed(2)} SOL to front escrow rent for quotes and pay settlement fees. Get devnet SOL at faucet.solana.com and test USDC at faucet.circle.com`,
+      });
+    }
     const cfg = await getConfig(ops);
     const tok = tokenHelpers(ops, cfg.mint);
     await refillFaucet(tok);
     const signature = await send(ops, [
-      getTransferSolInstruction({ source: ops.identity, destination: to, amount: lamports(20_000_000n) }),
+      getTransferSolInstruction({ source: ops.identity, destination: to, amount: lamports(DRIP_LAMPORTS) }),
       await tok.ensureAtaIx(to),
       await tok.transferIx(ops, await tok.ata(to), DRIP_USDC),
     ]);
@@ -466,6 +482,13 @@ function failed(order: string, what: string, e: unknown): void {
 }
 const backedOff = (order: string) => (failures.get(order)?.until ?? 0) > Date.now();
 
+/**
+ * Disputed orders whose arbiter is not this server's key. On devnet's escrow
+ * build only the order's own arbiter may rule and that key is lost, so such
+ * an order stays Disputed for good: it is noted once and not read again.
+ */
+const foreignDisputes = new Set<string>();
+
 /** The orders we paid the rent for that are Funded or Disputed, looked up at most every 10 s. */
 let scanned: { at: number; funded: Decoded<Order>[]; disputed: Decoded<Order>[] } | undefined;
 async function scan(): Promise<NonNullable<typeof scanned>> {
@@ -487,7 +510,7 @@ async function crank(now: bigint): Promise<void> {
   // A dispute is judged as soon as it is seen, not when the hold would have ended.
   for (const { address: order, data: o } of disputed) {
     const m = byWallet.get(o.merchant);
-    if (m && !m.pending.has(order)) m.pending.set(order, 0);
+    if (m && !m.pending.has(order) && !foreignDisputes.has(order)) m.pending.set(order, 0);
   }
 
   for (const m of merchants.values()) {
@@ -537,8 +560,10 @@ async function tendPending(m: MerchantAgent, order: string, now: bigint, reviewS
   }
   if (o && o.state === OrderState.Disputed) {
     if (o.arbiter !== arbiter.identity.address) {
-      // Not ours to judge (the arbiter was changed): leave it to whoever it names, or to the program's fallback.
-      console.warn(`[arbiter] ${order.slice(0, 8)} names another arbiter; not ruling on it`);
+      // Not ours to judge (the arbiter was changed): leave it to whoever it
+      // names, or to the program's fallback, and do not look at it again.
+      if (!foreignDisputes.has(order)) console.warn(`[arbiter] ${order.slice(0, 8)} names another arbiter; not ruling on it, and not reading it again`);
+      foreignDisputes.add(order);
       m.pending.delete(order);
       return;
     }
@@ -596,7 +621,8 @@ async function arbitrate(m: MerchantAgent, order: string, o: Order): Promise<voi
  * An instant order the buyer never rated keeps counting against the
  * merchant's instant limit until its review window ends and someone closes
  * it. `close_order` is permissionless, so this is one more public crank.
- * Orders that were held, or rated, are left in place as history.
+ * This one closes such orders whoever paid their rent; every other settled
+ * order this server paid the rent for is closed by `sweep`, for the rent.
  *
  * Only the instant orders this server knows of are looked at (the ones it
  * delivered, and the ones found when it started), not every order in the
@@ -631,9 +657,13 @@ async function season(): Promise<void> {
 /**
  * Orders we paid the rent for that nobody is looking after: quotes left
  * unpaid whose in-memory record is gone (state lost, or opened by an earlier
- * run), whose rent and anything paid in comes back; and cancelled orders,
- * which the program keeps as tombstones (so the order id cannot be reused)
- * until the payment window has passed again, and are then closed for their rent. The live quotes are the merchants' own.
+ * run), whose rent and anything paid in comes back; cancelled orders, which
+ * the program keeps as tombstones (so the order id cannot be reused) until
+ * the payment window has passed again, and are then closed for their rent;
+ * and settled orders (Released, Refunded, Resolved) once their review window
+ * is over (the complaint window, for an instant order the buyer complained
+ * about), closed for their rent too, up to 25 a pass. The live quotes are the
+ * merchants' own. A Disputed order is never closed.
  */
 async function sweep(): Promise<void> {
   const cfg = await getConfig(ops);
@@ -661,6 +691,8 @@ async function sweep(): Promise<void> {
     }
   }
   if (cancelled || closed) console.log(`[crank] cancelled ${cancelled} unpaid quote(s) past their payment window; closed ${closed} cancelled order(s) for their rent`);
+  const settled = await closeSettledOrders(ops, cfg, now, { max: 25, skip: backedOff, onFail: (order, e) => failed(order, 'close', e) });
+  if (settled.length) console.log(`[crank] closed ${settled.length} settled order(s) past their review window; their rent is back with the ops wallet`);
   // evidence nobody can dispute any more
   const dropped = pruneEvidence(cfg);
   if (dropped) console.log(`[crank] dropped ${dropped} old deliveries from the evidence file`);

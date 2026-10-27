@@ -16,6 +16,8 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
+  getU64Decoder,
+  getU64Encoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
   SolanaError,
   transformEncoder,
@@ -134,15 +136,23 @@ export type BuyNowInstruction<
 export type BuyNowInstructionData = {
   discriminator: ReadonlyUint8Array;
   loanId: ReadonlyUint8Array;
+  amount: bigint;
+  requestHash: ReadonlyUint8Array;
 };
 
-export type BuyNowInstructionDataArgs = { loanId: ReadonlyUint8Array };
+export type BuyNowInstructionDataArgs = {
+  loanId: ReadonlyUint8Array;
+  amount: number | bigint;
+  requestHash: ReadonlyUint8Array;
+};
 
 export function getBuyNowInstructionDataEncoder(): FixedSizeEncoder<BuyNowInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["loanId", fixEncoderSize(getBytesEncoder(), 32)],
+      ["amount", getU64Encoder()],
+      ["requestHash", fixEncoderSize(getBytesEncoder(), 32)],
     ]),
     (value) => ({ ...value, discriminator: BUY_NOW_DISCRIMINATOR }),
   );
@@ -152,6 +162,8 @@ export function getBuyNowInstructionDataDecoder(): FixedSizeDecoder<BuyNowInstru
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["loanId", fixDecoderSize(getBytesDecoder(), 32)],
+    ["amount", getU64Decoder()],
+    ["requestHash", fixDecoderSize(getBytesDecoder(), 32)],
   ]);
 }
 
@@ -222,6 +234,8 @@ export type BuyNowAsyncInput<
   tokenProgram?: TAccountTokenProgram;
   systemProgram?: TAccountSystemProgram;
   loanId: BuyNowInstructionDataArgs["loanId"];
+  amount: BuyNowInstructionDataArgs["amount"];
+  requestHash: BuyNowInstructionDataArgs["requestHash"];
 };
 
 export async function getBuyNowInstructionAsync<
@@ -658,6 +672,8 @@ export type BuyNowInput<
   tokenProgram?: TAccountTokenProgram;
   systemProgram?: TAccountSystemProgram;
   loanId: BuyNowInstructionDataArgs["loanId"];
+  amount: BuyNowInstructionDataArgs["amount"];
+  requestHash: BuyNowInstructionDataArgs["requestHash"];
 };
 
 export function getBuyNowInstruction<

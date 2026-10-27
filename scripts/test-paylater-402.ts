@@ -13,6 +13,15 @@
  *   - the same purchase through the CLI (`tessera buy-later <url> <skill>`),
  *     through the buyer agent over A2A (`--pay-later`) and through the
  *     plain-HTTP buyer script (`npm run buy:http -- --pay-later`);
+ *   - the buy_now carries the quoted price and request hash, and the merchant
+ *     refuses one carrying another;
+ *   - repay --all closes the loans it repays, so the buyer gets their rent
+ *     back;
+ *   - where the escrow lets a buyer close the merchant's quote and open
+ *     another order at its address in the merchant's name (the build on
+ *     devnet, ESCROW_SO), the server compares the order at the quoted address
+ *     with its quote and signs for none of them: not at a lower price, not at
+ *     the quoted price with a hold of the buyer's choosing;
  *   - a New wallet is told it is not eligible, so is a buyer at a New
  *     merchant, and a forged header (no credit, another order, another fee
  *     payer, an extra instruction, a cancel_unpaid after the buy_now, a
@@ -26,10 +35,15 @@
  *     buyer, the order's merchant), confirms the order itself (no separate
  *     confirm_funded), and the compute units it used leave at least 30% of
  *     BUY_NOW_COMPUTE_UNITS spare;
+ *   - the demo faucet will not take the ops wallet, which fronts quote rent
+ *     and pays settlement fees, below its floor, and says so;
  *   - the server's keeper marks a loan in default once its grace period has
  *     passed, and the buyer's line is frozen.
  *
  *   npm run build:program && npm run test:paylater-402
+ *
+ * ESCROW_SO=<path> runs it against another build of the escrow program, such
+ * as the one deployed on devnet.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -63,6 +77,7 @@ import {
   fetchAgent,
   fetchConfig,
   fetchOrder,
+  fromHex,
   fromUnits,
   getCancelUnpaidInstructionAsync,
   getConfirmFundedInstructionAsync,
@@ -151,7 +166,7 @@ function eq(label: string, actual: unknown, expected: unknown): void {
 }
 
 const so = (name: string) => {
-  const p = resolve(REPO_ROOT, `target/deploy/${name}.so`);
+  const p = name === 'tessera' && process.env.ESCROW_SO ? resolve(process.env.ESCROW_SO) : resolve(REPO_ROOT, `target/deploy/${name}.so`);
   if (!existsSync(p)) throw new Error(`${p} is missing: run \`npm run build:program\` first`);
   return p;
 };
@@ -201,6 +216,11 @@ async function get(path: string, headers: Record<string, string> = {}): Promise<
   return { status: res.status, headers: res.headers, body: (await res.json().catch(() => ({}))) as Record<string, any> };
 }
 const header = (payload: unknown) => ({ 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify(payload), 'utf8').toString('base64') });
+/** The terms a buyer agrees to from a 402: the quoted price and the hash of its request, as the merchant put them in its escrow terms. */
+const quotedTerms = (r: Required402): paylater.BuyNowTerms => ({
+  amount: BigInt(r.accepts.find((a) => a.scheme === paylater.X402_SCHEME)!.amount),
+  requestHash: fromHex(String(r.extensions.tessera.requestHash)),
+});
 const decodeReceipt = (h: string | null) => (h ? (JSON.parse(Buffer.from(h, 'base64').toString('utf8')) as { success: boolean; transaction: string; payer?: string }) : null);
 
 try {
@@ -327,6 +347,11 @@ try {
       TESSERA_DATA_DIR: datadir,
       CRANK_MS: '2000',
       KEEPER_MS: '3000',
+      // Every quote here is for a handful of wallets from one address.
+      MAX_UNPAID_PER_BUYER: '10',
+      MAX_UNPAID_PER_CLIENT: '20',
+      // The ops wallet holds 20 SOL here: a floor above that, so the faucet's refusal can be seen.
+      FAUCET_SOL_FLOOR_LAMPORTS: String(100n * 1_000_000_000n),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,
@@ -374,7 +399,7 @@ try {
   const order1 = r1.extensions.tessera.order as Address;
   const buyerUsdc = await tok.balance(B);
   const poolBefore = await tok.balance(pool);
-  const built1 = await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, order1, ops);
+  const built1 = await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, order1, ops, quotedTerms(r1));
   const payload1 = { x402Version: 2, accepted: credit1, payload: { transaction: built1.transaction } };
   const paid1 = await get(`/agents/atlas/x402/telemetry`, header(payload1));
   eq('GET with the PAYMENT-SIGNATURE header is 200', paid1.status, 200, );
@@ -448,8 +473,15 @@ try {
 
   // ------------------------------------------------------- 5. repay --all
   log.step('5. repay --all clears the tab');
+  const tabB = paylater.owed(await paylater.fetchLoansOf(rpc, B));
+  const solB = (await rpc.getBalance(B).send()).value;
+  const loanRent = await rpc.getMinimumBalanceForRentExemption(BigInt(paylater.getLoanSize())).send();
   const repaid = await cli(['repay', '--all', '--keypair', buyerKey, '--send']);
   ok('one transaction repaid both loans', repaid.status === 0 && /2 loans, 0\.408 USDC owed/.test(repaid.stdout) && /in one transaction/.test(repaid.stdout) && /confirmed:/.test(repaid.stdout), repaid.stdout + repaid.stderr);
+  eq('and closed both: the loan accounts are gone, their rent back with the buyer less one network fee', [
+    await Promise.all(tabB.map(async (l) => (await rpc.getAccountInfo(l.address).send()).value)),
+    (await rpc.getBalance(B).send()).value - solB,
+  ], [[null, null], 2n * loanRent - 5_000n]);
   const lineAfter = await paylater.fetchMaybeCreditLine(rpc, await paylater.linePdaOf(B));
   eq('nothing outstanding, two on-time repayments', lineAfter.exists && [lineAfter.data.outstanding, lineAfter.data.repaidOnTime, lineAfter.data.openLoans], [0n, 2, 0]);
   const creditAfter = await cli(['credit', B]);
@@ -464,7 +496,7 @@ try {
   const offerF = creditF?.extra as paylater.PayLaterOffer | undefined;
   ok('the 402 still offers the scheme, with eligible false and why', qF.status === 402 && offerF?.eligible === false && offerF.buyerLimit === '0' && /no credit yet/.test(offerF.reason ?? ''), offerF);
   const orderF = rF.extensions.tessera.order as Address;
-  const forgedF = await paylater.buyNowForMerchant(fresh.rpc, fresh.identity, orderF, ops);
+  const forgedF = await paylater.buyNowForMerchant(fresh.rpc, fresh.identity, orderF, ops, quotedTerms(rF));
   const triedF = await get(`/agents/atlas/x402/telemetry`, header({ x402Version: 2, accepted: creditF, payload: { transaction: forgedF.transaction } }));
   ok('a well-formed buy_now from a New wallet is refused by the program in simulation: 400, no "do not pay again" note', triedF.status === 400 && /CreditLimitExceeded/.test(triedF.body.error ?? '') && triedF.body.note === undefined, triedF.body);
   ok('nothing moved: the order is still awaiting payment, its vault empty, and the wallet has no loan', (await fetchOrder(rpc, orderF)).data.state === OrderState.AwaitingPayment && (await tok.balance(orderF)) === 0n && (await paylater.fetchLoansOf(rpc, F)).length === 0);
@@ -486,11 +518,12 @@ try {
     ok(label, r.status === 400 && pattern.test(r.body.error ?? '') && r.body.note === undefined, r.body);
   };
   // buy_now for order B, presented as the payment for order A
-  await forged('a buy_now for another order of the same buyer', (await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderB, ops)).transaction, /funds order .* not /);
+  await forged('a buy_now for another order of the same buyer', (await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderB, ops, quotedTerms(rB))).transaction, /funds order .* not /);
   const { value: latest } = await rpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
   // The merchant's signature is the server's to add: a forger can only leave its place empty.
   const atlasNoop = createNoopSigner(atlas.identity.address);
-  const buyNowA = await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant: atlasNoop, order: orderA, loanId: newOrderId() });
+  const termsA = quotedTerms(rA);
+  const buyNowA = await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant: atlasNoop, order: orderA, loanId: newOrderId(), ...termsA });
   /** The buyer's own signature on these instructions, with the merchant's wallet as fee payer: what a forger would hand over. */
   const forgeWith = async (ixs: Instruction[]) =>
     getBase64EncodedWireTransaction(
@@ -533,7 +566,12 @@ try {
   await forged('a second compute unit limit', twice, /more than one compute unit limit/);
   // a priority fee one micro-lamport over the cap
   const pricey = await forgeWith([getSetComputeUnitPriceInstruction({ microLamports: paylater.MAX_CU_PRICE + 1n }), buyNowA]);
-  await forged('a priority fee above MAX_CU_PRICE', pricey, /priority fee of 1000001 micro-lamports/);
+  await forged('a priority fee above MAX_CU_PRICE', pricey, new RegExp(`priority fee of ${paylater.MAX_CU_PRICE + 1n} micro-lamports`));
+  // the price and the request ride in the buy_now: the quoted ones, or the merchant does not sign
+  const cheapA = await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant: atlasNoop, order: orderA, loanId: newOrderId(), ...termsA, amount: 1_000n });
+  await forged('a buy_now carrying a lower price than the quote', await forgeWith([cheapA]), /a price of 1000 units, not the 200000 quoted/);
+  const otherA = await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant: atlasNoop, order: orderA, loanId: newOrderId(), ...termsA, requestHash: new Uint8Array(32) });
+  await forged('a buy_now carrying another request hash than the quote', await forgeWith([otherA]), /another request hash/);
   // the buyer's own cancel of the quote after the buy_now: the cash-out the review found
   const cancelA = await getCancelUnpaidInstructionAsync({ order: orderA, mint, payer: ops, authority: buyer.identity, buyerToken: await tok.ata(B) });
   await forged('a buy_now followed by a cancel_unpaid of the same order', await forgeWith([buyNowA, cancelA]), new RegExp(`an instruction for ${TESSERA_PROGRAM_ADDRESS}`));
@@ -553,9 +591,9 @@ try {
   const filler = new Uint8Array(64).fill(7) as unknown as (typeof prefilled.signatures)[Address];
   await forged('a signature already in the merchant\'s place', getBase64EncodedWireTransaction({ ...prefilled, signatures: { ...prefilled.signatures, [atlas.identity.address]: filler } }), /already carries a signature for/);
   // an accepted entry the merchant never quoted: nothing of it is sent, so 400 and no note
-  await forged('an accepted entry that was not quoted (another price)', (await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderA, ops)).transaction, /any option that was quoted/, { ...creditA, amount: '1' });
+  await forged('an accepted entry that was not quoted (another price)', (await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderA, ops, termsA)).transaction, /any option that was quoted/, { ...creditA, amount: '1' });
   // a buy_now the buyer never signed
-  const buyNowNoop = await paylater.getBuyNowInstructionAsync({ mint, buyer: createNoopSigner(B), merchant: atlasNoop, order: orderA, loanId: newOrderId() });
+  const buyNowNoop = await paylater.getBuyNowInstructionAsync({ mint, buyer: createNoopSigner(B), merchant: atlasNoop, order: orderA, loanId: newOrderId(), ...termsA });
   const unsigned = await partiallySignTransactionMessageWithSigners(
     pipe(
       createTransactionMessage({ version: 0 }),
@@ -569,11 +607,63 @@ try {
   ok('a payload with no transaction in it', empty.status === 400 && /payload\.transaction/.test(empty.body.error ?? '') && empty.body.note === undefined, empty.body);
   const garbage = await get(`/agents/atlas/x402/telemetry`, header({ x402Version: 2, accepted: creditA, payload: { transaction: 'not a transaction' } }));
   ok('a transaction that does not decode', garbage.status === 400 && /cannot be decoded/.test(garbage.body.error ?? '') && garbage.body.note === undefined, garbage.body);
-  ok('none of them opened a loan or paid the orders', (await paylater.fetchLoansOf(rpc, B)).length === 2 && (await tok.balance(orderA)) === 0n && (await tok.balance(orderB)) === 0n);
+  ok('none of them opened a loan or paid the orders', (await paylater.fetchLoansOf(rpc, B)).length === 0 && (await tok.balance(orderA)) === 0n && (await tok.balance(orderB)) === 0n);
+
+  // ---------------------------- 6b. an order swapped in at the quoted address
+  log.step('6b. The server signs only for the order it opened at the quoted address');
+  /**
+   * The buyer cancels a quote and opens another order at its address (the
+   * same id), in atlas's name without atlas's signature, paying the rent
+   * itself. Returns false where the escrow refuses that (the current source
+   * asks for the merchant's signature and keeps a cancelled order's address).
+   */
+  const swap = async (r: Required402, amount: bigint, minHoldSecs: number, hash: Uint8Array): Promise<boolean> => {
+    const order = r.extensions.tessera.order as Address;
+    await buyer.sendTransaction([await getCancelUnpaidInstructionAsync({ order, mint, payer: ops, authority: buyer.identity })]);
+    const open = await getOpenOrderInstructionAsync({
+      mint, buyer: B, merchant: atlasNoop, payer: buyer.identity, orderId: fromHex(String(r.extensions.tessera.orderId)), amount, requestHash: hash, minHoldSecs,
+    });
+    const unsigned = { ...open, accounts: open.accounts.map((a) => (a.address === atlas.identity.address ? { address: a.address, role: AccountRole.READONLY } : a)) };
+    return buyer.sendTransaction([unsigned]).then(
+      () => true,
+      () => false,
+    );
+  };
+  const rS1 = (await get(`/agents/atlas/x402/telemetry?buyer=${B}`)).body as Required402;
+  const rS2 = (await get(`/agents/atlas/x402/telemetry?buyer=${B}`)).body as Required402;
+  const orderS1 = rS1.extensions.tessera.order as Address;
+  const orderS2 = rS2.extensions.tessera.order as Address;
+  if (await swap(rS1, 1_000n, 0, new Uint8Array(32).fill(3))) {
+    log.info('this escrow build lets a buyer cancel a quote and open another order at its address in the merchant\'s name (the build on devnet)');
+    const s1 = (await fetchOrder(rpc, orderS1)).data;
+    eq('the buyer reopened atlas\'s quoted order id at 0.001 USDC, in atlas\'s name, paying the rent itself', [s1.merchant, s1.amount, s1.payer], [atlas.identity.address, 1_000n, B]);
+    const cheap = await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderS1, ops, { amount: 1_000n, requestHash: s1.requestHash });
+    const credit1S = rS1.accepts.find((a) => a.scheme === paylater.X402_SCHEME)!;
+    const triedS1 = await get(`/agents/atlas/x402/telemetry`, header({ x402Version: 2, accepted: credit1S, payload: { transaction: cheap.transaction } }));
+    ok('the server refuses to sign a buy_now for it: 400, the order at the address is not the one quoted (its price)', triedS1.status === 400 && /not the one this merchant quoted \(its price is 1000 units/.test(triedS1.body.error ?? ''), triedS1.body);
+    // The same price and request as the quote, but a hold of a day of the buyer's choosing: still not atlas's order.
+    eq('a second quote reopened at the quoted price and request, with a day-long hold', await swap(rS2, price, 86_400, quotedTerms(rS2).requestHash as Uint8Array), true);
+    const held = await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderS2, ops, quotedTerms(rS2));
+    const credit2S = rS2.accepts.find((a) => a.scheme === paylater.X402_SCHEME)!;
+    const triedS2 = await get(`/agents/atlas/x402/telemetry`, header({ x402Version: 2, accepted: credit2S, payload: { transaction: held.transaction } }));
+    ok('the server refuses that one too: its hold is not the quoted one', triedS2.status === 400 && /not the one this merchant quoted \(its hold is 86400 s/.test(triedS2.body.error ?? ''), triedS2.body);
+    ok('neither opened a loan or paid the orders', (await paylater.fetchLoansOf(rpc, B)).length === 0 && (await tok.balance(orderS1)) === 0n && (await tok.balance(orderS2)) === 0n);
+  } else {
+    log.info('this escrow build refuses an order in a merchant\'s name that the merchant did not sign, and keeps a cancelled order\'s address (the current source)');
+    ok('the escrow refused the buyer\'s order at the quoted address: the cancelled quote is still there, Cancelled', (await fetchOrder(rpc, orderS1)).data.state === OrderState.Cancelled);
+  }
+
+  // ------------------------------------------------- 6c. the faucet's floor
+  log.step('6c. The demo faucet keeps the ops wallet above its floor');
+  const visitor = (await generateKeypairBytes()).signer.address;
+  const drip = await fetch(`${AGENTS}/api/faucet`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: visitor }) });
+  const dripBody = (await drip.json().catch(() => ({}))) as { error?: string };
+  await sleep(1000);
+  ok('a drip that would take the ops wallet below FAUCET_SOL_FLOOR_LAMPORTS is refused: 503, saying why, and nothing is sent', drip.status === 503 && /faucet is paused: the server's ops wallet holds \d+\.\d+ SOL and keeps at least 100\.00 SOL/.test(dripBody.error ?? '') && (await rpc.getBalance(visitor).send()).value === 0n, { status: drip.status, dripBody });
 
   // -------------------------------------------------------- 7. the keeper
   log.step('7. A loan left unpaid past its grace period is marked in default by the server');
-  const built2 = await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderA, ops);
+  const built2 = await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderA, ops, termsA);
   const paid2 = await get(`/agents/atlas/x402/telemetry`, header({ x402Version: 2, accepted: creditA, payload: { transaction: built2.transaction } }));
   eq('the buyer bought order A on credit', paid2.status, 200);
   const l2 = (await paylater.fetchLoan(rpc, built2.loan)).data;
@@ -590,7 +680,8 @@ try {
   const offerFrozen = rFrozen.accepts.find((a) => a.scheme === paylater.X402_SCHEME)?.extra as paylater.PayLaterOffer | undefined;
   ok('the next 402 says the buyer is not eligible: the line is frozen', offerFrozen?.eligible === false && offerFrozen.buyerLimit === '0' && /frozen/.test(offerFrozen.reason ?? ''), offerFrozen);
   const late = await cli(['repay', '--all', '--keypair', buyerKey, '--send']);
-  ok('a late repayment still clears the debt', late.status === 0 && /confirmed:/.test(late.stdout) && (await paylater.fetchLoan(rpc, built2.loan)).data.state === paylater.LoanState.RepaidLate, late.stdout + late.stderr);
+  const lineLate = await paylater.fetchMaybeCreditLine(rpc, await paylater.linePdaOf(B));
+  ok('a late repayment still clears the debt, and closes the loan: the line keeps the record', late.status === 0 && /confirmed:/.test(late.stdout) && !(await paylater.fetchMaybeLoan(rpc, built2.loan)).exists && lineLate.exists && lineLate.data.outstanding === 0n && lineLate.data.repaidLate === 1 && lineLate.data.defaults === 1, late.stdout + late.stderr);
 } catch (e) {
   failures += 1;
   console.log(`\n   FAIL stopped on an unexpected error:\n${errText(e).slice(0, 1500)}`);

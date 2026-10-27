@@ -7,18 +7,35 @@ import { address, getCompiledTransactionMessageDecoder, getPublicKeyFromAddress,
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import type { PaymentPayload, PaymentRequired, PaymentRequirements, SettleResponse } from '@x402/core/types';
 import { decodeTransactionFromPayload, getTokenPayerFromTransaction } from '@x402/svm';
-import { bytesEqual, fromHex, fromUnits, MAX_HOLD_SECS, paylater, score, TESSERA_PROGRAM_ADDRESS, TIER_NAMES, toHex, type Config, type Decoded, type Order } from '@tessera/sdk';
+import {
+  bytesEqual,
+  fromHex,
+  fromUnits,
+  MAX_HOLD_SECS,
+  paylater,
+  quotedOrderRefusal,
+  score,
+  TESSERA_PROGRAM_ADDRESS,
+  TIER_NAMES,
+  toHex,
+  type Config,
+  type Decoded,
+  type Order,
+  type QuotedOrder,
+} from '@tessera/sdk';
 import {
   cancelUnpaid,
   confirmFunded,
   deliver,
   getConfig,
+  hasCreditFile,
   openOrder,
   OrderState,
   readAgent,
   readOrder,
   readUntil,
   refund,
+  solBalance,
   vaultBalance,
   type Actor,
 } from './chain.js';
@@ -131,6 +148,13 @@ export type Quote = {
   terms: EscrowTerms;
   required: PaymentRequired;
   openedAt: number;
+  /**
+   * The order's `created_at` as it was opened, in chain seconds: with the
+   * hold and the rent payer it tells this merchant's order from another
+   * opened later at the same address (see `quotedOrderRefusal`). Absent on
+   * quotes kept from before it was recorded.
+   */
+  createdAt?: string;
   /** Who asked for it (a network address), for the caps on what one client may leave unpaid. */
   client: string;
   /** The crank leaves it alone until then, after a step that failed. */
@@ -215,6 +239,37 @@ async function readStanding(m: MerchantAgent) {
 type Standing = Awaited<ReturnType<typeof readStanding>>;
 
 type SavedState = { v: 1; quotes: Record<string, Quote>; fulfilled: Record<string, Delivered> };
+
+/**
+ * Credit files this server's quotes created for wallets that had none, by
+ * client, over the last hour. A quote for a new wallet costs the ops wallet
+ * the rent of that wallet's credit file, which never comes back, and wallet
+ * addresses cost nothing to invent: the caps on unpaid quotes bound how many
+ * are open at once, this bounds how many such files one client can have made.
+ * Shared by every merchant this process runs, since a wallet has one file.
+ */
+const newWallets = new Map<string, number[]>();
+const HOUR_MS = 3_600_000;
+function recentNewWallets(client: string): number[] {
+  const kept = (newWallets.get(client) ?? []).filter((t) => t > Date.now() - HOUR_MS);
+  if (kept.length) newWallets.set(client, kept);
+  else newWallets.delete(client);
+  return kept;
+}
+
+/** The ops wallet's SOL, read at most every 15 s by everyone who quotes. */
+let opsSol: { at: number; value: Promise<bigint> } | undefined;
+function opsBalance(ops: Actor): Promise<bigint> {
+  if (!opsSol || Date.now() - opsSol.at > 15_000) {
+    const value = solBalance(ops, ops.identity.address);
+    const mine = { at: Date.now(), value };
+    opsSol = mine;
+    value.catch(() => {
+      if (opsSol === mine) opsSol = undefined;
+    });
+  }
+  return opsSol.value;
+}
 
 export class MerchantAgent {
   /** Orders this merchant quoted and has not yet delivered, by order address. Kept on disk across restarts. */
@@ -382,7 +437,23 @@ export class MerchantAgent {
     }
     const slot = { buyer, client };
     this.opening.add(slot);
+    let newWallet: number | undefined;
     try {
+      // The ops wallet fronts every quote's rent, and pays the network fees
+      // that settle, release and refund what is already open. Below this it
+      // opens nothing new, so what it has left goes to the orders it holds.
+      const sol = await opsBalance(this.ops);
+      if (sol < BigInt(config.quoteSolFloorLamports)) {
+        throw new Error(`the merchant's ops wallet is low on SOL (${(Number(sol) / 1e9).toFixed(4)}); it opens no new quotes until it is topped up`);
+      }
+      if (!(await hasCreditFile(this.ops, buyer))) {
+        if (recentNewWallets(client).length >= config.maxNewWalletsPerHour) {
+          throw new Error(`this address has had credit files made for ${config.maxNewWalletsPerHour} new wallets in the last hour; quote for a wallet that already has one, or try again later`);
+        }
+        newWallet = Date.now();
+        newWallets.set(client, [...recentNewWallets(client), newWallet]);
+        if (newWallets.size > 5000) newWallets.delete(newWallets.keys().next().value!);
+      }
       const cfg = await getConfig(this.ops);
       // The merchant co-signs the hold. A buyer may ask for a longer one than
       // the tiers call for, within reason: until it ends the merchant is not paid.
@@ -396,6 +467,8 @@ export class MerchantAgent {
         requestHash,
         minHoldSecs: minHoldSecs || undefined,
       });
+      // The order is open, so any credit file it needed is made: that counts.
+      newWallet = undefined;
       const d = opened.data;
       const terms: EscrowTerms = {
         program: TESSERA_PROGRAM_ADDRESS,
@@ -443,13 +516,33 @@ export class MerchantAgent {
         accepts,
         extensions: { tessera: onCredit ? { ...terms, payLater: onCredit.offer } : terms },
       };
-      const quote: Quote = { sku: service.sku, input, terms, required, openedAt: Date.now(), client };
+      const quote: Quote = { sku: service.sku, input, terms, required, openedAt: Date.now(), createdAt: d.createdAt.toString(), client };
       this.quotes.set(opened.order, quote);
       this.save();
       return quote;
     } finally {
       this.opening.delete(slot);
+      // No order opened, so no credit file was made: the slot goes back.
+      if (newWallet !== undefined) {
+        const kept = recentNewWallets(client).filter((t) => t !== newWallet);
+        if (kept.length) newWallets.set(client, kept);
+        else newWallets.delete(client);
+      }
     }
+  }
+
+  /** The order this merchant opened for a quote, as it recorded it, for `quotedOrderRefusal`. */
+  private quoted(q: Quote): QuotedOrder {
+    return {
+      buyer: q.terms.buyer,
+      merchant: q.terms.merchant,
+      mint: q.terms.mint,
+      amount: BigInt(q.terms.amount),
+      requestHash: fromHex(q.terms.requestHash),
+      holdSecs: q.terms.holdSecs,
+      payer: this.ops.identity.address,
+      ...(q.createdAt !== undefined ? { createdAt: BigInt(q.createdAt) } : {}),
+    };
   }
 
   /**
@@ -518,6 +611,14 @@ export class MerchantAgent {
       if (!before || before.state !== OrderState.AwaitingPayment || (await vaultBalance(this.ops, quote.terms.vault)) >= before.amount) {
         throw new Error('payment does not match: this order is already paid or closed');
       }
+      // The order at the quoted address must be the one this merchant opened.
+      // On the escrow build on devnet the buyer may cancel the quote and open
+      // another order at the same address, in this merchant's name, at any
+      // price and hold: this merchant signs for, and delivers, only its own.
+      const swapped = quotedOrderRefusal(before, this.quoted(quote));
+      if (swapped) {
+        throw new PaymentRefused(`payment does not match: the order at ${order} is not the one this merchant quoted (${swapped}); ask for a new quote`);
+      }
       if ((await chainNow(this.ops)) + PAY_MARGIN_SECS > before.createdAt + BigInt(cfg.params.unpaidSecs)) {
         throw new PaymentRefused('the payment window for this quote has closed; ask for a new quote');
       }
@@ -547,6 +648,9 @@ export class MerchantAgent {
       if (!o || o.state === OrderState.AwaitingPayment) throw new Error('the pay-later purchase landed, but the order does not read as funded yet');
     }
     if (o.state === OrderState.AwaitingPayment) {
+      // Not the order quoted here: this merchant does not confirm it (see the payment check above).
+      const swapped = quotedOrderRefusal(o, this.quoted(quote), 'terms');
+      if (swapped) throw new Error(`the order at ${order} is not the one this merchant quoted (${swapped}); it is not confirmed or delivered`);
       const amount = o.amount;
       const funded = await readUntil(() => vaultBalance(this.ops, quote.terms.vault), (b) => b >= amount, 6);
       if (funded < amount) throw new Error('the escrow vault has not been funded yet');
@@ -577,6 +681,12 @@ export class MerchantAgent {
     // refunded at once rather than left to expire.
     const funded = o;
     try {
+      // Delivered only for the price and the request quoted: an order put at
+      // this address by someone else, at another price, is refunded (its
+      // merchant's refund costs nothing). A purchase on credit carries both in
+      // the signed buy_now, so for one the program has already checked them.
+      const swapped = quotedOrderRefusal(funded, this.quoted(quote), 'terms');
+      if (swapped) throw new Error(`the order at ${order} is not the one this merchant quoted (${swapped}); not delivering it`);
       const service = this.service(quote.sku);
       const margin = refundMargin(cfg);
       await this.beforeDeadline(funded, margin);
@@ -750,6 +860,11 @@ export class MerchantAgent {
       this.save();
     };
     if (!o) return drop();
+    // Another order now sits at the quoted address (the escrow build on devnet
+    // lets a party close an unpaid order and anyone open one there): the
+    // quote is over. If that order is ever funded, it is refunded as an order
+    // this merchant has no quote for.
+    if (quotedOrderRefusal(o, this.quoted(q))) return drop();
     switch (o.state) {
       case OrderState.AwaitingPayment:
         if (now < o.createdAt + BigInt(cfg.params.unpaidSecs) + 15n) return;
