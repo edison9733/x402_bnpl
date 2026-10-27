@@ -9,7 +9,12 @@
  * price plus its fee.
  *
  *   1. a wallet with no history gets no credit, and only a real quote for this
- *      buyer can be funded;
+ *      buyer, signed for by its merchant, can be funded: a buy_now without
+ *      the merchant's signature is refused, and where the escrow lets a
+ *      buyer open an order in a merchant's name without that merchant's
+ *      signature (the build on devnet), the pool will not fund it, so the
+ *      buyer cannot have the pool pay an order the merchant never accepted
+ *      and take the refund as cash;
  *   2. a wallet with a tier buys, the pool pays the escrow and the order is
  *      Funded in the same instruction: a buyer that sends buy_now and
  *      cancel_unpaid together has the whole transaction fail on-chain, and
@@ -24,6 +29,10 @@
  *      is still owed and is repaid;
  *   5. pool accounting, and the main refusal paths as real transactions.
  *
+ * One purchase of the tab in 2c goes through the CLI (`tessera buy-later
+ * --order`), which sends the buy_now itself and so needs the merchant's key
+ * as well as the buyer's.
+ *
  * Every limit the program applies is recomputed off-chain from the same
  * public accounts (packages/sdk/src/paylater/limit.ts) and must match. The
  * compute units each buy_now used are logged, and must leave at least 30%
@@ -35,10 +44,11 @@
  * as the one deployed on devnet (`solana program dump`, trailing zeros cut).
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { lamports, type Address, type Instruction, type Signature } from '@solana/kit';
+import { AccountRole, createNoopSigner, lamports, type Address, type Instruction, type Signature, type TransactionSigner } from '@solana/kit';
 import { getCreateAccountInstruction } from '@solana-program/system';
 import { getInitializeMint2Instruction, getMintSize, getMintToInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import {
@@ -203,7 +213,31 @@ async function startValidator(upgradeAuthority: Address): Promise<{ proc: ChildP
 
 // ----------------------------------------------------------------------- main
 
-const role = async () => clientForSigner((await generateKeypairBytes()).signer, LOCAL);
+/** Every role's key bytes, for the key files the CLI reads. */
+const keyBytes = new Map<string, Uint8Array>();
+const role = async () => {
+  const { signer, bytes } = await generateKeypairBytes();
+  keyBytes.set(signer.address, bytes);
+  return clientForSigner(signer, LOCAL);
+};
+const keydir = mkdtempSync(join(tmpdir(), 'tessera-paylater-keys-'));
+/** A role's key in a file of its own, as `--keypair` takes it. */
+const keyFile = (c: ScriptClient): string => {
+  const file = join(keydir, `${c.identity.address}.json`);
+  writeFileSync(file, JSON.stringify(Array.from(keyBytes.get(c.identity.address)!)), { mode: 0o600 });
+  return file;
+};
+const tsx = createRequire(import.meta.url).resolve('tsx/cli');
+/** The CLI, against this validator. */
+const cli = (args: string[]) =>
+  new Promise<{ status: number | null; stdout: string; stderr: string }>((done) => {
+    const p = spawn(process.execPath, [tsx, resolve(REPO_ROOT, 'apps/cli/src/cli.ts'), ...args, '--rpc', LOCAL.rpcUrl]);
+    let stdout = '';
+    let stderr = '';
+    p.stdout.on('data', (d) => (stdout += d));
+    p.stderr.on('data', (d) => (stderr += d));
+    p.on('close', (status) => done({ status, stdout, stderr }));
+  });
 const deployer = await role();
 const { proc, ledger } = await startValidator(deployer.identity.address);
 
@@ -393,14 +427,27 @@ try {
   eq('the pool holds 50 USDC of liquidity', await tok.balance(pool), 50n * USDC);
 
   // ------------------------------------ pay-later purchases go through the escrow
-  const buyIx = async (buyer: ScriptClient, merchant: Address, order: Address, loanId = newOrderId()) => ({
+  /**
+   * A buy_now, signed by the buyer and by `merchant`: the merchant's key pair
+   * where the merchant agrees, as its server does over x402. The buyer's
+   * transaction carries both signatures.
+   */
+  const buyIx = async (buyer: ScriptClient, merchant: TransactionSigner, order: Address, loanId = newOrderId()) => ({
     loanId,
     ix: await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant, order, loanId }),
+  });
+  /**
+   * The same instruction with the merchant's account a plain read-only one:
+   * the buy_now a buyer can send on its own, holding only the merchant's address.
+   */
+  const withoutMerchantSignature = (ix: Instruction, merchant: Address): Instruction => ({
+    ...ix,
+    accounts: ix.accounts!.map((a) => (a.address === merchant ? { address: a.address, role: AccountRole.READONLY } : a)),
   });
   /** A whole purchase on credit: the merchant's quote, the pool's payment into its vault (which confirms the order), delivery, release. */
   async function buy(buyer: ScriptClient, merchant: ScriptClient, amount: bigint): Promise<Address> {
     const { order } = await quote(buyer, merchant, amount);
-    const { loanId, ix } = await buyIx(buyer, merchant.identity.address, order);
+    const { loanId, ix } = await buyIx(buyer, merchant.identity, order);
     await sendBuyNow(buyer, [ix]);
     await deliver(order, merchant);
     await release(order, buyer, merchant);
@@ -443,63 +490,118 @@ try {
   };
 
   // --------------------------------------------- 1. no history, no credit
-  log.step('1. A wallet with no history gets no credit, and only a real quote for this buyer can be funded');
+  log.step('1. A wallet with no history gets no credit, and only a real quote for this buyer, with its merchant\'s signature, can be funded');
   const qFresh = await quote(fresh, m1, 1_000n);
   await expectFail('a New wallet buys on credit', 'CreditLimitExceeded', async () =>
-    fresh.sendTransaction([(await buyIx(fresh, m1.identity.address, qFresh.order)).ix]),
+    fresh.sendTransaction([(await buyIx(fresh, m1.identity, qFresh.order)).ix]),
   );
   const nobody = await role();
   await rpc.requestAirdrop(nobody.identity.address, lamports(2_000_000_000n)).send();
   await sleep(1500);
   await expectFail('a wallet with no credit file at all buys on credit', 'ConstraintOwner', async () =>
-    nobody.sendTransaction([(await buyIx(nobody, m1.identity.address, qFresh.order)).ix]),
+    nobody.sendTransaction([(await buyIx(nobody, m1.identity, qFresh.order)).ix]),
   );
   const qNewMerchant = await quote(alice, fresh, 1_000n);
   await expectFail('a tiered buyer pays a New merchant on credit', 'MerchantTierTooLow', async () =>
-    alice.sendTransaction([(await buyIx(alice, fresh.identity.address, qNewMerchant.order)).ix]),
+    alice.sendTransaction([(await buyIx(alice, fresh.identity, qNewMerchant.order)).ix]),
   );
   const qAlice = await quote(alice, m1, 1_000n);
   await expectFail('a buyer pays itself on credit', 'SelfDealing', async () =>
-    alice.sendTransaction([(await buyIx(alice, alice.identity.address, qAlice.order)).ix]),
+    alice.sendTransaction([(await buyIx(alice, alice.identity, qAlice.order)).ix]),
   );
-  await expectFail('the merchant named is not the one that opened the order', 'NotTheMerchant', async () =>
-    alice.sendTransaction([(await buyIx(alice, m2.identity.address, qAlice.order)).ix]),
+  await expectFail('the merchant named, and signing, is not the one that opened the order', 'NotTheMerchant', async () =>
+    alice.sendTransaction([(await buyIx(alice, m2.identity, qAlice.order)).ix]),
   );
+  // The order's merchant signs buy_now too. A buyer holding only its address
+  // can build the instruction without that signature; sent with no preflight,
+  // the chain itself refuses it and the pool pays nothing.
+  const poolAtStart = await tok.balance(pool);
+  const m1Noop = createNoopSigner(m1.identity.address);
+  const alone = await buyIx(alice, m1Noop, qAlice.order);
+  const aloneRun = await failsOnChain(alice, [withoutMerchantSignature(alone.ix, m1.identity.address)]);
+  eq('alice sends buy_now for m1\'s quote without m1\'s signature: it lands and fails (AccountNotSigner), the pool pays nothing, no loan', [
+    aloneRun !== undefined,
+    aloneRun?.logs.some((l) => /Error Code: AccountNotSigner/.test(l)),
+    await tok.balance(pool),
+    await tok.balance(qAlice.order),
+    (await fetchOrder(rpc, qAlice.order)).data.state,
+    (await rpc.getAccountInfo(await paylater.loanPdaOf(alice.identity.address, alone.loanId)).send()).value,
+  ], [true, true, poolAtStart, 0n, OrderState.AwaitingPayment, null]);
+  // The attack that signature closes. The escrow on devnet (ESCROW_SO) is an
+  // older build whose open_order does not ask for the merchant's signature,
+  // so a buyer can open an order in any merchant's name and pay its rent
+  // itself. Had the pool funded such an order, the merchant, which never
+  // accepted it, would not deliver; after the delivery window anyone could
+  // have the escrow refund the pool's money to the buyer, as cash, with the
+  // loan still owed and a missed delivery on the merchant's record. The
+  // current escrow refuses that order itself; on the devnet build the pool
+  // must refuse to fund it, and does, because the merchant does not sign.
+  const idX = newOrderId();
+  const { order: qX } = await orderAddresses(idX, mint);
+  const openX = withoutMerchantSignature(
+    await getOpenOrderInstructionAsync({ mint, buyer: alice.identity.address, merchant: m1Noop, payer: alice.identity, orderId: idX, amount: 1_000n, requestHash, minHoldSecs: 0 }),
+    m1.identity.address,
+  );
+  const openedX = await alice.sendTransaction([openX]).then(
+    () => true,
+    (e) => {
+      if (/AccountNotSigner/.test(errText(e))) return false;
+      throw e;
+    },
+  );
+  if (openedX) {
+    log.info('this escrow build lets a buyer open an order in a merchant\'s name without the merchant\'s signature (the build on devnet)');
+    const oX = (await fetchOrder(rpc, qX)).data;
+    eq('alice opened an order in m1\'s name that m1 never signed, paying its rent herself', [oX.merchant, oX.buyer, oX.payer, oX.state], [m1.identity.address, alice.identity.address, alice.identity.address, OrderState.AwaitingPayment]);
+    const tryX = await buyIx(alice, m1Noop, qX);
+    const tryXRun = await failsOnChain(alice, [withoutMerchantSignature(tryX.ix, m1.identity.address)]);
+    eq('her buy_now for it lands and fails (AccountNotSigner): the pool pays nothing into an order m1 never accepted, so no refund can turn it into cash', [
+      tryXRun !== undefined,
+      tryXRun?.logs.some((l) => /Error Code: AccountNotSigner/.test(l)),
+      await tok.balance(pool),
+      await tok.balance(qX),
+      (await fetchOrder(rpc, qX)).data.state,
+      (await rpc.getAccountInfo(await paylater.loanPdaOf(alice.identity.address, tryX.loanId)).send()).value,
+    ], [true, true, poolAtStart, 0n, OrderState.AwaitingPayment, null]);
+  } else {
+    log.info('this escrow build refuses an order in a merchant\'s name that the merchant did not sign (the current source)');
+    eq('the escrow itself refused alice\'s order in m1\'s name that m1 never signed (AccountNotSigner): nothing for the pool to fund', (await rpc.getAccountInfo(qX, { encoding: 'base64' }).send()).value, null);
+  }
   const qBob = await quote(bob, m1, 1_000n);
   await expectFail('alice funds an order the merchant opened for bob', 'NotTheBuyer', async () =>
-    alice.sendTransaction([(await buyIx(alice, m1.identity.address, qBob.order)).ix]),
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qBob.order)).ix]),
   );
   const qSmall = await quote(alice, m1, 999n);
   await expectFail('a purchase below the pool\'s minimum', 'AmountTooSmall', async () =>
-    alice.sendTransaction([(await buyIx(alice, m1.identity.address, qSmall.order)).ix]),
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qSmall.order)).ix]),
   );
   const otherMint = await newMint();
   await expectFail('the wrong mint, with the real vaults', 'MintMismatch', async () =>
     alice.sendTransaction([
       await paylater.getBuyNowInstructionAsync({
-        mint: otherMint, vault: await tok.ata(pool), orderVault: qAlice.vault, buyer: alice.identity, merchant: m1.identity.address, order: qAlice.order, loanId: newOrderId(),
+        mint: otherMint, vault: await tok.ata(pool), orderVault: qAlice.vault, buyer: alice.identity, merchant: m1.identity, order: qAlice.order, loanId: newOrderId(),
       }),
     ]),
   );
   // A plain wallet with a token account, so the only thing wrong is who owns the account.
   await expectFail('an account the escrow program does not own passed as the order', 'ConstraintOwner', async () =>
-    alice.sendTransaction([(await buyIx(alice, m1.identity.address, stranger.identity.address)).ix]),
+    alice.sendTransaction([(await buyIx(alice, m1.identity, stranger.identity.address)).ix]),
   );
   // An escrow account that is not an order (alice's credit file), given a token account so the only thing wrong is what it is.
   const aliceAgent = await agentPdaOf(alice.identity.address);
   await stranger.sendTransaction([await tok.ensureAtaIx(aliceAgent, stranger)]);
   await expectFail('an escrow account that is not an order', 'NotAnOrder', async () =>
-    alice.sendTransaction([(await buyIx(alice, m1.identity.address, aliceAgent)).ix]),
+    alice.sendTransaction([(await buyIx(alice, m1.identity, aliceAgent)).ix]),
   );
   // A quote alice has already paid herself.
   const qPaid = await quote(alice, m1, 1_000n);
   await alice.sendTransaction([await tok.transferIx(alice, qPaid.vault, 1_000n)]);
   await expectFail('the order\'s vault already holds the price', 'OrderAlreadyFunded', async () =>
-    alice.sendTransaction([(await buyIx(alice, m1.identity.address, qPaid.order)).ix]),
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qPaid.order)).ix]),
   );
   await confirm(qPaid.order);
   await expectFail('the order is already funded and confirmed', 'OrderNotAwaitingPayment', async () =>
-    alice.sendTransaction([(await buyIx(alice, m1.identity.address, qPaid.order)).ix]),
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qPaid.order)).ix]),
   );
   await m1.sendTransaction([getRefundInstruction(await settleInput(qPaid.order, alice, m1, m1))]);
   // A quote whose payment window has closed: confirm_funded would refuse the money, so the pool does too.
@@ -507,7 +609,7 @@ try {
   const late = (await fetchOrder(rpc, qLate.order)).data;
   await waitForChainTime(server, late.createdAt + BigInt(PARAMS.unpaidSecs) + 1n);
   await expectFail('a quote past its payment window', 'PaymentWindowClosed', async () =>
-    alice.sendTransaction([(await buyIx(alice, m1.identity.address, qLate.order)).ix]),
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qLate.order)).ix]),
   );
 
   // ------------------------------------- 2. buy now, repay on time, grow
@@ -524,10 +626,12 @@ try {
   // any time and the escrow hands it whatever is in the vault. Had buy_now
   // only paid the vault, the buyer could have the pool pay and cancel in one
   // transaction and walk off with the pool's money. buy_now leaves the order
-  // Funded, so the cancel fails and takes the whole transaction with it. Sent
-  // with no preflight, so this is the chain failing it, not a simulation.
+  // Funded, so the cancel fails and takes the whole transaction with it, even
+  // with the merchant's signature on it (over x402 the merchant would refuse
+  // to sign it at all). Sent with no preflight, so this is the chain failing
+  // it, not a simulation.
   const qCash = await quote(alice, m1, price);
-  const { loanId: loanIdCash, ix: buyCash } = await buyIx(alice, m1.identity.address, qCash.order);
+  const { loanId: loanIdCash, ix: buyCash } = await buyIx(alice, m1.identity, qCash.order);
   const cancelCash = await getCancelUnpaidInstructionAsync({
     order: qCash.order, mint, payer: server.identity.address, authority: alice.identity, buyerToken: await tok.ata(alice.identity.address),
   });
@@ -547,7 +651,7 @@ try {
     (await lineOf(alice)).exists,
   ], [poolBefore, aliceBeforeBuy, OrderState.AwaitingPayment, 0n, null, false]);
   const qA = await quote(alice, m1, price);
-  const { loanId: loanIdA, ix: buyA } = await buyIx(alice, m1.identity.address, qA.order);
+  const { loanId: loanIdA, ix: buyA } = await buyIx(alice, m1.identity, qA.order);
   await sendBuyNow(alice, [buyA]);
   log.info(`buy_now, opening alice's line and her first loan: ${buyNowUnits.at(-1)} compute units`);
   const loanA = await paylater.loanPdaOf(alice.identity.address, loanIdA);
@@ -582,7 +686,7 @@ try {
   // Her score rose when the order settled, so the limit is read again, not taken from the loan.
   const qOver = await quote(alice, m1, (await limitSoon(alice, line1.data)) - price + 1n);
   await expectFail('alice spends one unit past her remaining credit', 'CreditLimitExceeded', async () =>
-    alice.sendTransaction([(await buyIx(alice, m1.identity.address, qOver.order)).ix]),
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qOver.order)).ix]),
   );
   await expectFail('a stranger marks a loan in default before it is due', 'NotOverdue', async () =>
     stranger.sendTransaction([await paylater.getMarkDefaultInstructionAsync({ loan: loanA, line: await paylater.linePdaOf(alice.identity.address) })]),
@@ -614,7 +718,7 @@ try {
   eq('and its limit matches the off-chain formula with the boost', la3.limitAtOpen, paylater.limit(line2.data, LINE, at3.tier, at3.score));
   const qOver2 = await quote(alice, m1, (await limitSoon(alice, line2.data)) - boosted + 1n);
   await expectFail('one unit past the boosted limit', 'CreditLimitExceeded', async () =>
-    alice.sendTransaction([(await buyIx(alice, m1.identity.address, qOver2.order)).ix]),
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qOver2.order)).ix]),
   );
   await alice.sendTransaction([await repayIx(loanA2, alice)]);
   eq('alice repaid that one on time too', (await paylater.fetchLoan(rpc, loanA2)).data.state, paylater.LoanState.RepaidOnTime);
@@ -701,17 +805,45 @@ try {
   const atTab = await live(alice);
   const each = paylater.limit(lineTab.data, LINE, atTab.tier, atTab.score) / 4n;
   const tab: Address[] = [];
-  // The first one the way the CLI does it: the SDK's buyOrderOnCredit, one buy_now.
+  // The first one the way `tessera buy-later --order` does it: the SDK's
+  // buyOrderOnCredit, one buy_now, signed by the buyer and the order's merchant.
   {
     const { order } = await quote(alice, m1, each);
-    const { loanId, loan, instructions } = await paylater.buyOrderOnCredit(rpc, alice.identity, order);
+    let wrongMerchant = '';
+    await paylater.buyOrderOnCredit(rpc, alice.identity, order, m2.identity).catch((e: Error) => (wrongMerchant = e.message));
+    eq('buyOrderOnCredit refuses a merchant signer that did not open the order', /was opened by the merchant/.test(wrongMerchant), true);
+    const { loanId, loan, instructions } = await paylater.buyOrderOnCredit(rpc, alice.identity, order, m1.identity);
     await sendBuyNow(alice, instructions);
     eq('the SDK\'s one instruction had the pool pay the vault and the order confirmed', [instructions.length, (await fetchOrder(rpc, order)).data.state, loan], [1, OrderState.Funded, await paylater.loanPdaOf(alice.identity.address, loanId)]);
     await deliver(order, m1);
     await release(order, alice, m1);
     tab.push(loan);
   }
-  for (let i = 0; i < 2; i += 1) tab.push(await buy(alice, m1, each));
+  // The second through the CLI: `tessera buy-later --order` sends the buy_now
+  // itself, so it signs with the buyer's key and the merchant's.
+  {
+    const { order } = await quote(alice, m1, each);
+    const [aliceKey, m1Key, m2Key] = [keyFile(alice), keyFile(m1), keyFile(m2)];
+    const without = await cli(['buy-later', '--order', order, '--keypair', aliceKey, '--send']);
+    eq('tessera buy-later --order with only the buyer\'s key stops before signing anything, and says the merchant must sign', [without.status, /needs the order's merchant's signature/.test(without.stderr)], [1, true]);
+    const wrong = await cli(['buy-later', '--order', order, '--keypair', aliceKey, '--merchant-keypair', m2Key, '--send']);
+    eq('with another merchant\'s key it stops too', [wrong.status, /--merchant-keypair is .*, but order .* is .*'s/.test(wrong.stderr)], [1, true]);
+    const bought = await cli(['buy-later', '--order', order, '--keypair', aliceKey, '--merchant-keypair', m1Key, '--send']);
+    const signature = /confirmed: (\w+)/.exec(bought.stdout)?.[1];
+    const loan = /^loan (\w+)$/m.exec(bought.stdout)?.[1] as Address | undefined;
+    if (signature) buyNowUnits.push((await metaOf(signature)).units);
+    eq('with the order\'s merchant\'s key as well it sends one buy_now, signed by both: the order is Funded and the loan open', [
+      bought.status,
+      signature !== undefined,
+      (await fetchOrder(rpc, order)).data.state,
+      loan !== undefined && (await paylater.fetchMaybeLoan(rpc, loan)).exists,
+    ], [0, true, OrderState.Funded, true]);
+    if (!loan) throw new Error(`the CLI bought nothing: ${bought.stdout}${bought.stderr}`);
+    await deliver(order, m1);
+    await release(order, alice, m1);
+    tab.push(loan);
+  }
+  tab.push(await buy(alice, m1, each));
   const owedTab = (await lineOf(alice));
   eq('alice owes the whole tab against her limit', owedTab.exists && owedTab.data.outstanding, each * 3n);
   const listed = paylater.owed(await paylater.fetchLoansOf(rpc, alice.identity.address));
@@ -749,7 +881,7 @@ try {
   eq('bob\'s limit is frozen at 0', paylater.limit(bl, LINE, bTier, (await live(bob)).score), 0n);
   const qBobAgain = await quote(bob, m1, 1_000n);
   await expectFail('bob buys again after defaulting', 'CreditLimitExceeded', async () =>
-    bob.sendTransaction([(await buyIx(bob, m1.identity.address, qBobAgain.order)).ix]),
+    bob.sendTransaction([(await buyIx(bob, m1.identity, qBobAgain.order)).ix]),
   );
   await expectFail('the default is marked twice', 'InvalidState', async () => stranger.sendTransaction([await markIx()]));
   await expectFail('bob closes his unpaid loan to make it disappear', 'InvalidState', async () =>
@@ -769,7 +901,7 @@ try {
   if (!lineR.exists) throw new Error('alice has no line');
   const priceR = paylater.limit(lineR.data, LINE, aliceNow.tier, aliceNow.score) / 2n;
   const qR = await quote(alice, m1, priceR);
-  const { loanId: loanIdR, ix: buyR } = await buyIx(alice, m1.identity.address, qR.order);
+  const { loanId: loanIdR, ix: buyR } = await buyIx(alice, m1.identity, qR.order);
   await sendBuyNow(alice, [buyR]);
   const loanR = await paylater.loanPdaOf(alice.identity.address, loanIdR);
   const funded = (await fetchOrder(rpc, qR.order)).data;
@@ -814,7 +946,7 @@ try {
   eq('the authority withdrew the liquidity and the fees', await tok.balance(deployer.identity.address), vaultBalance);
   const qEmpty = await quote(alice, m1, 1_000n);
   await expectFail('a purchase when the pool is empty', 'PoolEmpty', async () =>
-    alice.sendTransaction([(await buyIx(alice, m1.identity.address, qEmpty.order)).ix]),
+    alice.sendTransaction([(await buyIx(alice, m1.identity, qEmpty.order)).ix]),
   );
 
   // ------------------------------------- 6. the server takes its rent back
@@ -843,6 +975,7 @@ try {
   proc.kill('SIGKILL');
   await sleep(300);
   rmSync(ledger, { recursive: true, force: true });
+  rmSync(keydir, { recursive: true, force: true });
 }
 
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: ${checks - failures}/${checks} checks`);

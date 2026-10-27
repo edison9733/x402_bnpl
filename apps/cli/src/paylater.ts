@@ -3,12 +3,15 @@
  * API: they read the chain themselves and build the one pay-later instruction
  * locally, so there is no reply to check before signing. `buy-later` with a
  * merchant agent's URL runs the whole x402 purchase: it asks for the quote,
- * checks the escrow it names on-chain, hands the merchant a signed buy_now,
- * and prints what came back and the loan.
+ * checks the escrow it names on-chain, hands the merchant a signed buy_now
+ * (the merchant adds its own signature, which buy_now requires, and sends
+ * it), and prints what came back and the loan. `buy-later --order` sends the
+ * buy_now itself, so it needs the order's merchant's key as well as the
+ * buyer's: it is for a local world that holds both (`npm run paylater:local`).
  *
  *   tessera credit <wallet>
  *   tessera buy-later <merchant agent url> <skill> [--input JSON] --keypair PATH
- *   tessera buy-later --order <order> --keypair PATH [--send]
+ *   tessera buy-later --order <order> --keypair PATH --merchant-keypair PATH [--send]
  *   tessera repay <loan> --keypair PATH [--send]
  *   tessera repay --all --keypair PATH [--send]      every loan still owed, in one transaction
  *   tessera mark-default <loan> --keypair PATH [--send]
@@ -52,9 +55,12 @@ export const PAYLATER_HELP = `Pay later (reads the chain itself; no API)
   credit <wallet>                                a wallet's pay-later limit, what it owes and when each loan is due
   buy-later <merchant agent url> <skill> [--input JSON] --keypair PATH
                                                  buy over x402 on credit: the merchant quotes an escrow order, you
-                                                 sign one buy_now for it, the merchant sends it and the pool pays
-  buy-later --order <order> --keypair PATH [--send]
-                                                 the same for an escrow order you already hold a quote for
+                                                 sign one buy_now for it, the merchant signs it too and sends it,
+                                                 and the pool pays
+  buy-later --order <order> --keypair PATH --merchant-keypair PATH [--send]
+                                                 the same for an escrow order you already hold a quote for, sent by
+                                                 you: buy_now needs the order's merchant's signature too, so this
+                                                 is for a local world where you hold its key (paylater:local)
   repay <loan> --keypair PATH [--send]           pay a loan back in full (anyone may repay for the buyer)
   repay --all --keypair PATH [--send]            pay every loan you still owe, in one transaction
   mark-default <loan> --keypair PATH [--send]    anyone, once a loan is past its due date and grace period`;
@@ -71,6 +77,8 @@ const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/agentic_commerce/bl
 type Opts = {
   rpcUrl: string;
   kp?: KeyPairSigner;
+  /** --merchant-keypair for `buy-later --order`: the order's merchant, whose signature buy_now requires. */
+  merchantKp?: KeyPairSigner;
   send: boolean;
   json: boolean;
   all: boolean;
@@ -209,9 +217,16 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
   if (cmd === 'buy-later') {
     // The order is the merchant's quote: the payTo of its 402, opened in your name.
     const orderAddr = addr(o.order ?? a1, '--order');
+    // buy_now is signed by the buyer and by the order's merchant, so the pool
+    // only funds orders their merchant agreed to. Without the merchant's key
+    // here, the merchant must sign: that is the x402 form.
+    const merchantKp =
+      o.merchantKp ??
+      o.die("buy_now needs the order's merchant's signature as well as yours: pass --merchant-keypair PATH where you hold that key too, or buy over x402 with: tessera buy-later <merchant agent url> <skill> --keypair PATH, and the merchant signs");
     const found = await fetchMaybeOrder(rpc, orderAddr);
     if (!found.exists) o.die(`no escrow order at ${orderAddr}`);
     const d = found.data;
+    if (merchantKp.address !== d.merchant) o.die(`--merchant-keypair is ${short(merchantKp.address)}, but order ${short(orderAddr)} is ${short(d.merchant)}'s`);
     const vault = await fetchMaybeToken(rpc, await findAta(orderAddr, d.mint));
     const now = await chainNow();
     const why = paylater.orderRefusal(d, vault.exists ? vault.data.amount : 0n, kp.address, now, scoreParams);
@@ -225,7 +240,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     if (amount > b.available) o.die(`${usdc(amount)} is above your available credit (${usdc(b.available)})`);
     if (m.tier < p.minMerchantTier) o.die(`the pool only funds orders from merchants at ${TIERS[p.minMerchantTier]} or above`);
     const fee = paylater.feeOf(amount, p);
-    const { loan, instructions } = await paylater.buyOrderOnCredit(rpc, kp, orderAddr);
+    const { loan, instructions } = await paylater.buyOrderOnCredit(rpc, kp, orderAddr, merchantKp);
     console.log(`BUY NOW  ${usdc(amount)}: the pool pays the escrow vault and the order is confirmed funded; the escrow pays the merchant on delivery`);
     console.log(`you repay ${usdc(amount + fee)} (${usdc(amount)} + ${usdc(fee)} pool fee) within ${p.termSecs} s, no interest`);
     console.log(`loan ${loan}`);
@@ -262,6 +277,8 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
    * accepted too). Nothing the merchant sends is trusted: the price is capped
    * by what its card advertises, the order is read from the chain and checked
    * against what was asked, and the only thing signed is one buy_now for it.
+   * The merchant adds its signatures (fee payer, and the order's merchant,
+   * which buy_now requires) and sends it.
    */
   async function buyLaterOverHttp(merchantUrl: string, skill: string | undefined, kp: KeyPairSigner): Promise<void> {
     if (!skill) o.die('buy-later <merchant agent url> needs a <skill> (see: tessera help)');
@@ -332,10 +349,11 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     if (amount > mine.available) o.die(`${usdc(amount)} is above your available credit (${usdc(mine.available)}) by this machine's reading of the chain`);
     console.log(`order    ${short(verified.order)} verified on-chain: opened for you by ${short(merchantWallet)}, ${usdc(amount)}, your request`);
 
-    // 3. Sign one buy_now for it, with the merchant's wallet as fee payer, and hand it over.
+    // 3. Sign one buy_now for it, with the merchant's wallet as fee payer, and hand it over:
+    //    the merchant signs it as fee payer and as the order's merchant, and sends it.
     const built = await paylater.buyNowForMerchant(rpc, kp, verified.order, feePayer);
     const payload = { x402Version: 2, accepted: option, payload: { transaction: built.transaction } };
-    console.log(`BUY LATER  signed buy_now for ${short(verified.order)}; the merchant pays the network fee and sends it`);
+    console.log(`BUY LATER  signed buy_now for ${short(verified.order)}; the merchant adds its signature, pays the network fee and sends it`);
     const second = await get(askUrl, { 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify(payload), 'utf8').toString('base64') });
     if (!second.res.ok) o.die(`the merchant refused (${second.res.status}): ${String(second.body.error ?? 'failed')}${second.body.note ? ` ${String(second.body.note)}` : ''}`);
     const receipt = second.res.headers.get('PAYMENT-RESPONSE');

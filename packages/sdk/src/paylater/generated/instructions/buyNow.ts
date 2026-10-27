@@ -29,6 +29,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
+  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type WritableAccount,
   type WritableSignerAccount,
@@ -99,7 +100,8 @@ export type BuyNowInstruction<
             AccountSignerMeta<TAccountBuyer>
         : TAccountBuyer,
       TAccountMerchant extends string
-        ? ReadonlyAccount<TAccountMerchant>
+        ? ReadonlySignerAccount<TAccountMerchant> &
+            AccountSignerMeta<TAccountMerchant>
         : TAccountMerchant,
       TAccountOrder extends string
         ? WritableAccount<TAccountOrder>
@@ -170,7 +172,7 @@ export type BuyNowAsyncInput<
   TAccountLine extends InstructionAccountInput = InstructionAccountInput,
   TAccountLoan extends InstructionAccountInput = InstructionAccountInput,
   TAccountBuyer extends InstructionSignerInput = InstructionSignerInput,
-  TAccountMerchant extends InstructionAccountInput = InstructionAccountInput,
+  TAccountMerchant extends InstructionSignerInput = InstructionSignerInput,
   TAccountOrder extends InstructionAccountInput = InstructionAccountInput,
   TAccountOrderVault extends InstructionAccountInput = InstructionAccountInput,
   TAccountEscrowProgram extends InstructionAccountInput =
@@ -192,6 +194,15 @@ export type BuyNowAsyncInput<
   loan?: TAccountLoan;
   /** The buyer signs and pays the rent: nobody can borrow in its name. */
   buyer: TAccountBuyer;
+  /**
+   * The order's merchant (checked in `buy_now`), and it signs: the pool
+   * only pays an order its merchant agreed to be paid for this way. An
+   * escrow build whose `open_order` does not ask for the merchant's
+   * signature (the one on devnet) lets a buyer open an order in any
+   * merchant's name; without this signature that buyer could have the pool
+   * fund it, let the delivery window run out and take the refund as cash.
+   * Its Tessera tier is checked from `merchant_agent`.
+   */
   merchant: TAccountMerchant;
   /**
    * contents, address and parties are checked by `read_order` and `buy_now`.
@@ -220,7 +231,7 @@ export async function getBuyNowInstructionAsync<
   TAccountLine extends InstructionAccountInput,
   TAccountLoan extends InstructionAccountInput,
   TAccountBuyer extends InstructionSignerInput,
-  TAccountMerchant extends InstructionAccountInput,
+  TAccountMerchant extends InstructionSignerInput,
   TAccountOrder extends InstructionAccountInput,
   TAccountOrderVault extends InstructionAccountInput,
   TAccountEscrowProgram extends InstructionAccountInput,
@@ -331,7 +342,7 @@ export async function getBuyNowInstructionAsync<
     buyer: { value: input.buyer ?? null, isSigner: true, isWritable: true },
     merchant: {
       value: input.merchant ?? null,
-      isSigner: false,
+      isSigner: true,
       isWritable: false,
     },
     order: { value: input.order ?? null, isSigner: false, isWritable: true },
@@ -597,7 +608,7 @@ export type BuyNowInput<
   TAccountLine extends InstructionAccountInput = InstructionAccountInput,
   TAccountLoan extends InstructionAccountInput = InstructionAccountInput,
   TAccountBuyer extends InstructionSignerInput = InstructionSignerInput,
-  TAccountMerchant extends InstructionAccountInput = InstructionAccountInput,
+  TAccountMerchant extends InstructionSignerInput = InstructionSignerInput,
   TAccountOrder extends InstructionAccountInput = InstructionAccountInput,
   TAccountOrderVault extends InstructionAccountInput = InstructionAccountInput,
   TAccountEscrowProgram extends InstructionAccountInput =
@@ -619,6 +630,15 @@ export type BuyNowInput<
   loan: TAccountLoan;
   /** The buyer signs and pays the rent: nobody can borrow in its name. */
   buyer: TAccountBuyer;
+  /**
+   * The order's merchant (checked in `buy_now`), and it signs: the pool
+   * only pays an order its merchant agreed to be paid for this way. An
+   * escrow build whose `open_order` does not ask for the merchant's
+   * signature (the one on devnet) lets a buyer open an order in any
+   * merchant's name; without this signature that buyer could have the pool
+   * fund it, let the delivery window run out and take the refund as cash.
+   * Its Tessera tier is checked from `merchant_agent`.
+   */
   merchant: TAccountMerchant;
   /**
    * contents, address and parties are checked by `read_order` and `buy_now`.
@@ -647,7 +667,7 @@ export function getBuyNowInstruction<
   TAccountLine extends InstructionAccountInput,
   TAccountLoan extends InstructionAccountInput,
   TAccountBuyer extends InstructionSignerInput,
-  TAccountMerchant extends InstructionAccountInput,
+  TAccountMerchant extends InstructionSignerInput,
   TAccountOrder extends InstructionAccountInput,
   TAccountOrderVault extends InstructionAccountInput,
   TAccountEscrowProgram extends InstructionAccountInput,
@@ -756,7 +776,7 @@ export function getBuyNowInstruction<
     buyer: { value: input.buyer ?? null, isSigner: true, isWritable: true },
     merchant: {
       value: input.merchant ?? null,
-      isSigner: false,
+      isSigner: true,
       isWritable: false,
     },
     order: { value: input.order ?? null, isSigner: false, isWritable: true },
@@ -918,6 +938,15 @@ export type ParsedBuyNowInstruction<
     loan: TAccountMetas[4];
     /** The buyer signs and pays the rent: nobody can borrow in its name. */
     buyer: TAccountMetas[5];
+    /**
+     * The order's merchant (checked in `buy_now`), and it signs: the pool
+     * only pays an order its merchant agreed to be paid for this way. An
+     * escrow build whose `open_order` does not ask for the merchant's
+     * signature (the one on devnet) lets a buyer open an order in any
+     * merchant's name; without this signature that buyer could have the pool
+     * fund it, let the delivery window run out and take the refund as cash.
+     * Its Tessera tier is checked from `merchant_agent`.
+     */
     merchant: TAccountMetas[6];
     /**
      * contents, address and parties are checked by `read_order` and `buy_now`.

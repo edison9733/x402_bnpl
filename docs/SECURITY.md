@@ -4,7 +4,9 @@ What can go wrong, what stops it, and the test that proves it. Then what is stil
 
 Tests: `npm run test:local` runs the real program on a local validator and sends each on-chain attack
 below as a real transaction that must be rejected (395 checks). `npm run test:formula` checks the
-economic claims and the reward rules (44 tests). "Model" means the claim is checked by simulation through the reference
+economic claims, the reward rules and the merchant's check of a pay-later transaction (51 tests).
+`npm run test:paylater` and `npm run test:paylater-402` do the same for the pay-later program
+([Pay later](#pay-later)). "Model" means the claim is checked by simulation through the reference
 model, which the local suite proves equal to the program.
 
 Status: ✅ enforced and tested · 🟡 mitigated, residual risk stated · ⭕ open.
@@ -55,6 +57,17 @@ The escrow program there (`TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`) was las
 so it cannot be upgraded. On devnet, for example, `open_order` does not need the merchant's signature
 (B13 is open there), and a dispute the arbiter never answers is never split. The tables below describe
 the source.
+
+## Pay later
+
+The pay-later program ([PAYLATER.md](PAYLATER.md)) lends into the escrow: its `buy_now` pays an
+escrow order's vault from a pool. A review of it against the escrow build that actually runs on
+devnet (the 4 October build of `c6dbcd7`, whose `open_order` does not need the merchant's signature)
+found:
+
+| # | Finding | Severity | Fix | Test |
+|---|---|---|---|---|
+| P1 | **A loan turned into cash with no merchant involved.** On the devnet escrow anyone can open an order in a merchant's name (B13 is open there). A buyer at Building could open one naming any Building merchant, paying the rent itself, have `buy_now` pay the pool's money into it (the program checked that the order named the merchant, not that the merchant agreed), wait out the delivery window and have anyone call `refund`: the escrow sent the pool's USDC to the buyer as cash, the loan stayed owed (up to the buyer's limit, then a default), and the merchant took a missed-delivery penalty for an order it never accepted. | High | `buy_now` requires the order's merchant's signature (`BuyNow.merchant` is a `Signer`), so the pool funds only an order its merchant signed for, on any escrow build. Over x402 the merchant's server adds that signature, with the merchant's own key and only for its own orders, after `checkBuyNowTransaction` has passed, which now requires exactly the fee payer, the buyer and the merchant as signers and only the buyer's signature in what it is handed. **Not on devnet yet:** the pay-later program there is the `61196cc` build, without this check, until the next upgrade. | paylater: "without m1's signature" → `AccountNotSigner`; with `ESCROW_SO` (the devnet escrow's bytes) the buyer opens the order in m1's name and its `buy_now` for it → `AccountNotSigner`, nothing moves; paylater-402: the `buy_now` that lands carries three signatures, and one that does not ask for the merchant's is refused before signing; formula: `paylater-check.test.ts` |
 
 ## Principles
 

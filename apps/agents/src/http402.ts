@@ -8,7 +8,8 @@
  * --max, if lower), and only into the escrow of the order it verified. With
  * --pay-later it takes the merchant's tessera-paylater option instead, if
  * the merchant offers one and says this buyer is eligible: the buyer signs
- * one buy_now, the merchant sends it, and the pool pays the escrow.
+ * one buy_now, the merchant adds its own signatures (fee payer and the
+ * order's merchant) and sends it, and the pool pays the escrow.
  */
 import { address } from '@solana/kit';
 import { x402Client } from '@x402/core/client';
@@ -84,7 +85,8 @@ console.log('escrow verified on-chain');
 let payload: PaymentPayload;
 let loan: string | undefined;
 if (offer) {
-  // One buy_now for the verified order, the merchant's wallet as fee payer, this buyer's signature on it.
+  // One buy_now for the verified order, the merchant's wallet as fee payer, this buyer's signature on it;
+  // the merchant adds the fee payer's and its own, which buy_now requires, before it sends it.
   const built = await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, address(option.payTo), address(offer.feePayer));
   loan = built.loan;
   payload = { x402Version: 2, resource: required.resource, accepted: option, payload: { transaction: built.transaction } };

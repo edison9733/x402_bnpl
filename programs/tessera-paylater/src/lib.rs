@@ -87,11 +87,17 @@ pub mod tessera_paylater {
 
     /// Buy now: the pool pays the price of an escrow order into the order's
     /// vault, and the buyer owes the price plus the pool's fee by the due date.
-    /// Only the buyer can spend its own credit.
+    /// Only the buyer can spend its own credit, and only on an order whose
+    /// merchant signs too.
     ///
     /// The order is one the merchant has already opened for this buyer (the
     /// x402 quote), still awaiting payment and inside its payment window. The
-    /// price and the request hash are read from it. The payment is the plain
+    /// price and the request hash are read from it. The merchant's signature
+    /// is what makes "the merchant opened it" true on every escrow build: the
+    /// one on devnet lets anyone open an order in a merchant's name, and an
+    /// order the merchant never accepted would never be delivered, so the
+    /// escrow would refund the pool's money to the buyer as cash. Over x402
+    /// the merchant's server signs (it is the fee payer as well). The payment is the plain
     /// token transfer the escrow's `confirm_funded` looks for, and this
     /// instruction calls `confirm_funded` itself, right after the transfer, so
     /// the order is Funded before the instruction ends. Nobody, the buyer
@@ -488,8 +494,14 @@ pub struct BuyNow<'info> {
     /// The buyer signs and pays the rent: nobody can borrow in its name.
     #[account(mut)]
     pub buyer: Signer<'info>,
-    /// CHECK: must be the order's merchant; its Tessera tier is checked from `merchant_agent`.
-    pub merchant: UncheckedAccount<'info>,
+    /// The order's merchant (checked in `buy_now`), and it signs: the pool
+    /// only pays an order its merchant agreed to be paid for this way. An
+    /// escrow build whose `open_order` does not ask for the merchant's
+    /// signature (the one on devnet) lets a buyer open an order in any
+    /// merchant's name; without this signature that buyer could have the pool
+    /// fund it, let the delivery window run out and take the refund as cash.
+    /// Its Tessera tier is checked from `merchant_agent`.
+    pub merchant: Signer<'info>,
     /// CHECK: the escrow order to fund. Owned by the escrow program; its
     /// contents, address and parties are checked by `read_order` and `buy_now`.
     /// Writable because the escrow's `confirm_funded` marks it Funded.

@@ -243,7 +243,7 @@ export class MerchantAgent {
   constructor(
     readonly id: string,
     readonly title: string,
-    /** Signs deliveries. */
+    /** Signs deliveries, the orders it opens, and the buy_now of a purchase on credit. */
     readonly signer: Actor,
     /** Fronts rent for orders, so buyers need no SOL. */
     readonly ops: Actor,
@@ -522,11 +522,12 @@ export class MerchantAgent {
         throw new PaymentRefused('the payment window for this quote has closed; ask for a new quote');
       }
       // On credit this merchant is the facilitator: it signs the buyer's
-      // buy_now as fee payer and sends it, and when that lands the order is
-      // already Funded (buy_now calls the escrow's confirm_funded itself).
-      // Otherwise the facilitator named in the option settles the transfer,
-      // and the order is confirmed below.
-      const settled = onCredit ? await settlePayLater(this.ops, payment, quote.terms) : await verifyAndSettle(payment, accepted);
+      // buy_now as fee payer (the ops wallet) and as the order's merchant
+      // (its own key, which buy_now requires) and sends it, and when that
+      // lands the order is already Funded (buy_now calls the escrow's
+      // confirm_funded itself). Otherwise the facilitator named in the option
+      // settles the transfer, and the order is confirmed below.
+      const settled = onCredit ? await settlePayLater(this.ops, this.signer, payment, quote.terms) : await verifyAndSettle(payment, accepted);
       paidOnCredit = onCredit;
       receipts.push(settled.response);
       timings.verifyMs = settled.verifyMs;

@@ -3,13 +3,16 @@
  * pay-later pool adds a `tessera-paylater` entry to its 402: same order, same
  * price, and the pool pays. The buyer answers with a `buy_now` it has signed
  * and the merchant's ops wallet as fee payer; the merchant checks it, signs
- * and sends it, and when it lands the pool has paid the order's vault and the
- * escrow has confirmed the order (the program calls `confirm_funded` itself),
- * so from there the order is delivered like any other.
+ * it twice (with the ops wallet, as fee payer, and with the merchant's own
+ * key, which `buy_now` requires so the pool only funds orders their merchant
+ * agreed to) and sends it. When it lands the pool has paid the order's vault
+ * and the escrow has confirmed the order (the program calls `confirm_funded`
+ * itself), so from there the order is delivered like any other.
  *
- * The merchant is its own facilitator here. What it risks is the network fee,
- * so it signs nothing but one `buy_now` for its own order (checked in the
- * SDK, `paylater.checkBuyNowTransaction`), and simulates first.
+ * The merchant is its own facilitator here. Two of its keys sign, so it signs
+ * nothing but one `buy_now` for its own order (checked in the SDK,
+ * `paylater.checkBuyNowTransaction`): no other instruction can ride along on
+ * those signatures, and what it risks is the network fee. It simulates first.
  */
 import {
   getBase64EncodedWireTransaction,
@@ -152,15 +155,20 @@ export type Settled = { response: SettleResponse; loan: Address; signature: stri
 
 /**
  * Settle a `tessera-paylater` payment: check the buyer's transaction against
- * this order, sign it as fee payer, simulate, send and wait for it to land.
- * Nothing is sent unless every check and the simulation pass, and a first
- * broadcast the RPC's preflight refuses was not forwarded either, so each of
- * those is a `PaymentRefused` and the buyer may try another way.
+ * this order, sign it as fee payer (`ops`) and as the order's merchant
+ * (`merchant`, the key of the merchant agent that quoted it), simulate, send
+ * and wait for it to land. Nothing is signed unless every check passes, and
+ * only for an order of the merchant whose key is passed in. Nothing is sent
+ * unless the simulation passes too, and a first broadcast the RPC's preflight
+ * refuses was not forwarded either, so each of those is a `PaymentRefused`
+ * and the buyer may try another way.
  */
-export async function settlePayLater(ops: Actor, payment: PaymentPayload, terms: EscrowTerms): Promise<Settled> {
+export async function settlePayLater(ops: Actor, merchant: Actor, payment: PaymentPayload, terms: EscrowTerms): Promise<Settled> {
   const t0 = Date.now();
   const transaction = (payment.payload as { transaction?: unknown }).transaction;
   if (typeof transaction !== 'string') throw new PaymentRefused('payment does not match: a tessera-paylater payment carries payload.transaction, the buyer\'s signed buy_now');
+  // The merchant's key signs only its own orders.
+  if (terms.merchant !== merchant.identity.address) throw new PaymentRefused('payment does not match: this order is not this merchant\'s');
   let checked: Awaited<ReturnType<typeof paylater.checkBuyNowTransaction>>;
   try {
     checked = await paylater.checkBuyNowTransaction(transaction, {
@@ -175,7 +183,10 @@ export async function settlePayLater(ops: Actor, payment: PaymentPayload, terms:
     if (e instanceof paylater.BuyNowTransactionError) throw new PaymentRefused(`payment does not match: ${e.message}`);
     throw e;
   }
-  const signed = await signTransaction([ops.identity.keyPair], checked.tx);
+  // Every check has passed: the ops wallet signs as fee payer, the merchant as
+  // the order's merchant (once, when the merchant is its own fee payer).
+  const keys = merchant.identity.address === ops.identity.address ? [ops.identity.keyPair] : [ops.identity.keyPair, merchant.identity.keyPair];
+  const signed = await signTransaction(keys, checked.tx);
   const wire = getBase64EncodedWireTransaction(signed);
   const signature = getSignatureFromTransaction(signed);
   const sim = await read(() => ops.rpc.simulateTransaction(wire, { encoding: 'base64', commitment: 'confirmed' }).send());

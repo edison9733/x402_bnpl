@@ -55,9 +55,18 @@ The full request and response shapes are in the OpenAPI document the API serves 
 `tessera-paylater`, in which the pay-later pool offers to pay the quoted order for the buyer against
 its live credit limit ([PAYLATER.md](PAYLATER.md), "Over x402"). None of the tools above build that
 payment; the CLI does, reading the chain itself: `tessera buy-later <merchant agent url> <skill>
-[--input JSON] --keypair PATH` runs the 402, the on-chain check of the order and one signed `buy_now`;
-`tessera credit <wallet>` shows the limit and what is owed; `tessera repay --all --keypair PATH --send`
-settles every loan at once.
+[--input JSON] --keypair PATH` runs the 402, the on-chain check of the order and one `buy_now` signed
+by the buyer; `tessera credit <wallet>` shows the limit and what is owed; `tessera repay --all
+--keypair PATH --send` settles every loan at once.
+
+Who signs the pay-later header: the buyer signs the `buy_now` in `payload.transaction`, with the
+merchant's ops wallet (`extra.feePayer`) named as fee payer and the order's merchant named as a
+signer, and leaves those two signatures empty. `buy_now` requires the signatures of both the buyer
+and the order's merchant, so the pool only pays orders their merchant agreed to; the merchant's
+server checks the transaction, then signs it as fee payer and as the merchant (one signature when
+they are the same wallet) and sends it. A buyer cannot send a `buy_now` on its own:
+`tessera buy-later --order <order> --keypair PATH --merchant-keypair PATH` does, and so needs the
+merchant's key too, which only a local world where you hold both has (`npm run paylater:local`).
 
 ## How `find_merchants` ranks
 

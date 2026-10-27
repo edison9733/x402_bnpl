@@ -245,8 +245,10 @@ export class BuyerAgent {
   /**
    * Pay later: sign one `buy_now` for exactly the verified order, with the
    * merchant's wallet (from the quote) as fee payer, and hand it over on the
-   * task. The merchant signs and sends it; the pool pays the escrow; this
-   * buyer owes the pool the price plus its fee by the due date.
+   * task. The merchant signs it as fee payer and as the order's merchant
+   * (`buy_now` needs both the buyer's and the merchant's signatures) and
+   * sends it; the pool pays the escrow; this buyer owes the pool the price
+   * plus its fee by the due date.
    */
   private async payOnCredit(url: string, taskId: string, required: PaymentRequired, option: PaymentRequirements, order: Address): Promise<{ task: Task; loan: Address }> {
     const { transaction, loan } = await paylater.buyNowForMerchant(this.actor.rpc, this.actor.identity, order, address(String(option.extra.feePayer)));

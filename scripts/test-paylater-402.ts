@@ -7,8 +7,9 @@
  *     /supported), with the buyer's live limit and whether the pool would
  *     fund it;
  *   - a buyer with a tier hands over a signed buy_now, the merchant signs it
- *     as fee payer, the pool pays the escrow, the merchant delivers, and the
- *     buyer repays the tab with `tessera repay --all`;
+ *     as fee payer (its ops wallet) and as the order's merchant (its own key,
+ *     which buy_now requires), the pool pays the escrow, the merchant
+ *     delivers, and the buyer repays the tab with `tessera repay --all`;
  *   - the same purchase through the CLI (`tessera buy-later <url> <skill>`),
  *     through the buyer agent over A2A (`--pay-later`) and through the
  *     plain-HTTP buyer script (`npm run buy:http -- --pay-later`);
@@ -17,9 +18,12 @@
  *     payer, an extra instruction, a cancel_unpaid after the buy_now, a
  *     compute unit limit above BUY_NOW_COMPUTE_UNITS, a second unit limit, a
  *     priority fee above the cap, a buy_now naming another escrow program, no
- *     buyer signature, an entry that was not quoted) is refused before the
- *     merchant signs anything;
- *   - the buy_now the merchant sends confirms the order itself (no separate
+ *     buyer signature, a buy_now that does not ask for the merchant's
+ *     signature, a signer more, the merchant asked to sign writable, a
+ *     signature already in the merchant's place, an entry that was not
+ *     quoted) is refused before the merchant signs anything;
+ *   - the buy_now the merchant sends carries three signatures (ops wallet,
+ *     buyer, the order's merchant), confirms the order itself (no separate
  *     confirm_funded), and the compute units it used leave at least 30% of
  *     BUY_NOW_COMPUTE_UNITS spare;
  *   - the server's keeper marks a loan in default once its grace period has
@@ -34,16 +38,18 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
+  AccountRole,
   appendTransactionMessageInstructions,
   createNoopSigner,
   createTransactionMessage,
   getBase64EncodedWireTransaction,
+  getBase64Encoder,
+  getTransactionDecoder,
   lamports,
   partiallySignTransactionMessageWithSigners,
   pipe,
   setTransactionMessageFeePayerSigner,
   setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners,
   type Address,
   type Instruction,
   type Signature,
@@ -387,6 +393,12 @@ try {
   const units1 = Number(sent1?.meta?.computeUnitsConsumed ?? 0n);
   log.info(`the merchant's buy_now transaction used ${units1} compute units (BUY_NOW_COMPUTE_UNITS is ${paylater.BUY_NOW_COMPUTE_UNITS})`);
   ok('it leaves at least 30% of BUY_NOW_COMPUTE_UNITS spare', units1 > 0 && units1 <= paylater.BUY_NOW_COMPUTE_UNITS * 0.7, units1);
+  // buy_now requires the order's merchant's signature, so the pool only funds
+  // orders their merchant agreed to: the server signed with atlas's key as
+  // well as with its ops wallet.
+  const msg1 = sent1?.transaction.message;
+  const signers1 = msg1 ? msg1.accountKeys.slice(0, msg1.header.numRequiredSignatures) : [];
+  ok('it carries three signatures: the ops wallet as fee payer, the buyer, and atlas, the order\'s merchant, read-only', signers1.length === 3 && signers1[0] === ops && signers1.includes(B) && signers1.includes(atlas.identity.address) && sent1?.transaction.signatures.length === 3 && msg1!.accountKeys.indexOf(atlas.identity.address) >= 3 - msg1!.header.numReadonlySignedAccounts, { signers1, header: msg1?.header });
   const logs1 = sent1?.meta?.logMessages ?? [];
   ok('its logs show the escrow\'s confirm_funded running inside buy_now, by CPI', logs1.includes(`Program ${TESSERA_PROGRAM_ADDRESS} invoke [2]`) && logs1.includes('Program log: Instruction: ConfirmFunded'), logs1);
   const again = await get(`/agents/atlas/x402/telemetry`, header(payload1));
@@ -476,7 +488,9 @@ try {
   // buy_now for order B, presented as the payment for order A
   await forged('a buy_now for another order of the same buyer', (await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderB, ops)).transaction, /funds order .* not /);
   const { value: latest } = await rpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
-  const buyNowA = await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant: atlas.identity.address, order: orderA, loanId: newOrderId() });
+  // The merchant's signature is the server's to add: a forger can only leave its place empty.
+  const atlasNoop = createNoopSigner(atlas.identity.address);
+  const buyNowA = await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant: atlasNoop, order: orderA, loanId: newOrderId() });
   /** The buyer's own signature on these instructions, with the merchant's wallet as fee payer: what a forger would hand over. */
   const forgeWith = async (ixs: Instruction[]) =>
     getBase64EncodedWireTransaction(
@@ -490,7 +504,7 @@ try {
       ),
     );
   // the buyer as fee payer: the merchant must not sign for that
-  const mine = await signTransactionMessageWithSigners(
+  const mine = await partiallySignTransactionMessageWithSigners(
     pipe(createTransactionMessage({ version: 0 }), (m) => setTransactionMessageFeePayerSigner(buyer.identity, m), (m) => setTransactionMessageLifetimeUsingBlockhash(latest, m), (m) => appendTransactionMessageInstructions([buyNowA], m)),
   );
   await forged('a transaction whose fee payer is not the merchant\'s wallet', getBase64EncodedWireTransaction(mine), /fee payer is/);
@@ -526,10 +540,22 @@ try {
   // a buy_now naming an account of the buyer's choosing in place of the escrow program
   const elsewhere = { ...buyNowA, accounts: buyNowA.accounts.map((a, i) => (i === 9 ? { ...a, address: fresh.identity.address } : a)) };
   await forged('a buy_now naming another account as the escrow program', await forgeWith([elsewhere]), /buy_now account 10 is /);
+  // buy_now with atlas a plain account, the way a buyer sending alone would build it: the server does not supply a signature nobody asked for
+  const alone = { ...buyNowA, accounts: buyNowA.accounts.map((a) => (a.address === atlas.identity.address ? { address: a.address, role: AccountRole.READONLY } : a)) };
+  await forged('a buy_now that does not ask for the order\'s merchant\'s signature', await forgeWith([alone]), /signers must be the merchant's wallet, the buyer and the order's merchant/);
+  // another wallet signing as well (here, a transfer of its SOL): nobody else signs next to the merchant
+  await forged('a signer more than the ops wallet, the buyer and the merchant', await forgeWith([buyNowA, getTransferSolInstruction({ source: createNoopSigner(fresh.identity.address), destination: B, amount: lamports(1n) })]), /signers must be/);
+  // atlas asked to sign writable: it only has to sign
+  const writable = { ...buyNowA, accounts: buyNowA.accounts.map((a) => (a.address === atlas.identity.address ? { ...a, role: AccountRole.WRITABLE_SIGNER } : a)) };
+  await forged('the order\'s merchant asked to sign as a writable account', await forgeWith([writable]), /must sign read-only/);
+  // something in the merchant's signature slot: only the buyer's signature may come from the buyer
+  const prefilled = getTransactionDecoder().decode(getBase64Encoder().encode(await forgeWith([buyNowA])));
+  const filler = new Uint8Array(64).fill(7) as unknown as (typeof prefilled.signatures)[Address];
+  await forged('a signature already in the merchant\'s place', getBase64EncodedWireTransaction({ ...prefilled, signatures: { ...prefilled.signatures, [atlas.identity.address]: filler } }), /already carries a signature for/);
   // an accepted entry the merchant never quoted: nothing of it is sent, so 400 and no note
   await forged('an accepted entry that was not quoted (another price)', (await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderA, ops)).transaction, /any option that was quoted/, { ...creditA, amount: '1' });
   // a buy_now the buyer never signed
-  const buyNowNoop = await paylater.getBuyNowInstructionAsync({ mint, buyer: createNoopSigner(B), merchant: atlas.identity.address, order: orderA, loanId: newOrderId() });
+  const buyNowNoop = await paylater.getBuyNowInstructionAsync({ mint, buyer: createNoopSigner(B), merchant: atlasNoop, order: orderA, loanId: newOrderId() });
   const unsigned = await partiallySignTransactionMessageWithSigners(
     pipe(
       createTransactionMessage({ version: 0 }),

@@ -78,12 +78,16 @@ The a2a-x402 standalone flow, with three additions.
    For the `tessera-paylater` option, `x402.payment.payload` (or the `PAYMENT-SIGNATURE` header over
    plain HTTP) is `{ "x402Version": 2, "accepted": <that entry>, "payload": { "transaction": "<base64>" } }`
    where the transaction is a legacy or version-0 transaction with the merchant's `feePayer` as fee
-   payer, already signed by the buyer, holding exactly one `buy_now` of the pay-later program for
-   this order, after at most one compute unit limit (at most 400,000 units) and one unit price (at
-   most 1,000,000 micro-lamports). The merchant is its own facilitator: it decodes it, checks the
-   program, the instruction, that every account of the `buy_now` is the one this order derives (the
-   order, its buyer, vault, merchant and mint among them), that the buyer signed, simulates, signs as
-   fee payer and sends; the receipt is the signature. The `buy_now` has the escrow confirm the order
+   payer, holding exactly one `buy_now` of the pay-later program for this order, after at most one
+   compute unit limit (at most 400,000 units) and one unit price (at most 1,000,000 micro-lamports).
+   Its signers are exactly the fee payer, the buyer and the order's merchant (read-only; one wallet
+   when the merchant is its own fee payer), and only the buyer's signature is on it: `buy_now`
+   requires the order's merchant's signature as well as the buyer's, so the pool only pays orders
+   their merchant agreed to, and the merchant adds it. The merchant is its own facilitator: it
+   decodes the transaction, checks the signers, the program, the instruction, that every account of
+   the `buy_now` is the one this order derives (the order, its buyer, vault, merchant and mint among
+   them), that the buyer signed, then signs as fee payer and as the order's merchant, simulates and
+   sends; the receipt is the signature. The `buy_now` has the escrow confirm the order
    itself, so the order is funded when it lands and there is no separate `confirm_funded`. A transaction that fails any check is refused before anything is signed (HTTP 400,
    `INVALID_PAYLOAD` over A2A). `paylater.buyNowForMerchant` in `@tessera/sdk` builds the
    transaction; `paylater.checkBuyNowTransaction` is the merchant's check.

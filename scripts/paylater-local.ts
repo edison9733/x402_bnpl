@@ -7,7 +7,11 @@
  *
  *   npm run build:program && npm run paylater:local
  *   npm run tessera -- credit <alice> --rpc http://127.0.0.1:18999
- *   npm run tessera -- buy-later --order <quote> --keypair <alice.json> --rpc http://127.0.0.1:18999 --send
+ *   npm run tessera -- buy-later --order <quote> --keypair <alice.json> --merchant-keypair <shop.json> --rpc http://127.0.0.1:18999 --send
+ *
+ * buy_now needs the order's merchant's signature as well as the buyer's, so
+ * the command by hand takes the shop's key too: here you hold both. Over x402
+ * the merchant's server adds its own.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -334,7 +338,8 @@ try {
   }
   console.log('\nQuotes the shop has opened (escrow orders awaiting payment for 10 minutes); the shop delivers what gets paid:');
   for (const [name, order, amount] of opened) console.log(`  ${name.padEnd(9)} ${order}  ${fromUnits(amount)} USDC`);
-  console.log(`\nTry:  npm run tessera -- buy-later --order <quote> --keypair ${join(keys, 'alice.json')} --rpc ${LOCAL.rpcUrl} --send`);
+  console.log(`\nTry:  npm run tessera -- buy-later --order <quote> --keypair ${join(keys, 'alice.json')} --merchant-keypair ${join(keys, 'shop.json')} --rpc ${LOCAL.rpcUrl} --send`);
+  console.log('      (buy_now is signed by the buyer and by the order\'s merchant: here you hold the shop\'s key too)');
   console.log('\nCtrl-C to stop.');
   await new Promise<void>((done) => process.once('SIGINT', () => done()));
   clearInterval(shopTimer);

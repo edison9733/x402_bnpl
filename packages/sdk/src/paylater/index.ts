@@ -134,18 +134,25 @@ export function orderRefusal(
  * has the pool pay the price into the order's vault and the escrow confirm
  * the order in the same instruction (the program calls the escrow's
  * `confirm_funded` itself), so the order is Funded when it lands. The order
- * is one the merchant already opened for `buyer`; its merchant and mint are
- * read from it.
+ * is one the merchant already opened for `buyer`; its mint is read from it.
+ *
+ * `buy_now` needs the signatures of both the buyer and the order's merchant,
+ * so a buyer cannot send it alone: `merchant` is the order's merchant as a
+ * signer, a key pair where whoever sends holds both keys, or
+ * `createNoopSigner(address)` where the merchant will add its signature
+ * before the transaction is sent (over x402 that is `buyNowForMerchant`).
  */
 export async function buyOrderOnCredit(
   rpc: Rpc<GetAccountInfoApi>,
   buyer: TransactionSigner,
   order: Address,
+  merchant: TransactionSigner,
   loanId: Uint8Array = newOrderId(),
 ) {
   const { data } = await fetchOrder(rpc, order);
+  if (data.merchant !== merchant.address) throw new Error(`order ${order} was opened by the merchant ${data.merchant}, not ${merchant.address}`);
   const [buyNow, loan] = await Promise.all([
-    getBuyNowInstructionAsync({ mint: data.mint, buyer, merchant: data.merchant, order, loanId }),
+    getBuyNowInstructionAsync({ mint: data.mint, buyer, merchant, order, loanId }),
     loanPdaOf(buyer.address, loanId),
   ]);
   return { order: data, loanId, loan, instructions: [buyNow] };
@@ -154,10 +161,12 @@ export async function buyOrderOnCredit(
 /**
  * The transaction a buyer hands a merchant to settle an x402 quote on credit:
  * one `buy_now` for the order, with the merchant's wallet as fee payer and
- * the buyer's signature already on it, as base64. The merchant checks it
- * against its quote, signs as fee payer and sends it; when it lands the pool
- * has paid the order and the escrow has confirmed it. The order is one the
- * merchant opened for `buyer`.
+ * the buyer's signature already on it, as base64. It still needs two more
+ * signatures, which only the merchant's side can add: the fee payer's and the
+ * order's merchant's (one signature when they are the same wallet). The
+ * merchant checks it against its quote, signs and sends it; when it lands the
+ * pool has paid the order and the escrow has confirmed it. The order is one
+ * the merchant opened for `buyer`; its merchant is read from it.
  */
 export async function buyNowForMerchant(
   rpc: Rpc<GetAccountInfoApi & GetLatestBlockhashApi>,
@@ -167,8 +176,10 @@ export async function buyNowForMerchant(
   loanId: Uint8Array = newOrderId(),
 ): Promise<{ transaction: string; loan: Address; loanId: Uint8Array; order: Order }> {
   const { data } = await fetchOrder(rpc, order);
+  // Placeholders: the merchant's side signs for these two (one wallet when
+  // the merchant pays its own fees).
   const [buyNow, loan, { value: latest }] = await Promise.all([
-    getBuyNowInstructionAsync({ mint: data.mint, buyer, merchant: data.merchant, order, loanId }),
+    getBuyNowInstructionAsync({ mint: data.mint, buyer, merchant: createNoopSigner(data.merchant), order, loanId }),
     loanPdaOf(buyer.address, loanId),
     rpc.getLatestBlockhash({ commitment: 'confirmed' }).send(),
   ]);
@@ -189,6 +200,7 @@ export type ExpectedBuyNow = {
   /** The order's vault, ATA(mint, order). */
   vault: Address;
   buyer: Address;
+  /** The order's merchant: it signs the `buy_now` too, and may be the fee payer itself. */
   merchant: Address;
   mint: Address;
   feePayer: Address;
@@ -217,19 +229,24 @@ const BUY_NOW_DATA_SIZE = 8 + 32;
 const BUY_NOW_ACCOUNTS = 15;
 
 /**
- * What a merchant checks before it signs, as fee payer, the transaction a
- * buyer hands it under the `tessera-paylater` scheme: a legacy or version-0
- * transaction with no lookup tables, whose only signers are the fee payer and
- * the buyer, which the buyer has already signed, and whose instructions are
- * compute-budget settings (at most one unit limit, of at most
- * `BUY_NOW_COMPUTE_UNITS`, and at most one unit price, of at most
- * `MAX_CU_PRICE`) followed by exactly one `buy_now` of this program for the
- * expected order, every one of its accounts the one this order derives (its buyer,
- * merchant, mint and vault, the loan its loan id derives, the pool, the
- * buyer's line, the escrow program and its config, both credit files).
- * Everything else about the purchase (the limit, the window, the tiers) is
- * the program's to decide when the transaction runs. Returns the decoded
- * transaction and the loan it would open, or throws a `BuyNowTransactionError`.
+ * What a merchant checks before it signs, as fee payer and as the order's
+ * merchant, the transaction a buyer hands it under the `tessera-paylater`
+ * scheme: a legacy or version-0 transaction with no lookup tables, whose
+ * signers are exactly the fee payer, the buyer and the order's merchant (the
+ * merchant may be the fee payer; the buyer is neither), the merchant signing
+ * read-only unless it pays the fee, with the buyer's signature on it and no
+ * other, and whose instructions are compute-budget settings (at most one unit
+ * limit, of at most `BUY_NOW_COMPUTE_UNITS`, and at most one unit price, of at
+ * most `MAX_CU_PRICE`) followed by exactly one `buy_now` of this program for
+ * the expected order, every one of its accounts the one this order derives
+ * (its buyer, merchant, mint and vault, the loan its loan id derives, the
+ * pool, the buyer's line, the escrow program and its config, both credit
+ * files). The merchant's own key signs this transaction, so nothing else may
+ * ride in it: no instruction of any other program, no second pay-later
+ * instruction. Everything else about the purchase (the limit, the window, the
+ * tiers) is the program's to decide when the transaction runs. Returns the
+ * decoded transaction and the loan it would open, or throws a
+ * `BuyNowTransactionError`.
  */
 export async function checkBuyNowTransaction(
   transaction: string,
@@ -252,10 +269,26 @@ export async function checkBuyNowTransaction(
   if ('addressTableLookups' in msg && (msg.addressTableLookups?.length ?? 0) > 0) refuse('the transaction uses address lookup tables');
   const keys = msg.staticAccounts;
   if (keys[0] !== e.feePayer) refuse(`the fee payer is ${keys[0]}, not the merchant's wallet`);
+  if (e.buyer === e.feePayer || e.buyer === e.merchant) refuse('the buyer cannot be the merchant or the merchant\'s wallet');
+  // Exactly these signers, each once: the fee payer, the buyer and the
+  // order's merchant, which `buy_now` requires (one fewer when the merchant
+  // pays the fee itself). Account keys are unique, so a count and a
+  // membership test make it an exact match.
+  const signerSet = new Set<Address>([e.feePayer, e.buyer, e.merchant]);
   const signers = keys.slice(0, msg.header.numSignerAccounts);
-  if (signers.length !== 2 || !signers.includes(e.buyer)) refuse('the signers must be the merchant\'s wallet and the buyer, nobody else');
+  if (signers.length !== signerSet.size || !signers.every((s) => signerSet.has(s))) {
+    refuse(`the signers must be the merchant's wallet, the buyer${e.merchant === e.feePayer ? '' : ' and the order\'s merchant'}, nobody else`);
+  }
+  // Writable signers come first, then the read-only ones. The merchant only
+  // has to sign; when it is not the fee payer it signs read-only.
+  if (e.merchant !== e.feePayer && keys.indexOf(e.merchant) < msg.header.numSignerAccounts - msg.header.numReadonlySignerAccounts) {
+    refuse('the order\'s merchant must sign read-only');
+  }
   const signature = tx.signatures[e.buyer];
   if (!signature || !(await verifySignature(await getPublicKeyFromAddress(e.buyer), signature, tx.messageBytes))) refuse('the buyer has not signed it');
+  // The buyer's is the only signature it may carry: the merchant's side adds
+  // the others, and nothing it is handed stands in for them.
+  for (const s of signers) if (s !== e.buyer && tx.signatures[s]) refuse(`it already carries a signature for ${s}; only the buyer's belongs there`);
 
   const maxCuPrice = opts.maxCuPrice ?? MAX_CU_PRICE;
   const maxCuLimit = opts.maxCuLimit ?? BUY_NOW_COMPUTE_UNITS;
@@ -313,7 +346,7 @@ export async function checkBuyNowTransaction(
     // And every other account is the one this order derives: the pool, its
     // vault, the buyer's line, the escrow program and config, both credit
     // files, the token and system programs, in the program's order.
-    const want = await getBuyNowInstructionAsync({ mint: e.mint, buyer: createNoopSigner(e.buyer), merchant: e.merchant, order: e.order, orderVault: e.vault, loanId });
+    const want = await getBuyNowInstructionAsync({ mint: e.mint, buyer: createNoopSigner(e.buyer), merchant: createNoopSigner(e.merchant), order: e.order, orderVault: e.vault, loanId });
     want.accounts.forEach((w, i) => {
       if (accounts[i]!.address !== w.address) refuse(`buy_now account ${i + 1} is ${accounts[i]!.address}, not ${w.address}`);
     });
