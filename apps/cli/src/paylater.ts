@@ -173,7 +173,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     console.log(`credit   ${short(wallet)}  ${TIERS[s.tier]} ${s.score}${s.known ? '' : '  (no credit file)'}`);
     console.log(`limit ${usdc(s.limit)} · owes ${usdc(owedTotal(tab))} (${usdc(s.line?.outstanding ?? 0n)} of it counts against the limit) · available ${usdc(s.available)}`);
     const l = s.line;
-    console.log(l ? `record: ${l.loans} loan${l.loans === 1 ? '' : 's'}, ${l.repaidOnTime} on time, ${l.repaidLate} late, ${l.defaults} default${l.defaults === 1 ? '' : 's'}` : 'record: never borrowed');
+    console.log(l ? `record: ${l.loans} loan${l.loans === 1 ? '' : 's'}, ${l.repaidOnTime} on time, ${l.repaidLate} late, ${l.defaults} default${l.defaults === 1 ? '' : 's'}; limit boost +${(Math.min(l.boostBps, p.maxBoostBps) / 100).toFixed(2)}%` : 'record: never borrowed');
     if (tab.length) {
       console.log(`tab: ${tab.length} loan${tab.length === 1 ? '' : 's'} still owed; pay them all at once with: tessera repay --all --keypair PATH --send`);
       for (const { address: a, data: d } of tab) console.log(describeOwed(a, d, now));

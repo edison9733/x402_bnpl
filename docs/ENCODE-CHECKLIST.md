@@ -54,8 +54,8 @@ FAQ: judged on "what has actually been built and works, technical depth, and how
 | The facilitator rejects the payment, or settlement fails | [`apps/agents/src/facilitator.ts`](../apps/agents/src/facilitator.ts) lines 110–122 throw; the route answers with an error and no delivery, and the note "Do not pay again" ([`apps/agents/src/server.ts`](../apps/agents/src/server.ts) lines 311–315) |
 | A quote is never paid | `cancel_unpaid`, [`programs/tessera/src/lib.rs`](../programs/tessera/src/lib.rs) line 377 |
 | Paid, and the merchant never delivers | `refund`, `lib.rs` line 298; the crank refunds at the deadline (`server.ts` lines 508–526) |
-| A pay-later header that fails verification (new) | `checkBuyNowTransaction`, [`packages/sdk/src/paylater/index.ts`](../packages/sdk/src/paylater/index.ts) lines 203–269; `settlePayLater`, [`apps/agents/src/paylater.ts`](../apps/agents/src/paylater.ts) lines 132–154 |
-| A pay-later loan not repaid (new) | `mark_default`, [`programs/tessera-paylater/src/lib.rs`](../programs/tessera-paylater/src/lib.rs) lines 240–255; the keeper, `apps/agents/src/paylater.ts` lines 172–190 |
+| A pay-later header that fails verification (new) | `checkBuyNowTransaction`, [`packages/sdk/src/paylater/index.ts`](../packages/sdk/src/paylater/index.ts) lines 234–324; `settlePayLater`, [`apps/agents/src/paylater.ts`](../apps/agents/src/paylater.ts) lines 160–182 |
+| A pay-later loan not repaid (new) | `mark_default`, [`programs/tessera-paylater/src/lib.rs`](../programs/tessera-paylater/src/lib.rs) lines 265–280; the keeper, `apps/agents/src/paylater.ts` lines 211–230 |
 
 - [x] (2026-10-27) README section "Failed payments" listing these cases (all six, with file:line).
 - [ ] One segment of the video showing at least one of them live.
@@ -83,7 +83,7 @@ Only work done from now to 8 November is judged.
   or settlement on Solana, and delivery of the requested resource." The route at `server.ts` lines 282–317
   does this today. The new feature must not bypass it. It does not: pay later is one more `accepts`
   entry in the same 402, settled by the same route (`merchant.ts` `work()`), confirmed by the same
-  `confirm_funded`, delivered the same way. `npm run test:paylater-402` (45 checks) runs it end to end.
+  `confirm_funded` (which `buy_now` calls itself), delivered the same way. `npm run test:paylater-402` (58 checks) runs it end to end.
 - [ ] **Reliability.** Run the full flow on devnet many times before recording. Version 1 has 230 measured
   purchases ([deployments/snapshot.json](../deployments/snapshot.json)); produce a fresh measurement for 2.0
   so the README can quote a number built during the window. Blocked on the devnet deploy.
@@ -101,7 +101,7 @@ Only work done from now to 8 November is judged.
 | Dates | Goal |
 |---|---|
 | 22–23 Oct | Section 1 done; toolchain fixed; scope frozen (toolchain and scope done 27 Oct; the sign-in and project creation in section 1 are still unticked) |
-| 24–31 Oct | Feature built and deployed to devnet; tests passing (built and tested 27 Oct: `test:paylater` 72/72, `test:paylater-402` 45/45; devnet deploy pending, needs SOL) |
+| 24–31 Oct | Feature built and deployed to devnet; tests passing (built and tested 27 Oct: `test:paylater` 84/84, `test:paylater-402` 58/58; devnet deploy pending, needs SOL) |
 | 1 Nov | Mid-submission on the platform |
 | 2–5 Nov | Failure demo, docs, site, reliability runs |
 | 6–7 Nov | Record and cut the video; final README read-through |

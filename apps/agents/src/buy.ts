@@ -33,7 +33,7 @@ const buyer = new BuyerAgent(buyerId, clientForSigner(await loadKeypair(keyPath(
 
 const p = await buyer.buy(agentCardUrl(merchant), skill, input);
 console.log(`\norder      ${explorerAddress(p.order)}`);
-const via = { x402: 'x402 facilitator (buyer paid no SOL)', direct: 'a direct transfer', 'pay-later': 'the pay-later pool (buyer paid nothing now)' }[p.mode];
+const via = { x402: 'x402 facilitator (buyer paid no SOL)', direct: 'a direct transfer', 'pay-later': 'the pay-later pool (the buyer paid only the rent of its loan account, in SOL)' }[p.mode];
 console.log(`amount     ${fromUnits(BigInt(p.terms.amount))} USDC, paid via ${via}`);
 for (const r of p.receipts) console.log(`settle tx  ${explorerTx(r.transaction)}`);
 if (p.loan) console.log(`loan       ${explorerAddress(p.loan.address)}\n           owe ${fromUnits(p.loan.owed)} USDC (${fromUnits(p.loan.amount)} + ${fromUnits(p.loan.fee)} pool fee) by ${new Date(p.loan.dueAt * 1000).toISOString()}; repay with: npm run tessera -- repay --all --keypair ${keyPath(buyerId)} --send`);

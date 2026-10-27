@@ -4,29 +4,41 @@
  * buy now and pay later against the limit those tiers give them. Every
  * purchase on credit goes through the escrow: the merchant opens the order (its
  * 402 quote), the pool pays the price into the order's vault in the buyer's
- * place, the escrow confirms the payment, the merchant delivers and is paid by
- * the escrow. The buyer owes the pool the price plus its fee.
+ * place and has the escrow confirm the order in the same instruction, the
+ * merchant delivers and is paid by the escrow. The buyer owes the pool the
+ * price plus its fee.
  *
  *   1. a wallet with no history gets no credit, and only a real quote for this
  *      buyer can be funded;
- *   2. a wallet with a tier buys, the pool pays the escrow, the merchant is paid
- *      by the escrow, the buyer repays on time and its limit grows;
+ *   2. a wallet with a tier buys, the pool pays the escrow and the order is
+ *      Funded in the same instruction: a buyer that sends buy_now and
+ *      cancel_unpaid together has the whole transaction fail on-chain, and
+ *      one that cancels after the buy_now landed is refused, so the pool's
+ *      money never reaches the buyer. The merchant is paid by the escrow, the
+ *      buyer repays on time and its limit grows in proportion to what it
+ *      repaid: a run of the smallest loans barely moves it, one loan the size
+ *      of the tier limit adds a whole step;
  *   3. a buyer that never repays is marked in default by a stranger and its
  *      line is frozen;
  *   4. the merchant never delivers: the escrow refunds the buyer, and the loan
- *      is still owed;
+ *      is still owed and is repaid;
  *   5. pool accounting, and the main refusal paths as real transactions.
  *
  * Every limit the program applies is recomputed off-chain from the same
- * public accounts (packages/sdk/src/paylater/limit.ts) and must match.
+ * public accounts (packages/sdk/src/paylater/limit.ts) and must match. The
+ * compute units each buy_now used are logged, and must leave at least 30%
+ * of BUY_NOW_COMPUTE_UNITS spare.
  *
  *   npm run build:program && npm run test:paylater
+ *
+ * ESCROW_SO=<path> runs it against another build of the escrow program, such
+ * as the one deployed on devnet (`solana program dump`, trailing zeros cut).
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { lamports, type Address } from '@solana/kit';
+import { lamports, type Address, type Instruction, type Signature } from '@solana/kit';
 import { getCreateAccountInstruction } from '@solana-program/system';
 import { getInitializeMint2Instruction, getMintSize, getMintToInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import {
@@ -36,6 +48,7 @@ import {
   fetchConfig,
   fetchOrder,
   fromUnits,
+  getCancelUnpaidInstructionAsync,
   getConfirmFundedInstructionAsync,
   getDeliverInstructionAsync,
   getEnsureAgentInstructionAsync,
@@ -152,7 +165,7 @@ async function expectFail(label: string, expected: string, fn: () => Promise<unk
 
 async function startValidator(upgradeAuthority: Address): Promise<{ proc: ChildProcess; ledger: string }> {
   const so = (name: string) => {
-    const p = resolve(REPO_ROOT, `target/deploy/${name}.so`);
+    const p = name === 'tessera' && process.env.ESCROW_SO ? resolve(process.env.ESCROW_SO) : resolve(REPO_ROOT, `target/deploy/${name}.so`);
     if (!existsSync(p)) throw new Error(`target/deploy/${name}.so is missing: run \`npm run build:program\` first`);
     return p;
   };
@@ -380,12 +393,11 @@ try {
     loanId,
     ix: await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant, order, loanId }),
   });
-  /** A whole purchase on credit: the merchant's quote, the pool's payment into its vault, confirmation, delivery, release. */
+  /** A whole purchase on credit: the merchant's quote, the pool's payment into its vault (which confirms the order), delivery, release. */
   async function buy(buyer: ScriptClient, merchant: ScriptClient, amount: bigint): Promise<Address> {
     const { order } = await quote(buyer, merchant, amount);
     const { loanId, ix } = await buyIx(buyer, merchant.identity.address, order);
-    await buyer.sendTransaction([ix]);
-    await confirm(order, merchant);
+    await sendBuyNow(buyer, [ix]);
     await deliver(order, merchant);
     await release(order, buyer, merchant);
     return paylater.loanPdaOf(buyer.identity.address, loanId);
@@ -396,6 +408,35 @@ try {
       payer: payer.identity, payerToken: await tok.ata(payer.identity.address),
     });
   const lineOf = async (c: ScriptClient) => (await paylater.fetchMaybeCreditLine(rpc, await paylater.linePdaOf(c.identity.address)));
+  /** A landed transaction's meta: its error, its logs, and the compute units it used. */
+  const metaOf = async (signature: string) => {
+    for (let i = 0; ; i += 1) {
+      const t = await rpc.getTransaction(signature as Signature, { commitment: 'confirmed', maxSupportedTransactionVersion: 0, encoding: 'json' }).send();
+      if (t?.meta) return { err: t.meta.err, logs: t.meta.logMessages ?? [], units: Number(t.meta.computeUnitsConsumed ?? 0n) };
+      if (i > 20) throw new Error(`no meta for ${signature}`);
+      await sleep(300);
+    }
+  };
+  /** Compute units used by each buy_now that landed, measured on the whole transaction. */
+  const buyNowUnits: number[] = [];
+  const sendBuyNow = async (by: ScriptClient, ixs: Instruction[]) => {
+    const { context } = await by.sendTransaction(ixs);
+    buyNowUnits.push((await metaOf(context.signature)).units);
+  };
+  /**
+   * Send with no preflight, so the transaction lands and the chain itself
+   * fails it: its error and logs, or undefined if it succeeded.
+   */
+  const failsOnChain = async (by: ScriptClient, ixs: Instruction[]) => {
+    try {
+      await by.sendTransaction(ixs, { skipPreflight: true });
+      return undefined;
+    } catch (e) {
+      const signature = /transaction (\w+) failed/.exec(errText(e))?.[1];
+      if (!signature) throw e;
+      return metaOf(signature);
+    }
+  };
 
   // --------------------------------------------- 1. no history, no credit
   log.step('1. A wallet with no history gets no credit, and only a real quote for this buyer can be funded');
@@ -475,12 +516,51 @@ try {
   const m1Before = await tok.balance(m1.identity.address);
   const poolBefore = await tok.balance(pool);
   const aliceBeforeBuy = await tok.balance(alice.identity.address);
+  // The attack the review found: the buyer may cancel its own unpaid quote at
+  // any time and the escrow hands it whatever is in the vault. Had buy_now
+  // only paid the vault, the buyer could have the pool pay and cancel in one
+  // transaction and walk off with the pool's money. buy_now leaves the order
+  // Funded, so the cancel fails and takes the whole transaction with it. Sent
+  // with no preflight, so this is the chain failing it, not a simulation.
+  const qCash = await quote(alice, m1, price);
+  const { loanId: loanIdCash, ix: buyCash } = await buyIx(alice, m1.identity.address, qCash.order);
+  const cancelCash = await getCancelUnpaidInstructionAsync({
+    order: qCash.order, mint, payer: server.identity.address, authority: alice.identity, buyerToken: await tok.ata(alice.identity.address),
+  });
+  const cashOut = await failsOnChain(alice, [buyCash, cancelCash]);
+  eq('alice sends [buy_now, cancel_unpaid] herself: it lands and fails, at the cancel, on the order buy_now just funded', [
+    cashOut !== undefined,
+    JSON.stringify(cashOut?.err ?? null, (_, v) => (typeof v === 'bigint' ? Number(v) : v)).startsWith('{"InstructionError":[2,'),
+    cashOut?.logs.some((l) => l === `Program ${PAYLATER} success`),
+    cashOut?.logs.some((l) => /Error Code: InvalidState/.test(l)),
+  ], [true, true, true, true]);
+  eq('the pool kept its money, alice got none, the order is still unpaid, and no loan or line was opened', [
+    await tok.balance(pool),
+    await tok.balance(alice.identity.address),
+    (await fetchOrder(rpc, qCash.order)).data.state,
+    await tok.balance(qCash.order),
+    (await rpc.getAccountInfo(await paylater.loanPdaOf(alice.identity.address, loanIdCash)).send()).value,
+    (await lineOf(alice)).exists,
+  ], [poolBefore, aliceBeforeBuy, OrderState.AwaitingPayment, 0n, null, false]);
   const qA = await quote(alice, m1, price);
   const { loanId: loanIdA, ix: buyA } = await buyIx(alice, m1.identity.address, qA.order);
-  await alice.sendTransaction([buyA]);
+  await sendBuyNow(alice, [buyA]);
+  log.info(`buy_now, opening alice's line and her first loan: ${buyNowUnits.at(-1)} compute units`);
   const loanA = await paylater.loanPdaOf(alice.identity.address, loanIdA);
   eq('the pool paid the full price into the order\'s vault', [await tok.balance(qA.order), poolBefore - (await tok.balance(pool))], [price, price]);
   eq('alice paid nothing herself', await tok.balance(alice.identity.address), aliceBeforeBuy);
+  const oFunded = (await fetchOrder(rpc, qA.order)).data;
+  eq('buy_now had the escrow confirm the order in the same instruction: Funded, with a delivery deadline', [oFunded.state, oFunded.deliverBy > oFunded.createdAt], [OrderState.Funded, true]);
+  // The buyer may cancel an unpaid quote at any time and the vault goes to it.
+  // That must not be a way to turn the pool's payment into cash: the order
+  // left AwaitingPayment inside buy_now, so the escrow refuses.
+  await expectFail('alice cancels the order to pocket the pool\'s payment', 'InvalidState', async () =>
+    alice.sendTransaction([
+      await getCancelUnpaidInstructionAsync({ order: qA.order, mint, payer: server.identity.address, authority: alice.identity, buyerToken: await tok.ata(alice.identity.address) }),
+    ]),
+  );
+  await expectFail('a second confirm_funded on the funded order', 'InvalidState', () => confirm(qA.order, m1));
+  eq('the pool\'s money is still in the vault', await tok.balance(qA.order), price);
   const la = (await paylater.fetchLoan(rpc, loanA)).data;
   eq('the loan records the order, its price and its request hash', [la.order, la.amount, la.requestHash], [qA.order, price, requestHash]);
   eq('the buyer owes the price plus the 2% pool fee', [la.fee, paylater.owedOf(la)], [fee, price + fee]);
@@ -488,8 +568,6 @@ try {
   eq('the program used alice\'s live Tessera score', [la.buyerTier, la.buyerScore], [atOpen.tier, atOpen.score]);
   eq('the limit matches the off-chain formula', la.limitAtOpen, paylater.limit(paylater.NO_LINE, LINE, atOpen.tier, atOpen.score));
   eq('the loan is due in 30 seconds', la.dueAt - la.createdAt, BigInt(LINE.termSecs));
-  await confirm(qA.order, m1);
-  eq('the escrow accepted the pool\'s payment as funding', (await fetchOrder(rpc, qA.order)).data.state, OrderState.Funded);
   await deliver(qA.order, m1);
   await release(qA.order, alice, m1);
   const oA = (await fetchOrder(rpc, qA.order)).data;
@@ -515,10 +593,14 @@ try {
   const line2 = (await lineOf(alice));
   if (!line2.exists) throw new Error('alice has no line');
   eq('alice owes nothing and has one on-time repayment', [line2.data.outstanding, line2.data.repaidOnTime], [0n, 1]);
+  // The boost is the step scaled by the loan's share of the tier limit: half
+  // the limit at a perfect score, so here half a step at most, less at her score.
+  const boostA = paylater.boostOf(price, la.buyerTier, LINE);
+  eq('the boost is the step scaled by the loan\'s share of the tier limit, as the SDK computes it', [line2.data.boostBps, boostA > 0 && boostA <= LINE.stepBps / 2], [boostA, true]);
   const nowS = await live(alice);
   const grown = paylater.limit(line2.data, LINE, nowS.tier, nowS.score);
   const flat = paylater.limit(paylater.NO_LINE, LINE, nowS.tier, nowS.score);
-  eq('repaying on time raised her limit by 25%', grown, (flat * 12_500n) / 10_000n);
+  eq('repaying on time raised her limit by that boost', grown, (flat * (10_000n + BigInt(boostA))) / 10_000n);
   // The program must apply that boost too: buy more than the unboosted limit allows.
   const boosted = flat + (grown - flat) / 2n;
   const loanA2 = await buy(alice, m1, boosted);
@@ -533,19 +615,94 @@ try {
   await alice.sendTransaction([await repayIx(loanA2, alice)]);
   eq('alice repaid that one on time too', (await paylater.fetchLoan(rpc, loanA2)).data.state, paylater.LoanState.RepaidOnTime);
 
-  // ------------------------------------ 2b. a tab: buy several, pay once
-  log.step('2b. Alice buys three things and settles the tab in one transaction');
+  // ------------------------- 2b. the boost follows the size of what was repaid
+  log.step('2b. A run of the smallest loans barely moves the limit; one the size of the tier limit adds a whole step');
+  const lent: bigint[] = []; // what 2b lends, for the pool's books in 5.
+  /** The tier alice will open her next loan at: the one she holds for the next several seconds. */
+  const steadyTier = async (): Promise<number> => {
+    for (;;) {
+      const a = (await fetchAgent(rpc, await agentPdaOf(alice.identity.address))).data;
+      const at = await chainTime(server);
+      const tiers = new Set<number>();
+      for (let k = 0n; k <= 8n; k += 1n) tiers.add(score.evaluate(a, cfgParams, at + k).tier);
+      if (tiers.size === 1) return [...tiers][0]!;
+      await sleep(1000);
+    }
+  };
+  // Counting repayments, as the boost once did, five of the smallest loans the
+  // pool finances would have added five whole steps for five 0.00002 USDC fees.
+  const beforeRun = await lineOf(alice);
+  if (!beforeRun.exists) throw new Error('alice has no line');
+  const run: Address[] = [];
+  for (let i = 0; i < 5; i += 1) run.push(await buy(alice, m1, LINE.minLoan));
+  await alice.sendTransaction(await Promise.all(run.map((loan) => repayIx(loan, alice))));
+  lent.push(...run.map(() => LINE.minLoan));
+  const afterRun = await lineOf(alice);
+  if (!afterRun.exists) throw new Error('alice has no line');
+  const runTiers = await Promise.all(run.map(async (loan) => (await paylater.fetchLoan(rpc, loan)).data.buyerTier));
+  const runBoost = afterRun.data.boostBps - beforeRun.data.boostBps;
+  eq('five 0.001 USDC loans repaid on time count as five on-time repayments, and add to the boost what the SDK says they do', [afterRun.data.repaidOnTime - beforeRun.data.repaidOnTime, runBoost], [5, runTiers.reduce((sum, t) => sum + paylater.boostOf(LINE.minLoan, t, LINE), 0)]);
+  const atRun = await live(alice);
+  const limitBeforeRun = paylater.limit(beforeRun.data, LINE, atRun.tier, atRun.score);
+  const limitAfterRun = paylater.limit(afterRun.data, LINE, atRun.tier, atRun.score);
+  const counted = Math.min(beforeRun.data.boostBps + 5 * LINE.stepBps, LINE.maxBoostBps) - Math.min(beforeRun.data.boostBps, LINE.maxBoostBps);
+  log.info(`boost ${beforeRun.data.boostBps} -> ${afterRun.data.boostBps} bps, limit ${fromUnits(limitBeforeRun)} -> ${fromUnits(limitAfterRun)} USDC; counting repayments would have added ${counted} bps`);
+  eq('and barely move the limit (by less than 0.1%), where counting repayments would have added at least a whole step', [runBoost <= 5, limitAfterRun - limitBeforeRun <= limitBeforeRun / 1_000n, counted >= LINE.stepBps], [true, true, true]);
+
+  // A loan the size of the limit of the tier it opens at earns a whole step.
+  // Her limit is that tier limit scaled by her score and the boost; should it
+  // not yet cover one, she borrows what she can and repays it on time first.
+  for (let i = 0; ; i += 1) {
+    const t = await steadyTier();
+    const l = await lineOf(alice);
+    if (!l.exists) throw new Error('alice has no line');
+    const e = await live(alice);
+    const room = paylater.limit(l.data, LINE, e.tier, e.score) - l.data.outstanding;
+    if (e.tier === t && room >= LINE.tierLimit[t]!) break;
+    if (i >= 6) throw new Error(`alice's limit never reached her tier limit: ${fromUnits(room)} USDC available`);
+    const pump = await buy(alice, m1, room);
+    await alice.sendTransaction([await repayIx(pump, alice)]);
+    lent.push(room);
+  }
+  const tFull = await steadyTier();
+  const full = LINE.tierLimit[tFull]!;
+  const beforeFull = await lineOf(alice);
+  if (!beforeFull.exists) throw new Error('alice has no line');
+  const loanFull = await buy(alice, m1, full);
+  const lf = (await paylater.fetchLoan(rpc, loanFull)).data;
+  await alice.sendTransaction([await repayIx(loanFull, alice)]);
+  lent.push(full);
+  const afterFull = await lineOf(alice);
+  if (!afterFull.exists) throw new Error('alice has no line');
+  eq(`a ${fromUnits(full)} USDC loan, the limit of the tier it opened at, repaid on time adds a whole step to the boost`, [
+    lf.buyerTier,
+    (await paylater.fetchLoan(rpc, loanFull)).data.state,
+    afterFull.data.boostBps - beforeFull.data.boostBps,
+    paylater.boostOf(full, tFull, LINE),
+  ], [tFull, paylater.LoanState.RepaidOnTime, LINE.stepBps, LINE.stepBps]);
+  // Below the cap, a whole step is a quarter of her unboosted limit.
+  const atFull = await live(alice);
+  const flatFull = paylater.limit(paylater.NO_LINE, LINE, atFull.tier, atFull.score);
+  const rise = paylater.limit(afterFull.data, LINE, atFull.tier, atFull.score) - paylater.limit(beforeFull.data, LINE, atFull.tier, atFull.score);
+  log.info(`boost ${beforeFull.data.boostBps} -> ${afterFull.data.boostBps} bps, limit +${fromUnits(rise)} USDC on an unboosted ${fromUnits(flatFull)} USDC`);
+  eq('and, the boost being under its cap, her limit rose by a whole step of her unboosted limit', [
+    afterFull.data.boostBps <= LINE.maxBoostBps,
+    rise - (flatFull * BigInt(LINE.stepBps)) / 10_000n <= 1n && (flatFull * BigInt(LINE.stepBps)) / 10_000n - rise <= 1n,
+  ], [true, true]);
+
+  // ------------------------------------ 2c. a tab: buy several, pay once
+  log.step('2c. Alice buys three things and settles the tab in one transaction');
   const lineTab = await lineOf(alice);
   if (!lineTab.exists) throw new Error('alice has no line');
   const atTab = await live(alice);
   const each = paylater.limit(lineTab.data, LINE, atTab.tier, atTab.score) / 4n;
   const tab: Address[] = [];
-  // The first one the way the CLI does it: buy_now and confirm_funded in one transaction.
+  // The first one the way the CLI does it: the SDK's buyOrderOnCredit, one buy_now.
   {
     const { order } = await quote(alice, m1, each);
     const { loanId, loan, instructions } = await paylater.buyOrderOnCredit(rpc, alice.identity, order);
-    await alice.sendTransaction(instructions);
-    eq('one transaction had the pool pay the vault and confirmed the order', [(await fetchOrder(rpc, order)).data.state, loan], [OrderState.Funded, await paylater.loanPdaOf(alice.identity.address, loanId)]);
+    await sendBuyNow(alice, instructions);
+    eq('the SDK\'s one instruction had the pool pay the vault and the order confirmed', [instructions.length, (await fetchOrder(rpc, order)).data.state, loan], [1, OrderState.Funded, await paylater.loanPdaOf(alice.identity.address, loanId)]);
     await deliver(order, m1);
     await release(order, alice, m1);
     tab.push(loan);
@@ -558,7 +715,7 @@ try {
   eq('with the price plus the fee owed on each', listed.map((l) => paylater.owedOf(l.data)), [each + paylater.feeOf(each, LINE), each + paylater.feeOf(each, LINE), each + paylater.feeOf(each, LINE)]);
   await alice.sendTransaction(await Promise.all(tab.map((loan) => repayIx(loan, alice))));
   const settled = await lineOf(alice);
-  eq('one transaction settled the tab: nothing owed, three more on-time repayments', settled.exists && [settled.data.outstanding, settled.data.repaidOnTime], [0n, 5]);
+  eq('one transaction settled the tab: nothing owed, three more on-time repayments', settled.exists && [settled.data.outstanding, settled.data.repaidOnTime - lineTab.data.repaidOnTime], [0n, 3]);
   await expectFail('a stranger closes alice\'s loan to take the rent', 'Unauthorized', async () =>
     stranger.sendTransaction([paylater.getCloseLoanInstruction({ loan: loanA, buyer: stranger.identity.address })]),
   );
@@ -609,10 +766,10 @@ try {
   const priceR = paylater.limit(lineR.data, LINE, aliceNow.tier, aliceNow.score) / 2n;
   const qR = await quote(alice, m1, priceR);
   const { loanId: loanIdR, ix: buyR } = await buyIx(alice, m1.identity.address, qR.order);
-  await alice.sendTransaction([buyR]);
+  await sendBuyNow(alice, [buyR]);
   const loanR = await paylater.loanPdaOf(alice.identity.address, loanIdR);
-  await confirm(qR.order, m1);
   const funded = (await fetchOrder(rpc, qR.order)).data;
+  eq('the order is Funded, so only the escrow\'s refund path can return the money', funded.state, OrderState.Funded);
   const aliceBeforeRefund = await tok.balance(alice.identity.address);
   const poolBeforeRefund = await tok.balance(pool);
   await waitForChainTime(server, funded.deliverBy + 1n);
@@ -638,8 +795,13 @@ try {
   const vaultBalance = await tok.balance(pool);
   eq('vault = deposits - withdrawals - lent + repaid + fees earned', vaultBalance, p.deposited - p.withdrawn - p.lent + p.repaid + p.feesEarned);
   eq('every loan was repaid in full: lent equals repaid, nothing is outstanding', [p.lent, p.outstanding], [p.repaid, 0n]);
-  const fees = [price, boosted, each, each, each, lb.amount, priceR].reduce((sum, a) => sum + paylater.feeOf(a, LINE), 0n);
-  eq('the pool earned the 2% fee on every loan, each at repayment', [p.lent, p.feesEarned], [price + boosted + 3n * each + lb.amount + priceR, fees]);
+  const loans = [price, boosted, each, each, each, ...lent, lb.amount, priceR];
+  const fees = loans.reduce((sum, a) => sum + paylater.feeOf(a, LINE), 0n);
+  eq('the pool earned the 2% fee on every loan, each at repayment', [p.lent, p.feesEarned], [loans.reduce((sum, a) => sum + a, 0n), fees]);
+  // Every buy_now that landed, the first of them opening a line as well as a loan.
+  const most = Math.max(...buyNowUnits);
+  log.info(`buy_now used ${Math.min(...buyNowUnits)}-${most} compute units over ${buyNowUnits.length} purchases; BUY_NOW_COMPUTE_UNITS is ${paylater.BUY_NOW_COMPUTE_UNITS}`);
+  eq('BUY_NOW_COMPUTE_UNITS leaves at least 30% spare over the most any buy_now used', most > 0 && most <= paylater.BUY_NOW_COMPUTE_UNITS * 0.7, true);
   log.info(`pool: lent ${fromUnits(p.lent)}, repaid ${fromUnits(p.repaid)}, fees ${fromUnits(p.feesEarned)}, defaulted ${fromUnits(p.defaulted)} USDC`);
   await deployer.sendTransaction([await tok.ensureAtaIx(deployer.identity.address, deployer)]);
   await deployer.sendTransaction([

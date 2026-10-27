@@ -21,7 +21,7 @@
     "paylater:local": "tsx scripts/paylater-local.ts",
     "setup:devnet": "tsx scripts/setup-devnet.ts",
     "agents": "npm run start -w @tessera/agents",
-    "swarm": "npm run swarm -w @tessera/agents",
+    "swarm": "npm run swarm -w @tessera/agents --",
     "web": "npm run dev -w @tessera/web",
     "build:web": "npm run build -w @tessera/web",
     "typecheck": "tsc -p packages/sdk/tsconfig.json --noEmit && tsc -p apps/agents/tsconfig.json --noEmit && tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/mcp/tsconfig.json --noEmit && tsc -p apps/cli/tsconfig.json --noEmit && tsc -p scripts/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",

@@ -475,7 +475,8 @@ export class MerchantAgent {
       throw new Error('this order was already delivered');
     }
     const quote = this.quotes.get(orderAddress);
-    if (!quote) throw new Error('unknown or already fulfilled order');
+    // With a payment attached nothing of it was sent anywhere, so the client may quote again.
+    if (!quote) throw payment ? new PaymentRefused('unknown or already fulfilled order; ask for a new quote') : new Error('unknown or already fulfilled order');
     const done = this.work(orderAddress, quote, payment, proof).finally(() => this.inflight.delete(orderAddress));
     this.inflight.set(orderAddress, { payment: proof, client: client ?? 'local', done });
     return done;
@@ -487,13 +488,17 @@ export class MerchantAgent {
     const receipts: SettleResponse[] = [];
     const t0 = Date.now();
     const cfg = await getConfig(this.ops);
+    let paidOnCredit = false;
 
     if (payment) {
+      // Every refusal before the payment is handed to a facilitator or
+      // signed is a PaymentRefused: nothing was sent, the buyer may pay
+      // another way. Once it could have moved, a plain Error says not to.
       const accepted = quote.required.accepts.find(
         (a) => a.scheme === payment.accepted.scheme && a.payTo === payment.accepted.payTo && a.extra?.feePayer === payment.accepted.extra?.feePayer,
       );
       if (!accepted || payment.accepted.amount !== accepted.amount || payment.accepted.asset !== accepted.asset) {
-        throw new Error('payment does not match any option that was quoted');
+        throw new PaymentRefused('payment does not match any option that was quoted');
       }
       const onCredit = accepted.scheme === paylater.X402_SCHEME;
       // The order address is public on-chain. Without this, anyone could pay
@@ -502,22 +507,27 @@ export class MerchantAgent {
       // here, not left to the facilitator. A purchase on credit is checked the
       // same way, against the one buy_now this merchant will sign for.
       if (!onCredit && !(await paysThisOrder(payment, quote.terms))) {
-        throw new Error('payment does not match: it is not this order\'s buyer paying this order\'s vault');
+        throw new PaymentRefused('payment does not match: it is not this order\'s buyer paying this order\'s vault');
       }
       // Only a payment that funds this order now is taken as paying for it.
       // One funded some other way is collected the way it was ordered, and
       // after settling, the vault, not the facilitator's word, says it was paid.
+      // An order already paid may have been paid by an earlier try of this
+      // same payment, so this one stays a plain Error: do not pay again.
       const before = await readOrder(this.ops, order);
       if (!before || before.state !== OrderState.AwaitingPayment || (await vaultBalance(this.ops, quote.terms.vault)) >= before.amount) {
         throw new Error('payment does not match: this order is already paid or closed');
       }
       if ((await chainNow(this.ops)) + PAY_MARGIN_SECS > before.createdAt + BigInt(cfg.params.unpaidSecs)) {
-        throw new Error('the payment window for this quote has closed; ask for a new quote');
+        throw new PaymentRefused('the payment window for this quote has closed; ask for a new quote');
       }
       // On credit this merchant is the facilitator: it signs the buyer's
-      // buy_now as fee payer and sends it. Otherwise the facilitator named
-      // in the option does.
+      // buy_now as fee payer and sends it, and when that lands the order is
+      // already Funded (buy_now calls the escrow's confirm_funded itself).
+      // Otherwise the facilitator named in the option settles the transfer,
+      // and the order is confirmed below.
       const settled = onCredit ? await settlePayLater(this.ops, payment, quote.terms) : await verifyAndSettle(payment, accepted);
+      paidOnCredit = onCredit;
       receipts.push(settled.response);
       timings.verifyMs = settled.verifyMs;
       timings.settleMs = settled.settleMs;
@@ -527,6 +537,14 @@ export class MerchantAgent {
     // The program decides whether the order is paid. Not the facilitator, not us.
     let o = await readOrder(this.ops, order);
     if (!o) throw new Error('order no longer exists');
+    if (paidOnCredit) {
+      // The buy_now that landed paid the vault and had the escrow confirm the
+      // order in the same instruction. An order that still reads as awaiting
+      // payment is a read from a node a slot behind: wait for it, and never
+      // send a confirm_funded of our own (it would only fail).
+      o = await readUntil(() => readOrder(this.ops, order), (x) => x !== null && x.state !== OrderState.AwaitingPayment, 10);
+      if (!o || o.state === OrderState.AwaitingPayment) throw new Error('the pay-later purchase landed, but the order does not read as funded yet');
+    }
     if (o.state === OrderState.AwaitingPayment) {
       const amount = o.amount;
       const funded = await readUntil(() => vaultBalance(this.ops, quote.terms.vault), (b) => b >= amount, 6);

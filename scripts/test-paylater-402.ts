@@ -3,16 +3,25 @@
  * validator running both programs:
  *
  *   - a merchant's 402 offers the order on credit (scheme tessera-paylater)
- *     after its exact entries, with the buyer's live limit and whether the
- *     pool would fund it;
+ *     after the exact entry of its facilitator (a stub here, answering
+ *     /supported), with the buyer's live limit and whether the pool would
+ *     fund it;
  *   - a buyer with a tier hands over a signed buy_now, the merchant signs it
  *     as fee payer, the pool pays the escrow, the merchant delivers, and the
  *     buyer repays the tab with `tessera repay --all`;
- *   - the same purchase through the CLI (`tessera buy-later <url> <skill>`)
- *     and through the buyer agent over A2A (`--pay-later`);
- *   - a New wallet is told it is not eligible, and a forged header (no
- *     credit, another order, another fee payer, an extra instruction, no
- *     buyer signature) is refused before the merchant signs anything;
+ *   - the same purchase through the CLI (`tessera buy-later <url> <skill>`),
+ *     through the buyer agent over A2A (`--pay-later`) and through the
+ *     plain-HTTP buyer script (`npm run buy:http -- --pay-later`);
+ *   - a New wallet is told it is not eligible, so is a buyer at a New
+ *     merchant, and a forged header (no credit, another order, another fee
+ *     payer, an extra instruction, a cancel_unpaid after the buy_now, a
+ *     compute unit limit above BUY_NOW_COMPUTE_UNITS, a second unit limit, a
+ *     priority fee above the cap, a buy_now naming another escrow program, no
+ *     buyer signature, an entry that was not quoted) is refused before the
+ *     merchant signs anything;
+ *   - the buy_now the merchant sends confirms the order itself (no separate
+ *     confirm_funded), and the compute units it used leave at least 30% of
+ *     BUY_NOW_COMPUTE_UNITS spare;
  *   - the server's keeper marks a loan in default once its grace period has
  *     passed, and the buyer's line is frozen.
  *
@@ -20,6 +29,7 @@
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -35,7 +45,10 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
   type Address,
+  type Instruction,
+  type Signature,
 } from '@solana/kit';
+import { getSetComputeUnitPriceInstruction } from '@solana-program/compute-budget';
 import { getCreateAccountInstruction, getTransferSolInstruction } from '@solana-program/system';
 import { getInitializeMint2Instruction, getMintSize, getMintToInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import {
@@ -45,6 +58,7 @@ import {
   fetchConfig,
   fetchOrder,
   fromUnits,
+  getCancelUnpaidInstructionAsync,
   getConfirmFundedInstructionAsync,
   getDeliverInstructionAsync,
   getEnsureAgentInstructionAsync,
@@ -61,6 +75,7 @@ import {
   score,
   settleAccounts,
   sha256,
+  SOLANA_DEVNET,
   TESSERA_PROGRAM_ADDRESS,
   type Params,
 } from '@tessera/sdk';
@@ -146,6 +161,7 @@ const ledger = mkdtempSync(join(tmpdir(), 'tessera-paylater-402-ledger-'));
 const keydir = mkdtempSync(join(tmpdir(), 'tessera-paylater-402-keys-'));
 const datadir = mkdtempSync(join(tmpdir(), 'tessera-paylater-402-data-'));
 const children: ChildProcess[] = [];
+const stubs: ReturnType<typeof createServer>[] = [];
 const validator = spawn(
   'solana-test-validator',
   [
@@ -273,18 +289,35 @@ try {
   keyFile('.keys/server.json', server);
   keyFile('.keys/arbiter.json', arbiter);
   for (const [id, c] of cast) keyFile(keyPath(id), c);
+  // A stub x402 facilitator that only answers /supported, so every 402 carries
+  // an exact entry (with this fee payer) before the pay-later one. Nobody pays
+  // through it here, so /verify and /settle are not served.
+  const facilitatorFeePayer = (await generateKeypairBytes()).signer.address;
+  const facilitator = createServer((req, res) => {
+    if (req.method === 'GET' && req.url === '/supported') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      return void res.end(JSON.stringify({ kinds: [{ x402Version: 2, scheme: 'exact', network: SOLANA_DEVNET, extra: { feePayer: facilitatorFeePayer } }], extensions: [], signers: {} }));
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  await new Promise<void>((r) => facilitator.listen(0, '127.0.0.1', r));
+  stubs.push(facilitator);
+  const facilitatorUrl = `http://127.0.0.1:${(facilitator.address() as { port: number }).port}`;
+  const serverEnv = {
+    ...process.env,
+    TESSERA_KEYS_DIR: keydir,
+    SOLANA_RPC_URL: LOCAL.rpcUrl,
+    SOLANA_RPC_FALLBACKS: '',
+    RPC_BUDGET_PER_10S: '100000',
+    AGENT_HOST: AGENTS,
+  };
   const agents = spawn(process.execPath, [tsx, resolve(REPO_ROOT, 'apps/agents/src/server.ts')], {
     env: {
-      ...process.env,
-      TESSERA_KEYS_DIR: keydir,
-      SOLANA_RPC_URL: LOCAL.rpcUrl,
-      SOLANA_RPC_FALLBACKS: '',
-      RPC_BUDGET_PER_10S: '100000',
+      ...serverEnv,
       PORT: String(AGENTS_PORT),
       HOST: '127.0.0.1',
-      AGENT_HOST: AGENTS,
-      // nothing listens there: the probe fails at once and the quotes carry no exact entry
-      FACILITATOR_URLS: 'http://127.0.0.1:1',
+      FACILITATOR_URLS: facilitatorUrl,
       TESSERA_DATA_DIR: datadir,
       CRANK_MS: '2000',
       KEEPER_MS: '3000',
@@ -297,25 +330,35 @@ try {
   agents.stderr!.on('data', (d: Buffer) => (serverLog += d.toString()));
   await waitFor(`${AGENTS}/health`);
   ok('the server says the pool is on this network and that it marks overdue loans', /pay later: pool .* marks overdue loans/.test(serverLog), serverLog.slice(-400));
+  ok('and that it found the (stub) facilitator', new RegExp(`facilitators: ${facilitatorUrl}`).test(serverLog), serverLog.slice(-600));
   const ops = server.identity.address;
   const B = buyer.identity.address;
   const price = 200_000n; // atlas, telemetry: 0.20 USDC
 
   // ---------------------------------------------------------- 1. the quote
-  log.step('1. The 402 offers the order on credit, after any exact entry');
+  log.step('1. The 402 offers the order on credit, after the exact entry');
+  const lineNow = await paylater.fetchMaybeCreditLine(rpc, await paylater.linePdaOf(B));
+  const l0 = lineNow.exists ? lineNow.data : paylater.NO_LINE;
+  const tQuote0 = await chainTime(server);
   const q1 = await get(`/agents/atlas/x402/telemetry?buyer=${B}`);
+  const tQuote1 = await chainTime(server);
   const r1 = q1.body as Required402;
   ok('GET without a payment is 402', q1.status === 402, q1.body);
   if (q1.status !== 402) throw new Error(`no quote: ${show(q1.body)}`);
   const credit1 = r1.accepts.at(-1);
-  ok('the last entry of accepts is tessera-paylater, every one before it exact', credit1?.scheme === paylater.X402_SCHEME && r1.accepts.slice(0, -1).every((a) => a.scheme === 'exact'), r1.accepts);
+  eq('accepts is the facilitator\'s exact entry first, then tessera-paylater', [r1.accepts.length, r1.accepts[0]?.scheme, r1.accepts[0]?.extra?.feePayer, credit1?.scheme], [2, 'exact', facilitatorFeePayer, paylater.X402_SCHEME]);
   eq('same asset, same price, payTo the order', [credit1?.asset, credit1?.amount, credit1?.payTo], [mint, price.toString(), r1.extensions.tessera.order]);
   const offer1 = credit1?.extra as paylater.PayLaterOffer;
   eq('extra names the program, the pool and the merchant\'s ops wallet as fee payer', [offer1.program, offer1.pool, offer1.feePayer], [PAYLATER, pool, ops]);
-  const lineNow = await paylater.fetchMaybeCreditLine(rpc, await paylater.linePdaOf(B));
-  const l0 = lineNow.exists ? lineNow.data : paylater.NO_LINE;
-  const e0 = await live(buyer);
-  ok('buyerLimit is the SDK formula on the live credit file and line, outstanding 0, eligible', BigInt(offer1.buyerLimit) > 0n && BigInt(offer1.buyerLimit) <= paylater.limit(l0, LINE, e0.tier, e0.score) * 2n && offer1.buyerOutstanding === '0' && offer1.eligible === true, offer1);
+  // The live score moves with the clock, so the limit is the formula at one
+  // of the chain times the quote could have been read at.
+  const agentB = (await fetchAgent(rpc, await agentPdaOf(B))).data;
+  const limitsThen = new Set<string>();
+  for (let t = tQuote0; t <= tQuote1 + 1n; t += 1n) {
+    const e = score.evaluate(agentB, cfgParams, t);
+    limitsThen.add(paylater.limit(l0, LINE, e.tier, e.score).toString());
+  }
+  ok('buyerLimit is the SDK formula on the live credit file and line at the time of the quote, outstanding 0, eligible', BigInt(offer1.buyerLimit) > 0n && limitsThen.has(offer1.buyerLimit) && offer1.buyerOutstanding === '0' && offer1.eligible === true, { offer1, limitsThen: [...limitsThen] });
   eq('fee and term are the pool\'s rules', [offer1.fee, offer1.termSecs], [paylater.feeOf(price, LINE).toString(), LINE.termSecs]);
   eq('the same facts sit under extensions.tessera.payLater', r1.extensions.tessera.payLater, offer1);
   ok('the PAYMENT-REQUIRED header carries the same 402', Buffer.from(q1.headers.get('PAYMENT-REQUIRED') ?? '', 'base64').toString('utf8') === JSON.stringify(q1.body));
@@ -335,23 +378,32 @@ try {
   ok('PAYMENT-RESPONSE is a receipt with the buy_now signature and the buyer as payer', receipt1?.success === true && typeof receipt1.transaction === 'string' && receipt1.transaction.length > 40 && receipt1.payer === B, receipt1);
   const o1 = (await fetchOrder(rpc, order1)).data;
   ok('the order was confirmed funded and delivered', [OrderState.Delivered, OrderState.Released].includes(o1.state), OrderState[o1.state]);
+  ok('the buy_now itself confirmed the order: funded in the slot the loan opened, no separate confirm_funded', o1.fundedAt > 0n && o1.fundedAt === (await paylater.fetchLoan(rpc, built1.loan)).data.createdAt, o1);
   const loan1 = await paylater.fetchMaybeLoan(rpc, built1.loan);
   ok('the loan is open for the price, on this order', loan1.exists && loan1.data.state === paylater.LoanState.Open && loan1.data.amount === price && loan1.data.order === order1, loan1);
   eq('the pool paid the price, the buyer paid nothing', [poolBefore - (await tok.balance(pool)), await tok.balance(B)], [price, buyerUsdc]);
+  // The merchant's transaction: a unit limit of BUY_NOW_COMPUTE_UNITS and the buy_now, which opened this buyer's line and its first loan.
+  const sent1 = await rpc.getTransaction(receipt1!.transaction as Signature, { commitment: 'confirmed', maxSupportedTransactionVersion: 0, encoding: 'json' }).send();
+  const units1 = Number(sent1?.meta?.computeUnitsConsumed ?? 0n);
+  log.info(`the merchant's buy_now transaction used ${units1} compute units (BUY_NOW_COMPUTE_UNITS is ${paylater.BUY_NOW_COMPUTE_UNITS})`);
+  ok('it leaves at least 30% of BUY_NOW_COMPUTE_UNITS spare', units1 > 0 && units1 <= paylater.BUY_NOW_COMPUTE_UNITS * 0.7, units1);
+  const logs1 = sent1?.meta?.logMessages ?? [];
+  ok('its logs show the escrow\'s confirm_funded running inside buy_now, by CPI', logs1.includes(`Program ${TESSERA_PROGRAM_ADDRESS} invoke [2]`) && logs1.includes('Program log: Instruction: ConfirmFunded'), logs1);
   const again = await get(`/agents/atlas/x402/telemetry`, header(payload1));
   ok('the same header again gets the same delivery back, and opens no second loan', again.status === 200 && again.body.escrow?.order === order1 && (await paylater.fetchLoansOf(rpc, B)).length === 1, again.body);
 
   // ------------------------------------------------------- 3. the CLI form
   log.step('3. tessera buy-later <merchant url> <skill> runs the same flow');
-  const cli = (args: string[]) =>
+  const run = (script: string, args: string[], env: Record<string, string | undefined> = process.env) =>
     new Promise<{ status: number | null; stdout: string; stderr: string }>((done) => {
-      const p = spawn(process.execPath, [tsx, resolve(REPO_ROOT, 'apps/cli/src/cli.ts'), ...args, '--rpc', LOCAL.rpcUrl]);
+      const p = spawn(process.execPath, [tsx, resolve(REPO_ROOT, script), ...args], { env });
       let stdout = '';
       let stderr = '';
       p.stdout.on('data', (d) => (stdout += d));
       p.stderr.on('data', (d) => (stderr += d));
       p.on('close', (status) => done({ status, stdout, stderr }));
     });
+  const cli = (args: string[]) => run('apps/cli/src/cli.ts', [...args, '--rpc', LOCAL.rpcUrl]);
   const buyerKey = join(keydir, 'buyer.json');
   writeFileSync(buyerKey, JSON.stringify(Array.from(keyBytes.get(B)!)), { mode: 0o600 });
   const freshKey = join(keydir, 'fresh.json');
@@ -373,6 +425,14 @@ try {
   ok('the helper bought on credit over A2A and verified the delivery against the hash', !purchase.failed && purchase.verified && purchase.mode === 'pay-later', purchase);
   ok('it logged the loan and the due date, and the purchase carries the loan', !!purchase.loan && purchase.loan.owed === price + paylater.feeOf(price, LINE) && lines.some((l) => /loan .*: owe 0\.204 USDC .* by 20\d\d-/.test(l)), { loan: purchase.loan, lines });
   ok('the receipt is the buy_now the merchant sent', purchase.receipts[0]?.success === true && purchase.receipts[0]?.payer === helper.identity.address, purchase.receipts);
+
+  // ------------------------------------------- 4b. the plain-HTTP buyer script
+  log.step('4b. npm run buy:http -- --pay-later: the plain-HTTP buyer script, as a cast buyer');
+  // The script takes a cast buyer id and reads its key from .keys/agents/: the helper plays nova.
+  keyFile(keyPath('nova'), helper);
+  const http = await run('apps/agents/src/http402.ts', ['--buyer', 'nova', '--merchant', 'atlas', '--skill', 'telemetry', '--pay-later'], serverEnv);
+  ok('the script asked, verified the escrow on-chain, paid later and printed the loan and what it owes', http.status === 0 && /escrow verified on-chain/.test(http.stdout) && /GET with PAYMENT-SIGNATURE -> 200/.test(http.stdout) && /owe 0\.204 USDC \(0\.20 \+ 0\.004 pool fee\)/.test(http.stdout), http.stdout + http.stderr);
+  eq('the helper now owes two loans, the script\'s among them', paylater.owed(await paylater.fetchLoansOf(rpc, helper.identity.address)).length, 2);
 
   // ------------------------------------------------------- 5. repay --all
   log.step('5. repay --all clears the tab');
@@ -398,6 +458,10 @@ try {
   ok('nothing moved: the order is still awaiting payment, its vault empty, and the wallet has no loan', (await fetchOrder(rpc, orderF)).data.state === OrderState.AwaitingPayment && (await tok.balance(orderF)) === 0n && (await paylater.fetchLoansOf(rpc, F)).length === 0);
   const cliF = await cli(['buy-later', `${AGENTS}/agents/atlas`, 'telemetry', '--keypair', freshKey]);
   ok('the CLI stops at the 402 for a New wallet', cliF.status === 1 && /not eligible for pay later: the buyer has no credit yet/.test(cliF.stderr), cliF.stdout + cliF.stderr);
+  // A merchant with no history: the pool only funds merchants at Building or above.
+  const qM = await get(`/agents/mallory/x402/anything?buyer=${B}`);
+  const offerM = (qM.body as Required402).accepts.find((a) => a.scheme === paylater.X402_SCHEME)?.extra as paylater.PayLaterOffer | undefined;
+  ok('a tiered buyer at a New merchant is told the merchant does not qualify', qM.status === 402 && offerM?.eligible === false && /merchants at Building or above/.test(offerM.reason ?? ''), offerM);
 
   // Two fresh quotes for the tiered buyer, to forge against.
   const rA = (await get(`/agents/atlas/x402/telemetry?buyer=${B}`)).body as Required402;
@@ -413,6 +477,18 @@ try {
   await forged('a buy_now for another order of the same buyer', (await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderB, ops)).transaction, /funds order .* not /);
   const { value: latest } = await rpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
   const buyNowA = await paylater.getBuyNowInstructionAsync({ mint, buyer: buyer.identity, merchant: atlas.identity.address, order: orderA, loanId: newOrderId() });
+  /** The buyer's own signature on these instructions, with the merchant's wallet as fee payer: what a forger would hand over. */
+  const forgeWith = async (ixs: Instruction[]) =>
+    getBase64EncodedWireTransaction(
+      await partiallySignTransactionMessageWithSigners(
+        pipe(
+          createTransactionMessage({ version: 0 }),
+          (m) => setTransactionMessageFeePayerSigner(createNoopSigner(ops), m),
+          (m) => setTransactionMessageLifetimeUsingBlockhash(latest, m),
+          (m) => appendTransactionMessageInstructions(ixs, m),
+        ),
+      ),
+    );
   // the buyer as fee payer: the merchant must not sign for that
   const mine = await signTransactionMessageWithSigners(
     pipe(createTransactionMessage({ version: 0 }), (m) => setTransactionMessageFeePayerSigner(buyer.identity, m), (m) => setTransactionMessageLifetimeUsingBlockhash(latest, m), (m) => appendTransactionMessageInstructions([buyNowA], m)),
@@ -428,6 +504,30 @@ try {
     ),
   );
   await forged('a buy_now plus a transfer of the merchant\'s SOL', getBase64EncodedWireTransaction(steal), /an instruction for 1111/);
+  // a unit limit at the runtime maximum: with a priority fee it would cost the merchant 3.5 times the cap
+  const hot = await partiallySignTransactionMessageWithSigners(
+    pipe(
+      createTransactionMessage({ version: 0 }),
+      (m) => setTransactionMessageFeePayerSigner(createNoopSigner(ops), m),
+      (m) => setTransactionMessageLifetimeUsingBlockhash(latest, m),
+      (m) => appendTransactionMessageInstructions([paylater.computeUnitLimitInstruction(1_400_000), buyNowA], m),
+    ),
+  );
+  await forged('a compute unit limit above BUY_NOW_COMPUTE_UNITS', getBase64EncodedWireTransaction(hot), /compute unit limit of 1400000 \(at most 400000\)/);
+  // two unit limits, each under the cap
+  const twice = await forgeWith([paylater.computeUnitLimitInstruction(200_000), paylater.computeUnitLimitInstruction(200_000), buyNowA]);
+  await forged('a second compute unit limit', twice, /more than one compute unit limit/);
+  // a priority fee one micro-lamport over the cap
+  const pricey = await forgeWith([getSetComputeUnitPriceInstruction({ microLamports: paylater.MAX_CU_PRICE + 1n }), buyNowA]);
+  await forged('a priority fee above MAX_CU_PRICE', pricey, /priority fee of 1000001 micro-lamports/);
+  // the buyer's own cancel of the quote after the buy_now: the cash-out the review found
+  const cancelA = await getCancelUnpaidInstructionAsync({ order: orderA, mint, payer: ops, authority: buyer.identity, buyerToken: await tok.ata(B) });
+  await forged('a buy_now followed by a cancel_unpaid of the same order', await forgeWith([buyNowA, cancelA]), new RegExp(`an instruction for ${TESSERA_PROGRAM_ADDRESS}`));
+  // a buy_now naming an account of the buyer's choosing in place of the escrow program
+  const elsewhere = { ...buyNowA, accounts: buyNowA.accounts.map((a, i) => (i === 9 ? { ...a, address: fresh.identity.address } : a)) };
+  await forged('a buy_now naming another account as the escrow program', await forgeWith([elsewhere]), /buy_now account 10 is /);
+  // an accepted entry the merchant never quoted: nothing of it is sent, so 400 and no note
+  await forged('an accepted entry that was not quoted (another price)', (await paylater.buyNowForMerchant(buyer.rpc, buyer.identity, orderA, ops)).transaction, /any option that was quoted/, { ...creditA, amount: '1' });
   // a buy_now the buyer never signed
   const buyNowNoop = await paylater.getBuyNowInstructionAsync({ mint, buyer: createNoopSigner(B), merchant: atlas.identity.address, order: orderA, loanId: newOrderId() });
   const unsigned = await partiallySignTransactionMessageWithSigners(
@@ -477,6 +577,7 @@ try {
       c.kill('SIGKILL');
     }
   }
+  for (const s of stubs) s.close();
   await sleep(300);
   rmSync(ledger, { recursive: true, force: true });
   rmSync(keydir, { recursive: true, force: true });

@@ -580,7 +580,7 @@ const usdcOf = (u: bigint) => (Number(u) / 1e6).toFixed(2);
 function PayLater() {
   const steps = [
     ['Buy now', 'The pool pays the escrow order the merchant quoted, in the buyer\'s place. The escrow pays the merchant on delivery, and the buyer keeps its refund and dispute protection. The buyer agent signs; nobody can borrow in its name.'],
-    ['Pay later', 'The buyer repays the price plus a 2% pool fee by the due date, with no interest. Each on-time repayment raises its limit by 25%, up to double.'],
+    ['Pay later', 'The buyer repays the price plus a 2% pool fee by the due date, with no interest. A loan the size of its tier limit, repaid on time, raises its limit by 25%, a smaller one by its share of that, up to double.'],
     ['Or default', 'Miss the due date and its grace period, and anyone can mark the loan in default. The line freezes at zero, in public.'],
   ];
   const path = usePath();

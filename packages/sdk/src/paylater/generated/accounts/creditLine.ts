@@ -68,6 +68,12 @@ export type CreditLine = {
   repaidLate: number;
   /** Loans marked in default. Any default freezes the line for good. */
   defaults: number;
+  /**
+   * The limit boost earned so far, in bps, before the cap: each on-time
+   * repayment adds `step_bps` scaled by the loan's size next to the tier
+   * limit (`credit::boost_of`), so a run of tiny loans earns next to nothing.
+   */
+  boostBps: number;
   lastLoanAt: bigint;
   bump: number;
 };
@@ -88,6 +94,12 @@ export type CreditLineArgs = {
   repaidLate: number;
   /** Loans marked in default. Any default freezes the line for good. */
   defaults: number;
+  /**
+   * The limit boost earned so far, in bps, before the cap: each on-time
+   * repayment adds `step_bps` scaled by the loan's size next to the tier
+   * limit (`credit::boost_of`), so a run of tiny loans earns next to nothing.
+   */
+  boostBps: number;
   lastLoanAt: number | bigint;
   bump: number;
 };
@@ -107,6 +119,7 @@ export function getCreditLineEncoder(): FixedSizeEncoder<CreditLineArgs> {
       ["repaidOnTime", getU32Encoder()],
       ["repaidLate", getU32Encoder()],
       ["defaults", getU32Encoder()],
+      ["boostBps", getU32Encoder()],
       ["lastLoanAt", getI64Encoder()],
       ["bump", getU8Encoder()],
     ]),
@@ -128,6 +141,7 @@ export function getCreditLineDecoder(): FixedSizeDecoder<CreditLine> {
     ["repaidOnTime", getU32Decoder()],
     ["repaidLate", getU32Decoder()],
     ["defaults", getU32Decoder()],
+    ["boostBps", getU32Decoder()],
     ["lastLoanAt", getI64Decoder()],
     ["bump", getU8Decoder()],
   ]);
@@ -195,5 +209,5 @@ export async function fetchAllMaybeCreditLine(
 }
 
 export function getCreditLineSize(): number {
-  return 101;
+  return 105;
 }

@@ -65,6 +65,8 @@ export type BuyNowInstruction<
   TAccountMerchant extends string | AccountMeta<string> = string,
   TAccountOrder extends string | AccountMeta<string> = string,
   TAccountOrderVault extends string | AccountMeta<string> = string,
+  TAccountEscrowProgram extends string | AccountMeta<string> =
+    "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",
   TAccountTesseraConfig extends string | AccountMeta<string> = string,
   TAccountBuyerAgent extends string | AccountMeta<string> = string,
   TAccountMerchantAgent extends string | AccountMeta<string> = string,
@@ -100,11 +102,14 @@ export type BuyNowInstruction<
         ? ReadonlyAccount<TAccountMerchant>
         : TAccountMerchant,
       TAccountOrder extends string
-        ? ReadonlyAccount<TAccountOrder>
+        ? WritableAccount<TAccountOrder>
         : TAccountOrder,
       TAccountOrderVault extends string
         ? WritableAccount<TAccountOrderVault>
         : TAccountOrderVault,
+      TAccountEscrowProgram extends string
+        ? ReadonlyAccount<TAccountEscrowProgram>
+        : TAccountEscrowProgram,
       TAccountTesseraConfig extends string
         ? ReadonlyAccount<TAccountTesseraConfig>
         : TAccountTesseraConfig,
@@ -168,6 +173,8 @@ export type BuyNowAsyncInput<
   TAccountMerchant extends InstructionAccountInput = InstructionAccountInput,
   TAccountOrder extends InstructionAccountInput = InstructionAccountInput,
   TAccountOrderVault extends InstructionAccountInput = InstructionAccountInput,
+  TAccountEscrowProgram extends InstructionAccountInput =
+    InstructionAccountInput,
   TAccountTesseraConfig extends InstructionAccountInput =
     InstructionAccountInput,
   TAccountBuyerAgent extends InstructionAccountInput = InstructionAccountInput,
@@ -186,13 +193,18 @@ export type BuyNowAsyncInput<
   /** The buyer signs and pays the rent: nobody can borrow in its name. */
   buyer: TAccountBuyer;
   merchant: TAccountMerchant;
-  /** contents, address and parties are checked by `read_order` and `buy_now`. */
+  /**
+   * contents, address and parties are checked by `read_order` and `buy_now`.
+   * Writable because the escrow's `confirm_funded` marks it Funded.
+   */
   order: TAccountOrder;
   /**
    * The order's vault, ATA(mint, order): where the escrow looks for the
    * payment. It exists from `open_order` until the order settles.
    */
   orderVault?: TAccountOrderVault;
+  /** The escrow program, for the `confirm_funded` CPI. */
+  escrowProgram?: TAccountEscrowProgram;
   tesseraConfig?: TAccountTesseraConfig;
   buyerAgent?: TAccountBuyerAgent;
   merchantAgent?: TAccountMerchantAgent;
@@ -211,6 +223,7 @@ export async function getBuyNowInstructionAsync<
   TAccountMerchant extends InstructionAccountInput,
   TAccountOrder extends InstructionAccountInput,
   TAccountOrderVault extends InstructionAccountInput,
+  TAccountEscrowProgram extends InstructionAccountInput,
   TAccountTesseraConfig extends InstructionAccountInput,
   TAccountBuyerAgent extends InstructionAccountInput,
   TAccountMerchantAgent extends InstructionAccountInput,
@@ -228,6 +241,7 @@ export async function getBuyNowInstructionAsync<
     TAccountMerchant,
     TAccountOrder,
     TAccountOrderVault,
+    TAccountEscrowProgram,
     TAccountTesseraConfig,
     TAccountBuyerAgent,
     TAccountMerchantAgent,
@@ -275,6 +289,10 @@ export async function getBuyNowInstructionAsync<
       InstructionAccountInputAddress<TAccountOrderVault>
     >,
     ResolvedInstructionAccountMeta<
+      TAccountEscrowProgram,
+      InstructionAccountInputAddress<TAccountEscrowProgram>
+    >,
+    ResolvedInstructionAccountMeta<
       TAccountTesseraConfig,
       InstructionAccountInputAddress<TAccountTesseraConfig>
     >,
@@ -316,11 +334,16 @@ export async function getBuyNowInstructionAsync<
       isSigner: false,
       isWritable: false,
     },
-    order: { value: input.order ?? null, isSigner: false, isWritable: false },
+    order: { value: input.order ?? null, isSigner: false, isWritable: true },
     orderVault: {
       value: input.orderVault ?? null,
       isSigner: false,
       isWritable: true,
+    },
+    escrowProgram: {
+      value: input.escrowProgram ?? null,
+      isSigner: false,
+      isWritable: false,
     },
     tesseraConfig: {
       value: input.tesseraConfig ?? null,
@@ -428,6 +451,10 @@ export async function getBuyNowInstructionAsync<
       ],
     });
   }
+  if (!accounts.escrowProgram.value) {
+    accounts.escrowProgram.value =
+      "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">;
+  }
   if (!accounts.tesseraConfig.value) {
     accounts.tesseraConfig.value = await getProgramDerivedAddress({
       programAddress:
@@ -487,6 +514,7 @@ export async function getBuyNowInstructionAsync<
       getAccountMeta("merchant", accounts.merchant),
       getAccountMeta("order", accounts.order),
       getAccountMeta("orderVault", accounts.orderVault),
+      getAccountMeta("escrowProgram", accounts.escrowProgram),
       getAccountMeta("tesseraConfig", accounts.tesseraConfig),
       getAccountMeta("buyerAgent", accounts.buyerAgent),
       getAccountMeta("merchantAgent", accounts.merchantAgent),
@@ -536,6 +564,10 @@ export async function getBuyNowInstructionAsync<
       InstructionAccountInputAddress<TAccountOrderVault>
     >,
     ResolvedInstructionAccountMeta<
+      TAccountEscrowProgram,
+      InstructionAccountInputAddress<TAccountEscrowProgram>
+    >,
+    ResolvedInstructionAccountMeta<
       TAccountTesseraConfig,
       InstructionAccountInputAddress<TAccountTesseraConfig>
     >,
@@ -568,6 +600,8 @@ export type BuyNowInput<
   TAccountMerchant extends InstructionAccountInput = InstructionAccountInput,
   TAccountOrder extends InstructionAccountInput = InstructionAccountInput,
   TAccountOrderVault extends InstructionAccountInput = InstructionAccountInput,
+  TAccountEscrowProgram extends InstructionAccountInput =
+    InstructionAccountInput,
   TAccountTesseraConfig extends InstructionAccountInput =
     InstructionAccountInput,
   TAccountBuyerAgent extends InstructionAccountInput = InstructionAccountInput,
@@ -586,13 +620,18 @@ export type BuyNowInput<
   /** The buyer signs and pays the rent: nobody can borrow in its name. */
   buyer: TAccountBuyer;
   merchant: TAccountMerchant;
-  /** contents, address and parties are checked by `read_order` and `buy_now`. */
+  /**
+   * contents, address and parties are checked by `read_order` and `buy_now`.
+   * Writable because the escrow's `confirm_funded` marks it Funded.
+   */
   order: TAccountOrder;
   /**
    * The order's vault, ATA(mint, order): where the escrow looks for the
    * payment. It exists from `open_order` until the order settles.
    */
   orderVault: TAccountOrderVault;
+  /** The escrow program, for the `confirm_funded` CPI. */
+  escrowProgram?: TAccountEscrowProgram;
   tesseraConfig: TAccountTesseraConfig;
   buyerAgent: TAccountBuyerAgent;
   merchantAgent: TAccountMerchantAgent;
@@ -611,6 +650,7 @@ export function getBuyNowInstruction<
   TAccountMerchant extends InstructionAccountInput,
   TAccountOrder extends InstructionAccountInput,
   TAccountOrderVault extends InstructionAccountInput,
+  TAccountEscrowProgram extends InstructionAccountInput,
   TAccountTesseraConfig extends InstructionAccountInput,
   TAccountBuyerAgent extends InstructionAccountInput,
   TAccountMerchantAgent extends InstructionAccountInput,
@@ -628,6 +668,7 @@ export function getBuyNowInstruction<
     TAccountMerchant,
     TAccountOrder,
     TAccountOrderVault,
+    TAccountEscrowProgram,
     TAccountTesseraConfig,
     TAccountBuyerAgent,
     TAccountMerchantAgent,
@@ -674,6 +715,10 @@ export function getBuyNowInstruction<
     InstructionAccountInputAddress<TAccountOrderVault>
   >,
   ResolvedInstructionAccountMeta<
+    TAccountEscrowProgram,
+    InstructionAccountInputAddress<TAccountEscrowProgram>
+  >,
+  ResolvedInstructionAccountMeta<
     TAccountTesseraConfig,
     InstructionAccountInputAddress<TAccountTesseraConfig>
   >,
@@ -714,11 +759,16 @@ export function getBuyNowInstruction<
       isSigner: false,
       isWritable: false,
     },
-    order: { value: input.order ?? null, isSigner: false, isWritable: false },
+    order: { value: input.order ?? null, isSigner: false, isWritable: true },
     orderVault: {
       value: input.orderVault ?? null,
       isSigner: false,
       isWritable: true,
+    },
+    escrowProgram: {
+      value: input.escrowProgram ?? null,
+      isSigner: false,
+      isWritable: false,
     },
     tesseraConfig: {
       value: input.tesseraConfig ?? null,
@@ -755,6 +805,10 @@ export function getBuyNowInstruction<
   const args = { ...input };
 
   // Resolve default values.
+  if (!accounts.escrowProgram.value) {
+    accounts.escrowProgram.value =
+      "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">;
+  }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
@@ -775,6 +829,7 @@ export function getBuyNowInstruction<
       getAccountMeta("merchant", accounts.merchant),
       getAccountMeta("order", accounts.order),
       getAccountMeta("orderVault", accounts.orderVault),
+      getAccountMeta("escrowProgram", accounts.escrowProgram),
       getAccountMeta("tesseraConfig", accounts.tesseraConfig),
       getAccountMeta("buyerAgent", accounts.buyerAgent),
       getAccountMeta("merchantAgent", accounts.merchantAgent),
@@ -824,6 +879,10 @@ export function getBuyNowInstruction<
       InstructionAccountInputAddress<TAccountOrderVault>
     >,
     ResolvedInstructionAccountMeta<
+      TAccountEscrowProgram,
+      InstructionAccountInputAddress<TAccountEscrowProgram>
+    >,
+    ResolvedInstructionAccountMeta<
       TAccountTesseraConfig,
       InstructionAccountInputAddress<TAccountTesseraConfig>
     >,
@@ -860,18 +919,23 @@ export type ParsedBuyNowInstruction<
     /** The buyer signs and pays the rent: nobody can borrow in its name. */
     buyer: TAccountMetas[5];
     merchant: TAccountMetas[6];
-    /** contents, address and parties are checked by `read_order` and `buy_now`. */
+    /**
+     * contents, address and parties are checked by `read_order` and `buy_now`.
+     * Writable because the escrow's `confirm_funded` marks it Funded.
+     */
     order: TAccountMetas[7];
     /**
      * The order's vault, ATA(mint, order): where the escrow looks for the
      * payment. It exists from `open_order` until the order settles.
      */
     orderVault: TAccountMetas[8];
-    tesseraConfig: TAccountMetas[9];
-    buyerAgent: TAccountMetas[10];
-    merchantAgent: TAccountMetas[11];
-    tokenProgram: TAccountMetas[12];
-    systemProgram: TAccountMetas[13];
+    /** The escrow program, for the `confirm_funded` CPI. */
+    escrowProgram: TAccountMetas[9];
+    tesseraConfig: TAccountMetas[10];
+    buyerAgent: TAccountMetas[11];
+    merchantAgent: TAccountMetas[12];
+    tokenProgram: TAccountMetas[13];
+    systemProgram: TAccountMetas[14];
   };
   data: BuyNowInstructionData;
 };
@@ -884,12 +948,12 @@ export function parseBuyNowInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedBuyNowInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 14) {
+  if (instruction.accounts.length < 15) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 14,
+        expectedAccountMetas: 15,
       },
     );
   }
@@ -911,6 +975,7 @@ export function parseBuyNowInstruction<
       merchant: getNextAccount(),
       order: getNextAccount(),
       orderVault: getNextAccount(),
+      escrowProgram: getNextAccount(),
       tesseraConfig: getNextAccount(),
       buyerAgent: getNextAccount(),
       merchantAgent: getNextAccount(),

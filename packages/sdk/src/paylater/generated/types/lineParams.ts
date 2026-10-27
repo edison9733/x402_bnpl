@@ -35,7 +35,10 @@ export type LineParams = {
    * Established, Trusted. New must be 0: a wallet with no history gets no credit.
    */
   tierLimit: Array<bigint>;
-  /** Each purchase repaid on time raises the limit by this share of it (bps)... */
+  /**
+   * A purchase the size of the tier limit, repaid on time, raises the limit
+   * by this share of it (bps); a smaller one by its share of this step...
+   */
   stepBps: number;
   /** ...up to this much in total (bps). 10000 lets the limit double. */
   maxBoostBps: number;
@@ -64,7 +67,10 @@ export type LineParamsArgs = {
    * Established, Trusted. New must be 0: a wallet with no history gets no credit.
    */
   tierLimit: Array<number | bigint>;
-  /** Each purchase repaid on time raises the limit by this share of it (bps)... */
+  /**
+   * A purchase the size of the tier limit, repaid on time, raises the limit
+   * by this share of it (bps); a smaller one by its share of this step...
+   */
   stepBps: number;
   /** ...up to this much in total (bps). 10000 lets the limit double. */
   maxBoostBps: number;

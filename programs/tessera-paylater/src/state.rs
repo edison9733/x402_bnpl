@@ -13,7 +13,8 @@ pub struct LineParams {
     /// Credit limit at a perfect score, per Tessera tier: New, Building,
     /// Established, Trusted. New must be 0: a wallet with no history gets no credit.
     pub tier_limit: [u64; 4],
-    /// Each purchase repaid on time raises the limit by this share of it (bps)...
+    /// A purchase the size of the tier limit, repaid on time, raises the limit
+    /// by this share of it (bps); a smaller one by its share of this step...
     pub step_bps: u16,
     /// ...up to this much in total (bps). 10000 lets the limit double.
     pub max_boost_bps: u16,
@@ -74,6 +75,10 @@ pub struct CreditLine {
     pub repaid_late: u32,
     /// Loans marked in default. Any default freezes the line for good.
     pub defaults: u32,
+    /// The limit boost earned so far, in bps, before the cap: each on-time
+    /// repayment adds `step_bps` scaled by the loan's size next to the tier
+    /// limit (`credit::boost_of`), so a run of tiny loans earns next to nothing.
+    pub boost_bps: u32,
     pub last_loan_at: i64,
     pub bump: u8,
 }

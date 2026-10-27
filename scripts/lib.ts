@@ -286,7 +286,12 @@ export function clientForSigner(kp: KeyPairSigner, cluster: Cluster = DEVNET) {
   // A blockhash is good for about a minute; reuse it for a few seconds on shared endpoints.
   const reuseMs = cluster.budgetPer10s ? 4000 : 0;
 
-  async function sendTransaction(instructions: Instruction[]): Promise<{ context: { signature: string } }> {
+  /**
+   * `skipPreflight` sends without the RPC's simulation, so a transaction that
+   * fails still lands, pays its fee and fails on-chain (a test of what the
+   * chain does, not of what a simulation predicts).
+   */
+  async function sendTransaction(instructions: Instruction[], opts: { skipPreflight?: boolean } = {}): Promise<{ context: { signature: string } }> {
     let latest = blockhashes.get(transport);
     if (!latest || Date.now() - latest.at > reuseMs) {
       const { value } = await rpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
@@ -303,7 +308,7 @@ export function clientForSigner(kp: KeyPairSigner, cluster: Cluster = DEVNET) {
     const signature = getSignatureFromTransaction(signed);
     const wire = getBase64EncodedWireTransaction(signed);
 
-    const broadcast = () => rpc.sendTransaction(wire, { encoding: 'base64', preflightCommitment: 'confirmed' }).send();
+    const broadcast = () => rpc.sendTransaction(wire, { encoding: 'base64', preflightCommitment: 'confirmed', skipPreflight: opts.skipPreflight === true }).send();
     await broadcast();
     const started = Date.now();
     let lastBroadcast = started;

@@ -200,10 +200,24 @@ export class BuyerAgent {
 
     const doneMeta = done.status.message?.metadata ?? {};
     const receipts = (doneMeta[K.receipts] as SettleResponse[] | undefined) ?? [];
+    // On credit: the loan is on-chain once the merchant has sent the buy_now,
+    // whether or not it then delivered. Say what is owed and by when.
+    const loanTaken = async (tries: number): Promise<LoanTaken | undefined> => {
+      if (!loanAddress) return undefined;
+      const l = await readUntil(() => read(() => paylater.fetchMaybeLoan(this.actor.rpc, loanAddress)), (x) => x.exists, tries);
+      if (!l.exists) return undefined;
+      const loan: LoanTaken = { address: loanAddress, amount: l.data.amount, fee: l.data.fee, owed: paylater.owedOf(l.data), dueAt: Number(l.data.dueAt) };
+      this.log(`${card.name}/${skill}: loan ${loanAddress.slice(0, 8)}: owe ${fromUnits(loan.owed)} USDC (${fromUnits(loan.amount)} + ${fromUnits(loan.fee)} fee) by ${new Date(loan.dueAt * 1000).toISOString()}`);
+      return loan;
+    };
     if (done.status.state !== 'completed') {
       const why = `${doneMeta[K.error] ?? done.status.state}: ${done.status.message?.parts?.[0] && 'text' in done.status.message.parts[0] ? done.status.message.parts[0].text : ''}`;
       this.log(`${card.name}/${skill}: not delivered (${why.slice(0, 100)})`);
-      return { ...base, verified: false, instant: false, releaseAt: 0, receipts, timings: { quoteMs, verifyMs, payMs, totalMs: Date.now() - t0 }, failed: why };
+      // A refused buy_now opened no loan; one the merchant sent and then could
+      // not deliver against did, and the escrow's refund does not close it.
+      const loan = await loanTaken(2);
+      if (loan) this.log(`${card.name}/${skill}: the pool paid the escrow before the merchant failed; a refund goes to this wallet, and the loan is still owed`);
+      return { ...base, verified: false, instant: false, releaseAt: 0, receipts, timings: { quoteMs, verifyMs, payMs, totalMs: Date.now() - t0 }, failed: why, ...(loan ? { loan } : {}) };
     }
 
     // 6. Check the delivery against the hash committed on-chain.
@@ -213,15 +227,8 @@ export class BuyerAgent {
     const onChain = await readUntil(() => readOrder(this.actor, verified.order), (o) => o !== null && o.deliveredAt > 0n, 8);
     const matches = onChain !== null && deliverable !== undefined && bytesEqual(await sha256(canonical(deliverable)), onChain.deliveryHash);
 
-    // 7. On credit: the loan is on-chain now. Say what is owed and by when.
-    let loan: LoanTaken | undefined;
-    if (loanAddress) {
-      const l = await readUntil(() => read(() => paylater.fetchMaybeLoan(this.actor.rpc, loanAddress!)), (x) => x.exists, 8);
-      if (l.exists) {
-        loan = { address: loanAddress, amount: l.data.amount, fee: l.data.fee, owed: paylater.owedOf(l.data), dueAt: Number(l.data.dueAt) };
-        this.log(`${card.name}/${skill}: loan ${loanAddress.slice(0, 8)}: owe ${fromUnits(loan.owed)} USDC (${fromUnits(loan.amount)} + ${fromUnits(loan.fee)} fee) by ${new Date(loan.dueAt * 1000).toISOString()}`);
-      }
-    }
+    // 7. On credit: the loan.
+    const loan = await loanTaken(8);
 
     return {
       ...base,
@@ -257,10 +264,10 @@ export class BuyerAgent {
     return { task, loan };
   }
 
-  /** Sign an x402 payment for exactly the verified escrow and submit it. */
+  /** Sign an x402 payment for exactly the verified escrow and submit it, through the first facilitator whose `exact` option works. */
   private async payOverX402(url: string, taskId: string, required: PaymentRequired, order: Address, amount: bigint): Promise<Task> {
     let lastError = 'no payment option worked';
-    for (const option of required.accepts) {
+    for (const option of required.accepts.filter((a) => a.scheme === 'exact')) {
       const x402 = new x402Client();
       // The SDK ships a per-payment cap. Pin it to this order instead of lifting it.
       x402.setSpendControls({ maxAmountPerPayment: `$${fromUnits(amount, 6, 6)}` });

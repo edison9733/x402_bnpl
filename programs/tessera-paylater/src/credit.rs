@@ -2,7 +2,16 @@
 //! recompute any wallet's limit. `packages/sdk/src/paylater/limit.ts` mirrors it.
 //!
 //!   limit = tier_limit[tier] x score / 1000 x (1 + boost)
-//!   boost = min(repaid_on_time x step, max_boost)
+//!   boost = min(boost_bps, max_boost)
+//!
+//! where each on-time repayment adds to the line's `boost_bps`
+//!
+//!   step x min(amount, tier_limit[tier at open]) / tier_limit[tier at open]
+//!
+//! so repaying a loan the size of the tier limit adds a whole step and a loan
+//! of a hundredth of it adds a hundredth of a step. Counting repayments alone
+//! would let a run of the smallest loans the pool finances double the limit
+//! for next to nothing in fees.
 //!
 //! The tier and score are the wallet's live Tessera score, recomputed from its
 //! credit file, so a limit is earned the same way a short hold is: by settled
@@ -16,12 +25,23 @@ pub fn limit(line: &CreditLine, p: &LineParams, tier: u8, score: u16) -> u64 {
         return 0;
     }
     let base = (p.tier_limit[(tier as usize).min(3)] as u128) * (score.min(1000) as u128) / 1000;
-    let boost = ((line.repaid_on_time as u128) * (p.step_bps as u128)).min(p.max_boost_bps as u128);
+    let boost = (line.boost_bps as u128).min(p.max_boost_bps as u128);
     (base * (BPS as u128 + boost) / BPS as u128).min(u64::MAX as u128) as u64
 }
 
 pub fn available(line: &CreditLine, p: &LineParams, tier: u8, score: u16) -> u64 {
     limit(line, p, tier, score).saturating_sub(line.outstanding)
+}
+
+/// What one on-time repayment of `amount` adds to the line's `boost_bps`:
+/// `step_bps` scaled by the loan's size next to the limit of the tier the
+/// buyer had when the loan opened, at most one whole step.
+pub fn boost_of(amount: u64, tier: u8, p: &LineParams) -> u32 {
+    let tier_limit = p.tier_limit[(tier as usize).min(3)];
+    if tier_limit == 0 {
+        return 0;
+    }
+    ((amount.min(tier_limit) as u128) * (p.step_bps as u128) / (tier_limit as u128)) as u32
 }
 
 pub fn fee_of(amount: u64, p: &LineParams) -> u64 {
@@ -69,6 +89,7 @@ mod tests {
             repaid_on_time: 0,
             repaid_late: 0,
             defaults: 0,
+            boost_bps: 0,
             last_loan_at: 0,
             bump: 0,
         }
@@ -80,22 +101,33 @@ mod tests {
     }
 
     #[test]
-    fn limit_scales_with_score_and_on_time_repayments() {
+    fn limit_scales_with_score_and_the_boost() {
         let p = params();
         let mut l = line();
         assert_eq!(limit(&l, &p, 3, 500), 10_000);
-        l.repaid_on_time = 3;
+        l.boost_bps = 3_000;
         assert_eq!(limit(&l, &p, 3, 500), 13_000);
-        l.repaid_on_time = 50;
+        l.boost_bps = 50_000;
         assert_eq!(limit(&l, &p, 3, 500), 20_000, "boost is capped");
         l.outstanding = 15_000;
         assert_eq!(available(&l, &p, 3, 500), 5_000);
     }
 
     #[test]
+    fn the_boost_is_proportional_to_the_loan() {
+        let p = params();
+        assert_eq!(boost_of(20_000, 3, &p), 1_000, "a loan the size of the tier limit earns a whole step");
+        assert_eq!(boost_of(40_000, 3, &p), 1_000, "and never more than one step");
+        assert_eq!(boost_of(5_000, 3, &p), 250, "a quarter of the limit earns a quarter step");
+        assert_eq!(boost_of(19, 3, &p), 0, "a loan under a thousandth of the limit earns nothing");
+        assert_eq!(boost_of(1_000, 1, &p), 1_000, "measured against the tier the loan opened at");
+        assert_eq!(boost_of(1_000, 0, &p), 0, "a tier with no limit earns nothing");
+    }
+
+    #[test]
     fn a_default_freezes_the_line() {
         let mut l = line();
-        l.repaid_on_time = 9;
+        l.boost_bps = 9_000;
         l.defaults = 1;
         assert_eq!(limit(&l, &params(), 3, 1000), 0);
     }
