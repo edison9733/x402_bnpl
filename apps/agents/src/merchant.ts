@@ -649,7 +649,9 @@ export class MerchantAgent {
     }
     if (o.state === OrderState.AwaitingPayment) {
       // Not the order quoted here: this merchant does not confirm it (see the payment check above).
-      const swapped = quotedOrderRefusal(o, this.quoted(quote), 'terms');
+      // The whole record is compared, not only the price and request: a buyer that reopened the
+      // quote at the quoted price, with a hold of its own, and paid it itself, is not served either.
+      const swapped = quotedOrderRefusal(o, this.quoted(quote));
       if (swapped) throw new Error(`the order at ${order} is not the one this merchant quoted (${swapped}); it is not confirmed or delivered`);
       const amount = o.amount;
       const funded = await readUntil(() => vaultBalance(this.ops, quote.terms.vault), (b) => b >= amount, 6);
@@ -681,11 +683,12 @@ export class MerchantAgent {
     // refunded at once rather than left to expire.
     const funded = o;
     try {
-      // Delivered only for the price and the request quoted: an order put at
-      // this address by someone else, at another price, is refunded (its
-      // merchant's refund costs nothing). A purchase on credit carries both in
-      // the signed buy_now, so for one the program has already checked them.
-      const swapped = quotedOrderRefusal(funded, this.quoted(quote), 'terms');
+      // Delivered only for the order this merchant opened: one put at this
+      // address by someone else (another price, another hold, another rent
+      // payer) is refunded at once (its merchant's refund costs nothing). A
+      // purchase on credit carries the price and request in the signed
+      // buy_now, so for one the program has already checked those two.
+      const swapped = quotedOrderRefusal(funded, this.quoted(quote));
       if (swapped) throw new Error(`the order at ${order} is not the one this merchant quoted (${swapped}); not delivering it`);
       const service = this.service(quote.sku);
       const margin = refundMargin(cfg);
@@ -862,8 +865,10 @@ export class MerchantAgent {
     if (!o) return drop();
     // Another order now sits at the quoted address (the escrow build on devnet
     // lets a party close an unpaid order and anyone open one there): the
-    // quote is over. If that order is ever funded, it is refunded as an order
-    // this merchant has no quote for.
+    // quote is over. That order is not this merchant's: it is not confirmed or
+    // delivered here, and if it is funded, its buyer gets the money back with
+    // cancel_unpaid or, once confirmed, with the refund anyone may call after
+    // the delivery deadline.
     if (quotedOrderRefusal(o, this.quoted(q))) return drop();
     switch (o.state) {
       case OrderState.AwaitingPayment:

@@ -117,11 +117,12 @@ export type QuotedOrder = {
  * settles one or delivers, it compares the order with its own record.
  *
  * `terms` compares what a payment pays for (buyer, merchant, mint, price,
- * request hash): enough to deliver an order that is already funded. `opened`
- * also compares the hold, the rent payer and the time it was opened, which
- * tell the merchant's own order from one reopened at its address with the
- * same price: the check before anything is signed. A field the record does
- * not hold (a quote kept from an older run) is not compared.
+ * request hash). `opened`, the default, also compares the hold, the rent
+ * payer and the time it was opened, which tell the merchant's own order from
+ * one reopened at its address with the same price; the escrow sets all three
+ * only when it opens an order, so the merchant server uses `opened` before it
+ * signs, confirms or delivers. A field the record does not hold (a quote kept
+ * from an older run) is not compared.
  */
 export function quotedOrderRefusal(
   o: Pick<Order, 'buyer' | 'merchant' | 'mint' | 'amount' | 'requestHash' | 'holdSecs' | 'payer' | 'createdAt'>,

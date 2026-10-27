@@ -242,7 +242,8 @@ const ORDER_OFFSET = { merchant: 72n, payer: 104n, state: 210n } as const;
 /**
  * The orders of one merchant, or one rent payer, optionally in one state.
  * The RPC filters them, so this does not download every order in the program
- * (they are kept on-chain as history, and anyone can open them).
+ * (settled orders stay on-chain as history unless the server runs with
+ * CLOSE_SETTLED_ORDERS=1, and anyone can open them).
  */
 export async function findOrders(actor: Actor, where: { merchant?: Address; payer?: Address; state?: OrderState }): Promise<Decoded<Order>[]> {
   const b58 = (bytes: Uint8Array) => getBase58Decoder().decode(bytes);
@@ -438,8 +439,8 @@ export async function closableOrders(actor: Actor, cfg: Config, now: bigint): Pr
  * Close up to `max` of `closableOrders`, oldest first, so the rent `actor`
  * fronted for them comes back to it: one transaction each, with the account
  * list the escrow on this network takes (`closeOrder`). Returns the orders
- * closed. The merchant server's crank runs this; anyone holding the payer's
- * key could.
+ * closed. The merchant server's crank runs this when CLOSE_SETTLED_ORDERS=1;
+ * anyone holding the payer's key could.
  */
 export async function closeSettledOrders(
   actor: Actor,

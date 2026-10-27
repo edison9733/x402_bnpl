@@ -60,7 +60,7 @@ FAQ: judged on "what has actually been built and works, technical depth, and how
 | A merchant reprices the order behind the buyer's signed `buy_now` (new) | `buy_now(loan_id, amount, request_hash)` refuses an order whose price or request hash is not the one the buyer signed for, `lib.rs` lines 133–134; the merchant's check requires the quoted ones, `index.ts` (`checkBuyNowTransaction`). Not on devnet until the next upgrade |
 | A buyer swaps the order at the quoted address (new) | `quotedOrderRefusal`, [`packages/sdk/src/verify.ts`](../packages/sdk/src/verify.ts); the merchant compares before signing (`apps/agents/src/merchant.ts` lines 618–621) and before confirming or delivering (lines 652–653, 688–689) |
 
-- [x] (2026-10-27) README section "Failed payments" listing these cases (all seven, with file:line).
+- [x] (2026-10-27) README section "Failed payments" listing these cases (all nine, with file:line).
 - [ ] One segment of the video showing at least one of them live.
 
 ## 4. Build, in priority order

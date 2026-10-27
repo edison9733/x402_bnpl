@@ -691,7 +691,9 @@ async function sweep(): Promise<void> {
     }
   }
   if (cancelled || closed) console.log(`[crank] cancelled ${cancelled} unpaid quote(s) past their payment window; closed ${closed} cancelled order(s) for their rent`);
-  const settled = await closeSettledOrders(ops, cfg, now, { max: 25, skip: backedOff, onFail: (order, e) => failed(order, 'close', e) });
+  const settled = config.closeSettledOrders
+    ? await closeSettledOrders(ops, cfg, now, { max: 25, skip: backedOff, onFail: (order, e) => failed(order, 'close', e) })
+    : [];
   if (settled.length) console.log(`[crank] closed ${settled.length} settled order(s) past their review window; their rent is back with the ops wallet`);
   // evidence nobody can dispute any more
   const dropped = pruneEvidence(cfg);

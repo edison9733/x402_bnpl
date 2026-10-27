@@ -284,7 +284,7 @@ balance in between. These are `solana rent` on each network on 27 October 2026;
 | Pay-later upgrade and pool authority | [`EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6`](https://explorer.solana.com/address/EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6?cluster=devnet) |
 | Pay-later pool | [`GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq`](https://explorer.solana.com/address/GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq?cluster=devnet). Rules (`DEVNET_LINE_PARAMS`): limits 0 / 2 / 5 / 10 USDC for New / Building / Established / Trusted, step 2,500 bps, boost cap 10,000 bps, term 600 s, grace 60 s, fee 200 bps, merchants at Building or above, loans of at least 0.001 USDC. |
 | Pool vault | [`DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV`](https://explorer.solana.com/address/DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV?cluster=devnet): 8 devnet USDC on 27 October 2026, nothing lent yet |
-| Merchant server (ops wallet) | [`DJ8sWBFJT5oFW2MTyX1Zok5JWt6QPS3Uang3hHXwcM4R`](https://explorer.solana.com/address/DJ8sWBFJT5oFW2MTyX1Zok5JWt6QPS3Uang3hHXwcM4R?cluster=devnet): fronts the rent of every quote and pays the network fee of each pay-later `buy_now`, for every merchant the server runs; its crank closes unpaid quotes after their payment window and settled orders after their review window, so that rent comes back ([docs/PAYLATER.md](docs/PAYLATER.md#limits) lists what is closed when) |
+| Merchant server (ops wallet) | [`DJ8sWBFJT5oFW2MTyX1Zok5JWt6QPS3Uang3hHXwcM4R`](https://explorer.solana.com/address/DJ8sWBFJT5oFW2MTyX1Zok5JWt6QPS3Uang3hHXwcM4R?cluster=devnet): fronts the rent of every quote and pays the network fee of each pay-later `buy_now`, for every merchant the server runs; its crank closes unpaid quotes after their payment window, so that rent comes back, and keeps settled orders as on-chain history unless it runs with `CLOSE_SETTLED_ORDERS=1` ([docs/PAYLATER.md](docs/PAYLATER.md#limits) lists what is closed when) |
 
 The demo agents, created on 27 October 2026 because the version 1 agents' keys were lost. Their
 orders run on the same escrow program and config. Tiers as read from the chain on 27 October, after
@@ -341,8 +341,9 @@ are at the commit this README is in.
    refuses one too (`merchant.ts` lines 622–624 and 658–660). `cancel_unpaid` (`lib.rs` line 377)
    closes the quote and sends anything in the vault back to the buyer (lines 394–400): either party at
    any time, or the merchant's payer once the window has passed. The agents' crank cancels every unpaid
-   quote past its window (`server.ts` lines 675–683), then closes the tombstone for its rent, and
-   closes each settled order it paid for once its review window is over (lines 694–695).
+   quote past its window (`server.ts` lines 675–683), then closes the tombstone for its rent. With
+   `CLOSE_SETTLED_ORDERS=1` it also closes each settled order it paid for once its review window is
+   over (lines 694–697); by default those stay as on-chain history.
 4. **Funded, and the merchant never delivers.** The delivery deadline is `deliverSecs`, 300 s on
    devnet (`constants.ts` line 50). After it, anyone may call `refund` (`lib.rs` lines 298–319: while
    the order is `Funded`, the merchant at any time, anyone once the deadline has passed); the buyer
@@ -459,8 +460,8 @@ directly, outside the escrow, with the CLI commands `credit`, `buy-later --order
 - **The keeper.** `markOverdue` in `apps/agents/src/paylater.ts`, run by `keep()` in `server.ts`.
 - **The website.** `apps/web/src/lib/paylater.ts` (new) reads the pool, a wallet's line and its
   loans; the Agents and Market pages show them where the pool exists (`Agents.tsx`, `Market.tsx`).
-- **Tests and docs.** `scripts/test-paylater-402.ts` (new, 63 checks), `scripts/test-paylater.ts`
-  rewritten for the escrow flow (93 checks), `scripts/paylater-local.ts`, `scripts/lib.ts`
+- **Tests and docs.** `scripts/test-paylater-402.ts` (new, 68 checks), `scripts/test-paylater.ts`
+  rewritten for the escrow flow (101 checks), `scripts/paylater-local.ts`, `scripts/lib.ts`
   (`TESSERA_KEYS_DIR`), `packages/sdk/test/paylater-check.test.ts` (new); `docs/PAYLATER.md`,
   `docs/ENCODE-CHECKLIST.md`, this README.
 - **The merchant signs every purchase on credit (27 October, after the upgrade).** `buy_now` requires
@@ -477,8 +478,8 @@ directly, outside the escrow, with the CLI commands `credit`, `buy-later --order
   [Failed payments](#failed-payments), [SECURITY.md](docs/SECURITY.md#pay-later) P2). The merchant
   server compares the order at its quoted address with its quote before it signs or delivers (case 9,
   P3). `tessera repay` and `repay --all` close each loan they repay, so the buyer gets the loan's rent
-  back; the crank closes the settled orders whose rent the ops wallet fronted once their review
-  window is over; the demo faucet keeps 0.1 SOL in the ops wallet and quotes stop below 0.03 SOL; a
+  back; with `CLOSE_SETTLED_ORDERS=1` the crank closes the settled orders whose rent the ops wallet
+  fronted once their review window is over (off by default, to keep them as history); the demo faucet keeps 0.1 SOL in the ops wallet and quotes stop below 0.03 SOL; a
   failed-on-chain `buy_now` is answered as refused, with a lower priority-fee cap (P4); the crank
   stops re-reading disputes it cannot judge; the 402 accounts for a wallet's own rent-exempt minimum.
   Not on devnet until the next upgrade, which must go with a restart of the merchant server

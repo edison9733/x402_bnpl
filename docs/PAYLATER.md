@@ -211,7 +211,7 @@ instruction) → `deliver` → `release`:
 - the pool's balance equals deposits minus withdrawals minus what it lent, plus repayments, plus the fees earned at repayment;
 - every `buy_now` logs the compute units it used (101,508 to 128,684 over the two runs above; it varies with the PDA bumps of each run's random wallets), and `BUY_NOW_COMPUTE_UNITS` (400,000) leaves at least 30% spare (67% here);
 - only the authority can create the pool, change its rules or withdraw, the rules can never give New wallets credit, a vault account created by someone else before the pool does not block it, and an empty pool refuses purchases;
-- the merchant server's crank (`closeSettledOrders`, the function `npm run agents` runs) finds the settled orders the server paid the rent for whose review window has passed, leaves one settled a moment ago, closes the twelve oldest and gets their rent back, less one network fee each. The escrow on devnet is its 4 October build, whose `close_order` takes no vault account, so `closeOrder` sends the current account list and, if that build answers Unauthorized, the list without the vault; with `ESCROW_SO` set to the devnet bytes the run shows it taking the second list.
+- the merchant server's crank (`closeSettledOrders`, which `npm run agents` runs when `CLOSE_SETTLED_ORDERS=1`) finds the settled orders the server paid the rent for whose review window has passed, leaves one settled a moment ago, closes the twelve oldest and gets their rent back, less one network fee each. The escrow on devnet is its 4 October build, whose `close_order` takes no vault account, so `closeOrder` sends the current account list and, if that build answers Unauthorized, the list without the vault; with `ESCROW_SO` set to the devnet bytes the run shows it taking the second list.
 
 `npm run test:paylater-402` (**68 / 68**; **72 / 72** with `ESCROW_SO`, where the swapped orders below can be opened) runs the merchant server on the same kind of validator and
 buys through its HTTP 402 route: the 402 offers the order on credit after its exact entries with the
@@ -373,12 +373,15 @@ buyers at Building on 27 October; a New buyer such as Scout is told it is not el
     the escrow build on devnet `cancel_unpaid` closes the order and its vault at once; on the
     current source it closes the vault and leaves a Cancelled order, which the crank closes once
     the payment window has passed again. The rent of both comes back;
-  - a settled order (Released, Refunded or Resolved) whose rent the ops wallet paid, once its review
-    window (`review_secs`, 600 s on devnet) has passed since it settled, or its complaint window
+  - only when the server runs with `CLOSE_SETTLED_ORDERS=1` (off by default): a settled order
+    (Released, Refunded or Resolved) whose rent the ops wallet paid, once its review window
+    (`review_secs`, 600 s on devnet) has passed since it settled, or its complaint window
     (`complaint_secs`, 1,800 s on devnet) for an instant order the buyer complained about: at most 25
     a pass, every 90 s, oldest first, with the account list the escrow build takes
     (`closeSettledOrders` in `apps/agents/src/chain.ts`). Purchases on credit are among them. The
-    order and its review history are gone from the chain after that; the credit files keep the counts;
+    order is gone from the chain after that (the credit files keep the counts), and so is what the
+    website's feed and network view, and the order links in the README, show of it. That is why it is
+    off by default: each settled order keeps its rent (0.0026592 SOL on devnet: a 396-byte account, read from the first pay-later order on 28 October) as history;
   - never: a Disputed order (on devnet it stays Disputed for good), the reviews (no instruction
     closes them), the buyers' credit files and the pair accounts.
 
@@ -388,6 +391,7 @@ buyers at Building on 27 October; a New buyer such as Scout is told it is not el
   files made for at most 10 new wallets an hour (`MAX_NEW_WALLETS_PER_HOUR`); and the demo faucet
   drips only while the ops wallet keeps at least 0.1 SOL after the drip (`FAUCET_SOL_FLOOR_LAMPORTS`)
   and says so when it will not.
+- **Unaudited**, like the rest of the project.
 
 ## Upgrading devnet
 
@@ -397,7 +401,10 @@ The program and the merchant server change together. Do both from the same commi
    buyer clients (`npm run buy`, `tessera buy-later`) from it too. They also work against the
    `61196cc` build still on devnet: that build takes the order's merchant as a plain account, so the
    extra signature does nothing, and Anchor reads only the loan id from the instruction data and
-   ignores the price and request hash after it. They get none of the new protections until step 2.
+   ignores the price and request hash after it. What the server checks applies from this step (the
+   order at its quoted address compared with its quote, a repeated account refused, the cut-off
+   after failed landings, the faucet and quote floors); what the program checks (the merchant's
+   signature, the agreed price and request) applies from step 2.
 2. Upgrade the program from the same commit (the command is in the README), passing the program's
    address, `--program-id LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D`, not a keypair file: a
    keypair file another checkout generated would deploy a new program instead.
@@ -407,4 +414,3 @@ A merchant server older than the program cannot settle any purchase on credit on
 upgraded (it signs only as fee payer, so `buy_now` fails without the merchant's signature, and its
 check refuses the new transactions), and a buyer client older than the server is refused by it
 before anything is signed.
-- **Unaudited**, like the rest of the project.

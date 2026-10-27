@@ -64,6 +64,13 @@ export const config = {
    * open quotes plus thousands of fees.
    */
   faucetSolFloorLamports: num('FAUCET_SOL_FLOOR_LAMPORTS', 100_000_000, 0),
+  /**
+   * Close settled orders whose rent the ops wallet fronted once their review
+   * window is over, to get that rent back. Off by default: settled orders are
+   * the on-chain history the website's feed and network view read, and the
+   * links in the README point at them. CLOSE_SETTLED_ORDERS=1 turns it on.
+   */
+  closeSettledOrders: process.env.CLOSE_SETTLED_ORDERS === '1',
   /** Requests of any kind one client may make per minute. */
   requestsPerMinute: num('REQUESTS_PER_MINUTE', 120, 1),
   /**
