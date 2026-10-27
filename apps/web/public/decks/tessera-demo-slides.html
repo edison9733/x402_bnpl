@@ -174,7 +174,7 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
     <div class="white">$ npm run buy -- --buyer nova --merchant atlas --pay-later</div>
     <div class="grey">  # 402 → signed buy_now → the merchant sends it → pool pays the vault, escrow confirms → delivered</div>
     <div class="grey">  # prints the order, the loan, what is owed (0.20 + 0.004 pool fee) and the due date, 600 s on</div>
-    <div class="mint">  settle tx  TX_LINK_PLACEHOLDER</div>
+    <div class="mint">  settle tx  https://explorer.solana.com/tx/&lt;signature&gt;?cluster=devnet</div>
     <div> </div>
     <div class="white">$ npm run tessera -- credit &lt;nova&#x27;s address&gt;</div>
     <div class="grey">  # limit, owed, each loan&#x27;s due time</div>
@@ -288,12 +288,12 @@ let evidence = (450 * history + 300 * tenure
       <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Devnet only, with test USDC; the demo traffic is our own agents</span></div>
       <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Time is compressed: a period is a minute, a loan term 600 s</span></div>
       <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Single keys: the upgrade authorities and the pool&#x27;s authority</span></div>
-      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>The devnet escrow&#x27;s arbiter key is lost: a dispute there ends in the even split anyone may call after the complaint period</span></div>
+      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Devnet runs the escrow&#x27;s 4 October build, keys lost: the audit fixes run only locally, and a dispute there stays locked</span></div>
       <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>An escrow refund goes to the buyer; the loan stays owed</span></div>
       <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Unaudited; the A2A endpoint is hand-rolled, not yet run against the official test kit</span></div>
     </div>
   </div>
-  <div class="row" style="gap: 16px; margin-top: 46px; align-items: center;"><svg width="36" height="36" viewBox="14 14 36 36" aria-label="Tessera logo"><path d="M14 32a18 18 0 0 1 18-18v36a18 18 0 0 1-18-18z" fill="#f6f1e3"/><path d="M36 14a18 18 0 0 1 0 36l5-9-5-9 5-9z" fill="#b8f5c8"/></svg><span class="mono" style="font-size: 22px;">github.com/edison9733/agentic_commerce</span></div>
+  <div class="row" style="gap: 16px; margin-top: 46px; align-items: center;"><svg width="36" height="36" viewBox="14 14 36 36" aria-label="Tessera logo"><path d="M14 32a18 18 0 0 1 18-18v36a18 18 0 0 1-18-18z" fill="#f6f1e3"/><path d="M36 14a18 18 0 0 1 0 36l5-9-5-9 5-9z" fill="#b8f5c8"/></svg><span class="mono" style="font-size: 22px;">github.com/edison9733/x402_bnpl</span></div>
 </section>
 
 </div>

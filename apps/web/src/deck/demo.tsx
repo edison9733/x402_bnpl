@@ -220,7 +220,7 @@ const PAYLATER_TERMINAL = [
   ['$', 'npm run buy -- --buyer nova --merchant atlas --pay-later'],
   ['#', '# 402 → signed buy_now → the merchant sends it → pool pays the vault, escrow confirms → delivered'],
   ['#', '# prints the order, the loan, what is owed (0.20 + 0.004 pool fee) and the due date, 600 s on'],
-  ['ok', 'settle tx  TX_LINK_PLACEHOLDER'],
+  ['ok', 'settle tx  https://explorer.solana.com/tx/<signature>?cluster=devnet'],
   ['', ''],
   ['$', "npm run tessera -- credit <nova's address>"],
   ['#', "# limit, owed, each loan's due time"],
@@ -499,7 +499,7 @@ let evidence = (450 * history + 300 * tenure
               'Devnet only, with test USDC; the demo traffic is our own agents',
               'Time is compressed: a period is a minute, a loan term 600 s',
               "Single keys: the upgrade authorities and the pool's authority",
-              "The devnet escrow's arbiter key is lost: a dispute there ends in the even split anyone may call after the complaint period",
+              "Devnet runs the escrow's 4 October build, keys lost: the audit fixes run only locally, and a dispute there stays locked",
               'An escrow refund goes to the buyer; the loan stays owed',
               'Unaudited; the A2A endpoint is hand-rolled, not yet run against the official test kit',
             ].map((t, i) => (
@@ -514,7 +514,7 @@ let evidence = (450 * history + 300 * tenure
         </div>
         <Rise delay={1.4} style={{ marginTop: 40, display: 'flex', alignItems: 'center', gap: 16 }}>
           <Logo size={36} invert />
-          <span className="mono" style={{ fontSize: 22 }}>github.com/edison9733/agentic_commerce</span>
+          <span className="mono" style={{ fontSize: 22 }}>github.com/edison9733/x402_bnpl</span>
         </Rise>
       </Frame>
     ),

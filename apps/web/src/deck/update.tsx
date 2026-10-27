@@ -164,7 +164,7 @@ export const UPDATE: Slide[] = [
         <Body delay={0.6} size={30} max="48ch" color="#4b483e">
           Already done: {Object.keys(registry.agents).length} merchant agents registered in the Solana Agent Registry on devnet, with {Object.keys(registry.feedback).length} reviews mirrored there as payment-backed feedback.
         </Body>
-        <Source dark={false}>github.com/edison9733/agentic_commerce · devnet only, no outside users yet.</Source>
+        <Source dark={false}>github.com/edison9733/x402_bnpl · devnet only, no outside users yet.</Source>
       </Frame>
     ),
   },

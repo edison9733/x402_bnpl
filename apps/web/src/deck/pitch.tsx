@@ -159,7 +159,7 @@ function X402Slide() {
 
 export const DEVNET: [string, string, string, boolean][] = [
   ['Escrow program', 'TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ', 'version 1, unchanged', true],
-  ['Pay-later program', 'LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D', 'new in 2.0', true],
+  ['Pay-later program', 'LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D', 'new in 2.0 · upgraded 27 Oct', true],
   ['Pool', 'GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq', 'funded with 8 devnet USDC', true],
   ['Pool vault', 'DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV', "the pool's USDC", false],
   ['USDC (devnet)', '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', "Circle's devnet mint", false],
@@ -200,6 +200,7 @@ function LimitsSlide() {
     ['Unaudited.', 'Both programs have had internal reviews only.'],
     ['A refund goes to the buyer, and the loan stays owed.', 'The buyer repays out of the refund, or defaults.'],
     ['A default freezes the line, not the score.', 'The escrow program does not know about loans.'],
+    ["Devnet's escrow is an older build.", "It is the 4 October build and its keys are lost, so the audit fixes run only on a local validator."],
   ];
   return (
     <Frame>
@@ -409,7 +410,7 @@ export const PITCH: Slide[] = [
   {
     id: 'limits',
     seconds: 14,
-    say: 'And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults.',
+    say: 'And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults. And the escrow on devnet is its 4 October build, whose keys are lost, so the audit fixes run only on a local validator.',
     render: () => <LimitsSlide />,
   },
   {
@@ -425,7 +426,7 @@ export const PITCH: Slide[] = [
           <span className="mono" style={{ fontSize: 22 }}>agentic-commerce-two-theta.vercel.app</span>
         </Rise>
         <Rise delay={1.9} style={{ marginTop: 22 }}>
-          <span className="mono" style={{ fontSize: 18, color: '#8b8a7c' }}>Live on Solana devnet · github.com/edison9733/agentic_commerce</span>
+          <span className="mono" style={{ fontSize: 18, color: '#8b8a7c' }}>Live on Solana devnet · github.com/edison9733/x402_bnpl</span>
         </Rise>
       </Frame>
     ),

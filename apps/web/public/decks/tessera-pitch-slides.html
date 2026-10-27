@@ -212,7 +212,7 @@ section.active .line { animation: draw 1.2s ease both; animation-delay: 1.3s; }
   <h1 style="font-size: 84px; max-width: 22ch;">Two programs and a pool, <em>on devnet.</em></h1>
   <div class="col" style="gap: 0; margin-top: 44px;">
     <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Escrow program</span><span class="mono mint" style="font-size: 23px; width: 760px;">TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ</span><span class="grey" style="font-size: 22px;">version 1, unchanged</span></div>
-    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pay-later program</span><span class="mono mint" style="font-size: 23px; width: 760px;">LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D</span><span class="grey" style="font-size: 22px;">new in 2.0</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pay-later program</span><span class="mono mint" style="font-size: 23px; width: 760px;">LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D</span><span class="grey" style="font-size: 22px;">new in 2.0 · upgraded 27 Oct</span></div>
     <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pool</span><span class="mono mint" style="font-size: 23px; width: 760px;">GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq</span><span class="grey" style="font-size: 22px;">funded with 8 devnet USDC</span></div>
     <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pool vault</span><span class="mono" style="font-size: 23px; width: 760px;">DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV</span><span class="grey" style="font-size: 22px;">the pool&#x27;s USDC</span></div>
     <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; border-bottom: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">USDC (devnet)</span><span class="mono" style="font-size: 23px; width: 760px;">4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU</span><span class="grey" style="font-size: 22px;">Circle&#x27;s devnet mint</span></div>
@@ -221,7 +221,7 @@ section.active .line { animation: draw 1.2s ease both; animation-delay: 1.3s; }
   <p class="source">Read on chain on 27 Oct 2026 (getAccountInfo). Open any of them at explorer.solana.com/address/&lt;address&gt;?cluster=devnet. Time is compressed on devnet, so a whole loan can be watched in about ten minutes.</p>
 </section>
 
-<section data-document-role="page" data-label="Honest limits" data-speaker-notes="And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults.">
+<section data-document-role="page" data-label="Honest limits" data-speaker-notes="And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults. And the escrow on devnet is its 4 October build, whose keys are lost, so the audit fixes run only on a local validator.">
   <p class="kicker">Honest limits</p>
   <h1 style="font-size: 84px; max-width: 20ch;">What it is not, <em>yet.</em></h1>
   <div class="col" style="gap: 0; margin-top: 44px; max-width: 1500px;">
@@ -229,7 +229,8 @@ section.active .line { animation: draw 1.2s ease both; animation-delay: 1.3s; }
     <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">One pool authority key.</span> One lender, one pool: that key alone sets the rules and withdraws.</span></div>
     <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">Unaudited.</span> Both programs have had internal reviews only.</span></div>
     <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A refund goes to the buyer, and the loan stays owed.</span> The buyer repays out of the refund, or defaults.</span></div>
-    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; border-bottom: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A default freezes the line, not the score.</span> The escrow program does not know about loans.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A default freezes the line, not the score.</span> The escrow program does not know about loans.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; border-bottom: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">Devnet's escrow is an older build.</span> It is the 4 October build and its keys are lost, so the audit fixes run only on a local validator.</span></div>
   </div>
   <p class="source">docs/PAYLATER.md, &quot;Limits&quot;, and README, &quot;What is real and what is not&quot;.</p>
 </section>
@@ -241,7 +242,7 @@ section.active .line { animation: draw 1.2s ease both; animation-delay: 1.3s; }
     <svg width="40" height="40" viewBox="14 14 36 36" aria-label="Tessera logo"><path d="M14 32a18 18 0 0 1 18-18v36a18 18 0 0 1-18-18z" fill="#f6f1e3"/><path d="M36 14a18 18 0 0 1 0 36l5-9-5-9 5-9z" fill="#b8f5c8"/></svg>
     <span class="mono" style="font-size: 22px;">agentic-commerce-two-theta.vercel.app</span>
   </div>
-  <p class="mono grey" style="font-size: 18px; margin: 22px 0 0;">Live on Solana devnet · github.com/edison9733/agentic_commerce</p>
+  <p class="mono grey" style="font-size: 18px; margin: 22px 0 0;">Live on Solana devnet · github.com/edison9733/x402_bnpl</p>
 </section>
 
 </div>
