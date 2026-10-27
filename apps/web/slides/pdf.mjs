@@ -17,7 +17,10 @@ const html = resolve(here, 'dist', `tessera-${name}-slides.html`);
 const out = resolve(here, '../public/decks', `tessera-${name}-deck.pdf`);
 const shots = mkdtempSync(join(tmpdir(), 'tessera-deck-'));
 
-const browser = await chromium.launch();
+// Playwright's own Chromium when it is installed; otherwise the system Chrome
+// (CHROME_PATH, or where macOS puts it), so nothing has to be downloaded.
+const SYSTEM_CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const browser = await chromium.launch().catch(() => chromium.launch({ executablePath: SYSTEM_CHROME }));
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
 await page.goto(`file://${html}#1`);
 await page.addStyleTag({ content: '#hint, #fallback { display: none !important; }' });

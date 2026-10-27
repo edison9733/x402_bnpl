@@ -1,7 +1,8 @@
-<section class="center" data-document-role="page" data-label="Title" data-speaker-notes="This is how Tessera works, in under three minutes.">
+<section class="center" data-document-role="page" data-label="Title" data-speaker-notes="This is how Tessera works, and what 2.0 adds: pay later over x402, into the escrow. Under four minutes.">
   <div class="pop">{{logo:84}}</div>
   <h1 style="font-size: 110px; margin-top: 28px;">How Tessera works</h1>
-  <p style="font-size: 32px; max-width: 40ch; margin: 26px 0 0; line-height: 1.35;">One Solana program, two open protocols, and a website that reads the chain directly.</p>
+  <p style="font-size: 32px; max-width: 40ch; margin: 26px 0 0; line-height: 1.35;">Two Solana programs, two open protocols, and a website that reads the chain directly.</p>
+  <p class="mono mint" style="font-size: 22px; margin: 40px 0 0;">2.0 · pay later over x402, into the escrow · live on devnet</p>
 </section>
 
 <section data-document-role="page" data-label="Five accounts" data-speaker-notes="One Anchor program, five kinds of account. Config holds the rules. Each wallet has an Agent account, its credit file. Each buyer and merchant pair has a Pair account. Each purchase is an Order, which owns the vault. Each rating is a Review, stored on-chain in full.">
@@ -64,6 +65,70 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
   </div>
 </section>
 
+<section data-document-role="page" data-label="Pay later over x402" data-speaker-notes="New in 2.0: the same purchase, on credit. The 402 offers a second option, tessera-paylater. The buyer signs one buy_now, and the merchant sends it. In that one instruction the pool pays the order&#x27;s vault and the escrow confirms it, so the pool&#x27;s money never sits in an unconfirmed order the buyer could cancel. From there it is an ordinary order: deliver, hold, release. The buyer repays the pool later, every loan in one transaction.">
+  <p class="kicker">New in 2.0 · pay later over x402 · programs/tessera-paylater</p>
+  <h1 style="font-size: 64px;">One instruction pays the escrow <em>and confirms it.</em></h1>
+  <div class="row" style="gap: 14px; margin-top: 40px; align-items: stretch;">
+    <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">1 · 402</h3><p style="font-size: 18px;">exact first, then the pay-later option with the buyer&#x27;s limit</p></div>
+    <div class="card on" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">2 · pay later</h3><p style="font-size: 18px;">the buyer signs buy_now; the merchant checks, signs and sends it</p></div>
+    <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">3 · deliver</h3><p style="font-size: 18px;">the merchant delivers and commits its hash</p></div>
+    <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">4 · hold</h3><p style="font-size: 18px;">as long as the two parties&#x27; tiers say</p></div>
+    <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">5 · release</h3><p style="font-size: 18px;">the escrow pays the merchant, minus its 1%</p></div>
+    <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">6 · repay --all</h3><p style="font-size: 18px;">price + 2% to the pool, every loan in one transaction</p></div>
+  </div>
+  <div class="card" style="margin-top: 30px; padding: 26px 32px; border-radius: 22px;">
+<pre style="font-size: 20px; line-height: 1.6; color: #c9c6b6;">pub fn buy_now(ctx: Context&lt;BuyNow&gt;, loan_id: [u8; 32]) -&gt; Result&lt;()&gt; {
+    let order = read_order(&amp;a.order)?;    <span style="color: #5d5c52;">// the escrow&#x27;s own order: owner, address and type checked</span>
+    require_keys_eq!(order.buyer, a.buyer.key(), PayLaterError::NotTheBuyer);
+    require!(amount &lt;= limit.saturating_sub(line.outstanding), PayLaterError::CreditLimitExceeded);
+    <span class="mint">pay_from_pool(&amp;a.pool, ..., a.order_vault.to_account_info(), amount)?;</span>   <span style="color: #5d5c52;">// pool → the order&#x27;s vault</span>
+    <span class="mint">tessera::cpi::confirm_funded(...)?;</span>                                  <span style="color: #5d5c52;">// the escrow marks it Funded</span>
+    ...
+}</pre>
+  </div>
+  <p class="source">The escrow program is unchanged: buy_now calls its permissionless confirm_funded by CPI. Without that call, a buyer could cancel_unpaid the order and take the pool&#x27;s money as a refund. Tested by npm run test:paylater and npm run test:paylater-402.</p>
+</section>
+
+<section data-document-role="page" data-label="Pay later, the commands" data-speaker-notes="These are the commands from the README. Run the merchant agents on devnet: every 402 now offers pay later, and the server keeps the pool, marking late loans. Nova, a Building buyer, buys on credit over A2A. It prints the order, the transaction, the loan and when it is due. Then credit shows what it owes, and repay all settles every loan at once." style="--gap: 120ms;">
+  <p class="kicker">Pay later over x402 · the commands, from the README</p>
+  <div class="term" style="padding: 30px 34px; font-size: 21px;">
+    <div class="white">$ npm run agents</div>
+    <div class="grey">  # merchants on devnet: every 402 offers tessera-paylater; the keeper runs every 30 s</div>
+    <div class="white">$ npm run buy -- --buyer nova --merchant atlas --pay-later</div>
+    <div class="grey">  # 402 → signed buy_now → the merchant sends it → pool pays the vault, escrow confirms → delivered</div>
+    <div class="grey">  # prints the order, the loan, what is owed (0.20 + 0.004 pool fee) and the due date, 600 s on</div>
+    <div class="mint">  settle tx  TX_LINK_PLACEHOLDER</div>
+    <div> </div>
+    <div class="white">$ npm run tessera -- credit &lt;nova&#x27;s address&gt;</div>
+    <div class="grey">  # limit, owed, each loan&#x27;s due time</div>
+    <div class="white">$ npm run tessera -- repay --all --keypair .keys/agents/nova.json --send</div>
+    <div class="grey">  # every loan still owed, settled in one transaction</div>
+    <div> </div>
+    <div class="white">$ npm run tessera -- buy-later &lt;merchant agent url&gt; &lt;skill&gt; --keypair PATH</div>
+    <div class="grey">  # the same purchase from the CLI: caps the price, checks the order on-chain, signs one buy_now</div>
+  </div>
+  <p class="mono" style="font-size: 14px; color: #5d5c52; margin: 12px 0 0;">Nova is a Building buyer on devnet (score 301, limit 0.60 USDC). A New buyer&#x27;s 402 says eligible: false, with the reason, and the buyer does not try. The same flow on a local validator: npm run test:paylater-402.</p>
+</section>
+
+<section data-document-role="page" data-label="Failed payments" data-speaker-notes="What happens when a payment fails. If the 402 asks more than the buyer allows, it signs nothing. If the facilitator fails, nothing is delivered and the buyer is told not to pay again. A quote nobody pays expires, and anything in its vault goes back. A merchant that never delivers is refunded against. New in 2.0: a forged pay-later header is refused before the merchant signs anything, and a loan not repaid is marked in default by the keeper, which freezes the line. In every case the money either never moves or goes back to the buyer.">
+  <p class="kicker">Failed payments · README, &quot;Failed payments&quot;</p>
+  <h1 style="font-size: 64px;">No money left stuck: <em>it never moves, or it goes back.</em></h1>
+  <div class="row" style="gap: 26px; margin-top: 36px; align-items: flex-start;">
+    <div class="col" style="flex: 1; gap: 14px;">
+      <div class="card"><h3>The 402 asks too much</h3><p>Above the buyer&#x27;s ceiling, it signs nothing. It also reads the order from the chain and pays only its own, for that amount.</p></div>
+      <div class="card"><h3>The facilitator fails</h3><p>Verify or settle fails: no delivery, and the HTTP 502 says &quot;Do not pay again&quot;. Money that did land is finished or refunded by the crank.</p></div>
+      <div class="card"><h3>Nobody pays the quote</h3><p>confirm_funded refuses money after the 300 s window, and cancel_unpaid sends anything in the vault back to the buyer.</p></div>
+    </div>
+    <div class="col" style="flex: 1; gap: 14px;">
+      <div class="card"><h3>Paid, never delivered</h3><p>After the deadline anyone may refund: the buyer gets it all, and the merchant&#x27;s score loses 10%.</p></div>
+      <div class="card on"><h3>A forged pay-later header <span class="mono mint" style="font-size: 16px;">new</span></h3><p>Checked and simulated before the merchant signs: HTTP 400, nothing sent, and the buyer may pay another way.</p></div>
+      <div class="card on"><h3>A loan not repaid <span class="mono mint" style="font-size: 16px;">new</span></h3><p>After the grace period anyone marks it in default; the server&#x27;s keeper does, every 30 s. The line freezes, and the next 402 says so.</p></div>
+    </div>
+  </div>
+  <p class="mono" style="font-size: 18px; margin: 24px 0 0;">Before a buyer even tries, the 402 says <span class="mint">eligible: false</span> with the reason. If the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed.</p>
+  <p class="source">Each case with the file and line that handles it: README, &quot;Failed payments&quot;.</p>
+</section>
+
 <section data-document-role="page" data-label="Choosing who to pay" data-speaker-notes="Before buying, an agent asks who to buy from. One call ranks merchants by reviews that cost real sales. The one that missed a delivery ranks last, and a regular customer settles instantly." style="padding: 72px 110px; --gap: 150ms;">
   <p class="kicker">Choosing who to pay · find_merchants, recorded 2026-10-09</p>
   <div class="term" style="font-size: 18px;">
@@ -88,32 +153,6 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
     <div class="mint">    INSTANT ~1 s to settled  summary 0.25 USDC</div>
   </div>
   <p class="mono" style="font-size: 14px; color: #5d5c52; margin: 12px 0 0;">Twelve purchases between real agents, each signed by its own wallet, on a local validator running the real program. Reproduce: npm run build:program &amp;&amp; npm run demo:find</p>
-</section>
-
-<section data-document-role="page" data-label="Reviews that pay" data-speaker-notes="Reviews are paid by a rebate from the fees. Three buyers reviewed Glib, then Glib failed a delivery. The honest warning earned the most; the glowing reviews earned nothing." style="padding: 72px 110px; --gap: 140ms;">
-  <p class="kicker">Reviews that pay · the rebate, recorded 2026-10-10</p>
-  <div class="term" style="font-size: 17.5px;">
-    <div class="white">$ npm run demo:rewards        # real purchases and reviews, real program, local validator</div>
-    <div>scout  bought from Quill  ★★★★★  "Exactly the two sentences I needed."</div>
-    <div>nova   bought from Quill  ★★★★★  "Reliable every time."</div>
-    <div>orbit  bought from Quill  ★★★★☆  "Fast and right."</div>
-    <div>wren   bought from Quill  ★☆☆☆☆  "Useless."</div>
-    <div>scout  bought from Glib   ★★★★★  "Brilliant, instant."</div>
-    <div>nova   bought from Glib   ★★★★☆  "Good enough."</div>
-    <div>orbit  bought from Glib   ★★☆☆☆  "Summarised the wrong text. Careful with this one."</div>
-    <div class="warn">glib   took an order from wren and never delivered: wren refunded in full</div>
-    <div> </div>
-    <div class="white">$ npm run rewards -- --pay    # reviews matured: judged on what happened next, paid from the treasury</div>
-    <div>scout  → quill  ★★★★★  1×    close to other buyers          $0.02</div>
-    <div>nova   → quill  ★★★★★  1×    close to other buyers          $0.02</div>
-    <div>orbit  → quill  ★★★★☆  1.2×  agrees with other buyers      $0.024</div>
-    <div class="warn">wren   → quill  ★☆☆☆☆  0.5×  far from everyone else         $0.01</div>
-    <div class="warn">scout  → glib   ★★★★★  0×    praised it, then it failed     $0.00</div>
-    <div class="warn">nova   → glib   ★★★★☆  0×    praised it, then it failed     $0.00</div>
-    <div class="mint">orbit  → glib   ★★☆☆☆  1.5×  warned, then it failed        $0.045</div>
-    <div class="mint">paid 0.169 USDC of 1.25 USDC in fees · npm run rewards -- --verify: every payout recomputes</div>
-  </div>
-  <p class="mono" style="font-size: 14px; color: #5d5c52; margin: 12px 0 0;">Same pay for any stars; x1.5 for a warning that proved right; nothing for praising a wallet that then failed. Reproduce: npm run build:program &amp;&amp; npm run demo:rewards</p>
 </section>
 
 <section data-document-role="page" data-label="One formula" data-speaker-notes="The score is integer arithmetic over those accounts, written once in Rust and once in TypeScript. A test suite runs the real program on a local validator and compares every account with the model after every instruction. Three hundred and ninety-five checks, attacks included.">
@@ -156,24 +195,25 @@ let evidence = (450 * history + 300 * tenure
   <div class="caption anim" style="left: 150px; right: 150px; bottom: 60px; font-size: 27px;">Score, evidence, instant limit and every review with its weight are fields of public accounts. Reviews are mirrored to Solana's Agent Registry with proof of payment.</div>
 </section>
 
-<section data-document-role="page" data-label="Stack, and what is not done" data-speaker-notes="The stack: Anchor, Solana Kit and Codama, x402, A2A, and the Solana Agent Registry. Agents call it over an API, MCP, a skill or a CLI. It is devnet only, with one arbiter key and no audit.">
+<section data-document-role="page" data-label="Stack, and what is not done" data-speaker-notes="The stack: Anchor, Solana Kit and Codama, x402 with a second option the merchant settles itself, A2A, and the Solana Agent Registry. Agents call it over an API, MCP, a skill or a CLI. It is devnet only, with test money, single keys and no audit, and an escrow refund leaves a loan owed.">
   <p class="kicker">Stack, and what is not done</p>
   <div class="row" style="gap: 60px; margin-top: 34px;">
     <div class="col" style="flex: 1; gap: 0;">
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px;">Program</span><span class="mono" style="font-size: 20px;">Anchor 1.1.2 · 472 KB · devnet</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px;">Clients</span><span class="mono" style="font-size: 20px;">@solana/kit 8 · Codama-generated</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px;">Payments</span><span class="mono" style="font-size: 20px;">x402 v2 exact · two facilitators quoted per order</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px;">Agents</span><span class="mono" style="font-size: 20px;">A2A JSON-RPC · a2a-x402 extension v0.2</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px;">Identity</span><span class="mono" style="font-size: 20px;">Solana Agent Registry (ERC-8004) · reviews mirrored</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px;">For agents</span><span class="mono" style="font-size: 20px;">HTTP API · MCP · skill · CLI · find_merchants ranks sellers</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px;">Website</span><span class="mono" style="font-size: 20px;">React · Motion · reads the chain directly</span></div>
+      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Programs</span><span class="mono" style="font-size: 20px;">Anchor 1.1.2 · escrow (472 KB) + pay-later · devnet</span></div>
+      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Clients</span><span class="mono" style="font-size: 20px;">@solana/kit 8 · Codama-generated</span></div>
+      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Payments</span><span class="mono" style="font-size: 20px;">x402 v2 exact, two facilitators · tessera-paylater, settled by the merchant</span></div>
+      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Agents</span><span class="mono" style="font-size: 20px;">A2A JSON-RPC · a2a-x402 extension v0.2</span></div>
+      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Identity</span><span class="mono" style="font-size: 20px;">Solana Agent Registry (ERC-8004) · reviews mirrored</span></div>
+      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">For agents</span><span class="mono" style="font-size: 20px;">HTTP API · MCP · skill · CLI · find_merchants ranks sellers</span></div>
+      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Website</span><span class="mono" style="font-size: 20px;">React · Motion · reads the chain directly</span></div>
     </div>
     <div class="col" style="flex: 1; gap: 0;">
-      <div style="display: flex; padding: 16px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px;">○</span><span>Devnet only; the demo traffic is our own agents</span></div>
-      <div style="display: flex; padding: 16px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px;">○</span><span>Time is compressed 1,440 to 1: a period is a minute, not a day</span></div>
-      <div style="display: flex; padding: 16px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px;">○</span><span>The arbiter and the upgrade authority are single keys</span></div>
-      <div style="display: flex; padding: 16px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px;">○</span><span>The program is unaudited</span></div>
-      <div style="display: flex; padding: 16px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px;">○</span><span>A2A endpoint is hand-rolled, not yet run against the official test kit</span></div>
+      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Devnet only, with test USDC; the demo traffic is our own agents</span></div>
+      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Time is compressed: a period is a minute, a loan term 600 s</span></div>
+      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Single keys: the upgrade authorities and the pool&#x27;s authority</span></div>
+      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>The devnet escrow&#x27;s arbiter key is lost: a dispute there ends in the even split anyone may call after the complaint period</span></div>
+      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>An escrow refund goes to the buyer; the loan stays owed</span></div>
+      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Unaudited; the A2A endpoint is hand-rolled, not yet run against the official test kit</span></div>
     </div>
   </div>
   <div class="row" style="gap: 16px; margin-top: 46px; align-items: center;">{{logo:36}}<span class="mono" style="font-size: 22px;">github.com/edison9733/agentic_commerce</span></div>

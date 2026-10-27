@@ -1,8 +1,9 @@
-<section class="center" data-document-role="page" data-label="Title" data-speaker-notes="GM everyone. I'm Edison Liu, a computer engineering student at the ZJU-UIUC Institute. I'm building Tessera, the credit layer for agentic commerce.">
+<section class="center" data-document-role="page" data-label="Title" data-speaker-notes="GM everyone. I'm Edison Liu, a computer engineering student at the ZJU-UIUC Institute. I'm building Tessera, the credit layer for agentic commerce. This is version 2.0, for the Best Use of x402 on Solana track.">
   <div class="pop">{{logo:120}}</div>
   <h1 style="font-size: 150px; margin-top: 30px;">Tessera</h1>
   <p style="font-size: 38px; margin: 26px 0 0;">The credit layer for agentic commerce.</p>
-  <p class="mono grey" style="font-size: 22px; margin: 64px 0 0;">Edison Liu · Computer Engineering, ZJU-UIUC Institute</p>
+  <p class="mono mint" style="font-size: 22px; margin: 52px 0 0;">2.0 · Encode Club Solana Hackathon 2026 · Best Use of x402 on Solana</p>
+  <p class="mono grey" style="font-size: 22px; margin: 18px 0 0;">Edison Liu · Computer Engineering, ZJU-UIUC Institute</p>
 </section>
 
 <section data-document-role="page" data-label="Hook" data-speaker-notes="AI agents now pay each other with x402, the payment protocol from Coinbase: about two hundred million payments so far, and on one recent day, the average was seven cents.">
@@ -89,23 +90,71 @@
   <p class="source">Recorded 2026-10-10: real purchases, reviews, a missed delivery and the rebate payout, on a local validator running the real program. Reproduce: npm run build:program &amp;&amp; npm run demo:rewards</p>
 </section>
 
-<section data-document-role="page" data-label="Pay later" data-speaker-notes="Last pain: today you top up an agent&#x27;s wallet before every job and count the tokens it needs. With Tessera, fund it roughly once. When a purchase is more than it holds, it buys now and pays later; the merchant is paid at once. The limit comes from the score: a new wallet gets nothing, paying on time raises it, and a default freezes it in public.">
-  <p class="kicker">Pain 3 · top up before every job, count the tokens · Fix 3: pay later</p>
-  <h1 style="font-size: 78px; max-width: 22ch;">Fund it roughly once. <em>Buy now, pay later.</em></h1>
+<section data-document-role="page" data-label="Pay later, into escrow" data-speaker-notes="Last pain: today you top up an agent&#x27;s wallet before every job and count the tokens it needs. Tessera 2.0 fixes that. An agent with a Tessera record can buy now and pay later. A pool pays, but not to the merchant: it pays into the same escrow order the agent would have paid itself. So the merchant still delivers and waits out the hold, and the buyer keeps its refund and its dispute. Credit never skips buyer protection. The limit comes from the score: a new wallet gets nothing, paying on time raises it, and a default freezes it in public.">
+  <p class="kicker">Pain 3 · top up before every job, count the tokens · Fix 3, new in 2.0: pay later</p>
+  <h1 style="font-size: 78px; max-width: 22ch;">Buy now, pay later. <em>Still through escrow.</em></h1>
   <div class="row" style="gap: 52px; margin-top: 36px;">
     <div class="col" style="flex: 1.25; gap: 10px;">
-      <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">Fresh wallet</span><div class="mono grey" style="font-size: 16px;">New · no settled trade yet</div></div><span class="display grey" style="font-size: 40px;">0.00</span></div>
-      <div class="card on" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">Alice</span><div class="mono mint" style="font-size: 16px;">Established 775 · bought 1.50, repaid on time</div></div><span class="display mint" style="font-size: 40px;">3.88 → 4.84</span></div>
-      <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">Bob</span><div class="mono warn" style="font-size: 16px;">Established 775 · bought 2.00, never repaid</div></div><span class="display warn" style="font-size: 40px;">frozen 0.00</span></div>
-      <div class="mono" style="font-size: 17px; margin-top: 4px;">Limit in test USDC. The merchant got <span class="mint">1.47 of 1.50 at once</span>; the pool kept 2%.</div>
+      <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">The merchant quotes</span><div class="mono grey" style="font-size: 16px;">opens an escrow order; its 402 names it as payTo</div></div><span class="display white" style="font-size: 40px;">0.20</span></div>
+      <div class="card on" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">The pool pays the order</span><div class="mono mint" style="font-size: 16px;">buy_now: into the escrow vault, never to the merchant</div></div><span class="display mint" style="font-size: 40px;">0.20</span></div>
+      <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">The escrow pays the merchant</span><div class="mono grey" style="font-size: 16px;">after delivery and the hold, minus its 1% fee</div></div><span class="display white" style="font-size: 40px;">0.198</span></div>
+      <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">The buyer repays the pool</span><div class="mono grey" style="font-size: 16px;">the price plus 2%, by the due date</div></div><span class="display white" style="font-size: 40px;">0.204</span></div>
+      <div class="mono" style="font-size: 17px; margin-top: 4px;">A 0.20 USDC purchase on credit. <span class="mint">Credit never skips buyer protection</span>: refund and dispute work as for any order.</div>
     </div>
     <div class="col" style="flex: 1;">
-      <div class="card"><h3>Buy now</h3><p>A pool pays the merchant at once. Only the buyer agent can spend its own credit.</p></div>
-      <div class="card"><h3>Pay later</h3><p>The full price by the due date, no interest. On time raises the limit by 25%.</p></div>
+      <div class="card"><h3>Credit from the record</h3><p>Only a wallet with a Tessera record gets a limit: tier limit × score ÷ 1000. A New wallet gets nothing.</p></div>
+      <div class="card"><h3>Pay later</h3><p>The price plus 2% by the due date, no interest. Paying on time raises the limit, up to double.</p></div>
       <div class="card"><h3>Or default, in public</h3><p>Anyone can mark a late loan. The line freezes at zero for good.</p></div>
     </div>
   </div>
-  <p class="source">Recorded 2026-10-11 on a local validator running the escrow program and the new pay-later program (preview, not on devnet). Tested by npm run test:paylater. Try it: npm run build:program &amp;&amp; npm run paylater:local</p>
+  <p class="source">New in 2.0. buy_now (programs/tessera-paylater) pays the order&#x27;s vault and has the escrow confirm it in the same instruction; the escrow program is unchanged. Fees: the escrow&#x27;s 1%, the pool&#x27;s 2%. Tested by npm run test:paylater.</p>
+</section>
+
+<section data-document-role="page" data-label="Over x402" data-speaker-notes="How does an agent ask for credit? Through x402 itself. The merchant&#x27;s 402 keeps the standard exact option first, and adds a second one, tessera-paylater: the same order, the same price, and the buyer&#x27;s live limit. The buyer signs one buy_now. The merchant checks it, pays the network fee, sends it, and delivers: it settles this option itself. A standard x402 client takes the first option and never sees a difference.">
+  <p class="kicker">x402 · a second way to pay, in the same 402</p>
+  <h1 style="font-size: 80px; max-width: 30ch;">The 402 also offers <em style="white-space: nowrap;">tessera-paylater.</em></h1>
+  <div class="card" style="margin-top: 40px; padding: 30px 38px; border-radius: 22px;">
+<pre style="font-size: 23px; line-height: 1.6; color: #c9c6b6;">HTTP/1.1 402 Payment Required
+"accepts": [
+  { "scheme": "exact",            "payTo": "&lt;order&gt;", "amount": "200000" },   <span style="color: #5d5c52;">// any x402 client</span>
+  { "scheme": <span class="mint">"tessera-paylater"</span>, "payTo": "&lt;order&gt;", "amount": "200000",
+    "extra": { "feePayer": "&lt;merchant&gt;", "buyerLimit": "602000",
+               "fee": "4000", "termSecs": 600, "eligible": true } }
+]</pre>
+  </div>
+  <div class="row" style="gap: 26px; margin-top: 36px; align-items: stretch;">
+    <div class="card" style="flex: 1;"><h3>1 · The buyer signs</h3><p>One buy_now for that order, with the merchant as fee payer.</p></div>
+    <div class="card" style="flex: 1;"><h3>2 · The merchant settles it</h3><p>It checks the transaction, simulates it, signs as fee payer and sends it.</p></div>
+    <div class="card on" style="flex: 1;"><h3>3 · Then it delivers</h3><p>The pool has paid the vault and the escrow has confirmed it, in one instruction.</p></div>
+  </div>
+  <p class="source">Standard x402 clients are unaffected: the exact entries come first and pay as before. Shape from apps/agents/src/paylater.ts; buyerLimit is 2 USDC × 301 ÷ 1000, a Building buyer at score 301 on the devnet pool. Tested over HTTP, the CLI and A2A: npm run test:paylater-402.</p>
+</section>
+
+<section data-document-role="page" data-label="Live on Solana devnet" data-speaker-notes="All of it is live on Solana devnet: the escrow program from version 1, unchanged, and the new pay-later program next to it, with a pool funded with devnet USDC. Anyone can read these accounts.">
+  <p class="kicker">Live on Solana devnet</p>
+  <h1 style="font-size: 84px; max-width: 22ch;">Two programs and a pool, <em>on devnet.</em></h1>
+  <div class="col" style="gap: 0; margin-top: 44px;">
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Escrow program</span><span class="mono mint" style="font-size: 23px; width: 760px;">TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ</span><span class="grey" style="font-size: 22px;">version 1, unchanged</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pay-later program</span><span class="mono mint" style="font-size: 23px; width: 760px;">LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D</span><span class="grey" style="font-size: 22px;">new in 2.0</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pool</span><span class="mono mint" style="font-size: 23px; width: 760px;">GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq</span><span class="grey" style="font-size: 22px;">funded with 8 devnet USDC</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pool vault</span><span class="mono" style="font-size: 23px; width: 760px;">DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV</span><span class="grey" style="font-size: 22px;">the pool&#x27;s USDC</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; border-bottom: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">USDC (devnet)</span><span class="mono" style="font-size: 23px; width: 760px;">4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU</span><span class="grey" style="font-size: 22px;">Circle&#x27;s devnet mint</span></div>
+  </div>
+  <p class="mono" style="font-size: 22px; margin: 36px 0 0;">Pool rules: limits <span class="white">0 / 2 / 5 / 10 USDC</span> by tier · fee <span class="white">2%</span> · term <span class="white">600 s</span> + 60 s grace · merchants at Building or above</p>
+  <p class="source">Read on chain on 27 Oct 2026 (getAccountInfo). Open any of them at explorer.solana.com/address/&lt;address&gt;?cluster=devnet. Time is compressed on devnet, so a whole loan can be watched in about ten minutes.</p>
+</section>
+
+<section data-document-role="page" data-label="Honest limits" data-speaker-notes="And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults.">
+  <p class="kicker">Honest limits</p>
+  <h1 style="font-size: 84px; max-width: 20ch;">What it is not, <em>yet.</em></h1>
+  <div class="col" style="gap: 0; margin-top: 44px; max-width: 1500px;">
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">Devnet test money.</span> Circle&#x27;s devnet USDC, and the traffic is this project&#x27;s own agents.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">One pool authority key.</span> One lender, one pool: that key alone sets the rules and withdraws.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">Unaudited.</span> Both programs have had internal reviews only.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A refund goes to the buyer, and the loan stays owed.</span> The buyer repays out of the refund, or defaults.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; border-bottom: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A default freezes the line, not the score.</span> The escrow program does not know about loans.</span></div>
+  </div>
+  <p class="source">docs/PAYLATER.md, &quot;Limits&quot;, and README, &quot;What is real and what is not&quot;.</p>
 </section>
 
 <section class="center" data-document-role="page" data-label="Close" data-speaker-notes="Why me? Every x402 payment already leaves a public record on the chain. My idea is to use that data to lower the risk of being scammed in agentic commerce. Without it, a payment is just a payment, and the data goes to waste. Micropayments were the easy part. Every payment matters. This is Tessera.">

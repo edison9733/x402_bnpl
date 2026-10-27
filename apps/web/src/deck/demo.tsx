@@ -6,7 +6,6 @@ import { EASE, Logo } from '../components/ui';
 import { loadBurner } from '../lib/burner';
 import { AGENTS_URL, readRpc } from '../lib/client';
 import { recordedAt, reproduce, session } from '../lib/findDemo';
-import * as payout from '../lib/rewardsDemo';
 import { useProfiles } from '../lib/store';
 import { Big, Body, Deck, Frame, Kicker, Rise, Source, type Slide } from './Deck';
 
@@ -172,39 +171,117 @@ function FindScene() {
   );
 }
 
-function RewardsScene() {
-  const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
-  const lines: [string, string][] = [
-    ['$', 'npm run demo:rewards        # real purchases and reviews, real program, local validator'],
-    ...payout.story.map((x): [string, string] => ['o', `${x.buyer.padEnd(6)} bought from ${payout.cap(x.merchant).padEnd(6)} ${stars(x.rating)}  "${x.comment}"`]),
-    ['bad', 'glib   took an order from wren and never delivered: wren refunded in full'],
-    ['', ''],
-    ['$', 'npm run rewards -- --pay    # reviews matured: judged on what happened next, paid from the treasury'],
-    ...payout.rows
-      .filter((r) => r.reviewer !== 'quill')
-      .map((r): [string, string] => [r.label === 'early_warning' ? 'ok' : r.label === 'vouched_then_failed' || r.label === 'outlier' ? 'bad' : 'o', `${r.reviewer.padEnd(6)} → ${r.subject.padEnd(6)} ${stars(r.rating)}  ${payout.LABELS[r.label]!.x.padEnd(5)} ${payout.LABELS[r.label]!.short.padEnd(28)} ${`$${r.reward}`.padStart(7)}`]),
-    ['ok', `paid ${payout.fees.paidToReviewers} USDC of ${payout.fees.collected} USDC in fees · npm run rewards -- --verify: every payout recomputes`],
+/** New in 2.0: the pay-later flow, and the two lines of `buy_now` that keep it inside the escrow. */
+function PayLaterFlowScene() {
+  const steps: [string, string][] = [
+    ['1 · 402', "exact first, then the pay-later option with the buyer's limit"],
+    ['2 · pay later', 'the buyer signs buy_now; the merchant checks, signs and sends it'],
+    ['3 · deliver', 'the merchant delivers and commits its hash'],
+    ['4 · hold', "as long as the two parties' tiers say"],
+    ['5 · release', 'the escrow pays the merchant, minus its 1%'],
+    ['6 · repay --all', 'price + 2% to the pool, every loan in one transaction'],
   ];
+  const grey = '#5d5c52';
   return (
     <Frame pad={72}>
-      <Kicker>Reviews that pay · the rebate, recorded {payout.recordedAt}</Kicker>
-      <div style={{ marginTop: 22, borderRadius: 22, background: '#050605', border: '1px solid #272b21', padding: '22px 30px', flex: 1 }}>
-        {lines.map(([tag, line], k) => (
-          <motion.div
-            key={k}
-            className="mono"
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.3 + k * 0.2 }}
-            style={{ fontSize: 17, lineHeight: 1.6, whiteSpace: 'pre', overflow: 'hidden', color: tag === '$' ? white : tag === 'ok' ? mint : tag === 'bad' ? '#ec835a' : '#c9c6b6' }}
-          >
+      <Kicker>New in 2.0 · pay later over x402 · programs/tessera-paylater</Kicker>
+      <Big size={60} color={white}>One instruction pays the escrow <em>and confirms it.</em></Big>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginTop: 34 }}>
+        {steps.map(([h, b], k) => (
+          <Rise key={h} delay={0.4 + k * 0.14}>
+            <div style={{ padding: '16px 18px', borderRadius: 16, border: `1px solid ${k === 1 ? mint : '#272b21'}`, background: k === 1 ? '#121a14' : '#10120e', height: '100%' }}>
+              <div className="display" style={{ fontSize: 27, color: white }}>{h}</div>
+              <div style={{ fontSize: 16, marginTop: 6, lineHeight: 1.35, color: '#c9c6b6' }}>{b}</div>
+            </div>
+          </Rise>
+        ))}
+      </div>
+      <Rise delay={1.4} style={{ marginTop: 26 }}>
+        <pre className="mono" style={{ fontSize: 17.5, lineHeight: 1.6, margin: 0, padding: '24px 30px', borderRadius: 22, background: '#10120e', border: '1px solid #272b21', color: '#c9c6b6' }}>
+{`pub fn buy_now(ctx: Context<BuyNow>, loan_id: [u8; 32]) -> Result<()> {
+    let order = read_order(&a.order)?;    `}<span style={{ color: grey }}>{"// the escrow's own order: owner, address and type checked"}</span>{`
+    require_keys_eq!(order.buyer, a.buyer.key(), PayLaterError::NotTheBuyer);
+    require!(amount <= limit.saturating_sub(line.outstanding), PayLaterError::CreditLimitExceeded);
+    `}<span style={{ color: mint }}>{'pay_from_pool(&a.pool, ..., a.order_vault.to_account_info(), amount)?;'}</span>{`   `}<span style={{ color: grey }}>{"// pool → the order's vault"}</span>{`
+    `}<span style={{ color: mint }}>{'tessera::cpi::confirm_funded(...)?;'}</span>{`                                  `}<span style={{ color: grey }}>{'// the escrow marks it Funded'}</span>{`
+    ...
+}`}
+        </pre>
+      </Rise>
+      <Source>The escrow program is unchanged: buy_now calls its permissionless confirm_funded by CPI, so the buyer can never cancel_unpaid the order for the pool's money.</Source>
+    </Frame>
+  );
+}
+
+/** The pay-later commands from the README. The settle line is filled in from the devnet run. */
+const PAYLATER_TERMINAL = [
+  ['$', 'npm run agents'],
+  ['#', '# merchants on devnet: every 402 offers tessera-paylater; the keeper runs every 30 s'],
+  ['$', 'npm run buy -- --buyer nova --merchant atlas --pay-later'],
+  ['#', '# 402 → signed buy_now → the merchant sends it → pool pays the vault, escrow confirms → delivered'],
+  ['#', '# prints the order, the loan, what is owed (0.20 + 0.004 pool fee) and the due date, 600 s on'],
+  ['ok', 'settle tx  TX_LINK_PLACEHOLDER'],
+  ['', ''],
+  ['$', "npm run tessera -- credit <nova's address>"],
+  ['#', "# limit, owed, each loan's due time"],
+  ['$', 'npm run tessera -- repay --all --keypair .keys/agents/nova.json --send'],
+  ['#', '# every loan still owed, settled in one transaction'],
+  ['', ''],
+  ['$', 'npm run tessera -- buy-later <merchant agent url> <skill> --keypair PATH'],
+  ['#', '# the same purchase from the CLI: caps the price, checks the order on-chain, signs one buy_now'],
+] as const;
+
+function PayLaterCommandsScene() {
+  return (
+    <Frame pad={84}>
+      <Kicker>Pay later over x402 · the commands, from the README</Kicker>
+      <div style={{ marginTop: 26, borderRadius: 22, background: '#050605', border: '1px solid #272b21', padding: '26px 32px', flex: 1 }}>
+        {PAYLATER_TERMINAL.map(([tag, line], k) => (
+          <motion.div key={k} className="mono" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.5 + k * 0.9 }} style={{ fontSize: 19, lineHeight: 1.75, color: tag === 'ok' ? mint : tag === '$' ? white : '#8b8a7c', whiteSpace: 'pre', overflow: 'hidden' }}>
+            {tag === '$' ? '$ ' : '  '}
             {line || ' '}
           </motion.div>
         ))}
       </div>
       <div className="mono" style={{ fontSize: 14, color: '#5d5c52', marginTop: 12 }}>
-        Same pay for any stars; x1.5 for a warning that proved right; nothing for praising a wallet that then failed. Reproduce: {payout.reproduce}
+        Nova is a Building buyer on devnet (score 301, limit 0.60 USDC). A New buyer's 402 says eligible: false, with the reason, and the buyer does not try.
       </div>
+    </Frame>
+  );
+}
+
+function FailedScene() {
+  const cases: [string, string, boolean][] = [
+    ['The 402 asks too much', "Above the buyer's ceiling, it signs nothing. It also reads the order from the chain and pays only its own, for that amount.", false],
+    ['Paid, never delivered', "After the deadline anyone may refund: the buyer gets it all, and the merchant's score loses 10%.", false],
+    ['The facilitator fails', 'Verify or settle fails: no delivery, and the HTTP 502 says "Do not pay again". Money that did land is finished or refunded by the crank.', false],
+    ['A forged pay-later header', 'Checked and simulated before the merchant signs: HTTP 400, nothing sent, and the buyer may pay another way.', true],
+    ['Nobody pays the quote', 'confirm_funded refuses money after the 300 s window, and cancel_unpaid sends anything in the vault back to the buyer.', false],
+    ['A loan not repaid', "After the grace period anyone marks it in default; the server's keeper does, every 30 s. The line freezes, and the next 402 says so.", true],
+  ];
+  return (
+    <Frame pad={84}>
+      <Kicker>Failed payments · README, "Failed payments"</Kicker>
+      <Big size={60} color={white}>No money left stuck: <em>it never moves, or it goes back.</em></Big>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 30 }}>
+        {cases.map(([h, b, isNew], k) => (
+          <Rise key={h} delay={0.4 + k * 0.14}>
+            <div style={{ padding: '16px 22px', borderRadius: 18, border: `1px solid ${isNew ? mint : '#272b21'}`, background: isNew ? '#121a14' : '#10120e', height: '100%' }}>
+              <div className="display" style={{ fontSize: 30, color: white }}>
+                {h}
+                {isNew && <span className="mono" style={{ fontSize: 14, color: mint, marginLeft: 10 }}>new</span>}
+              </div>
+              <div style={{ fontSize: 19, marginTop: 6, lineHeight: 1.35, color: '#c9c6b6' }}>{b}</div>
+            </div>
+          </Rise>
+        ))}
+      </div>
+      <Rise delay={1.4} style={{ marginTop: 20 }}>
+        <span className="mono" style={{ fontSize: 17 }}>
+          Before a buyer even tries, the 402 says <span style={{ color: mint }}>eligible: false</span> with the reason. If the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed.
+        </span>
+      </Rise>
+      <Source>Each case with the file and line that handles it: README, "Failed payments".</Source>
     </Frame>
   );
 }
@@ -213,12 +290,15 @@ export const DEMO: Slide[] = [
   {
     id: 'title',
     seconds: 4,
-    say: 'This is how Tessera works, in under three minutes.',
+    say: 'This is how Tessera works, and what 2.0 adds: pay later over x402, into the escrow. Under four minutes.',
     render: () => (
       <Frame center>
         <Logo size={84} invert />
         <Big size={110} delay={0.3} color={white}>How Tessera works</Big>
-        <Body delay={0.8} size={32} max="40ch">One Solana program, two open protocols, and a website that reads the chain directly.</Body>
+        <Body delay={0.8} size={32} max="40ch">Two Solana programs, two open protocols, and a website that reads the chain directly.</Body>
+        <Rise delay={1.2} style={{ marginTop: 40 }}>
+          <span className="mono" style={{ fontSize: 22, color: mint }}>2.0 · pay later over x402, into the escrow · live on devnet</span>
+        </Rise>
       </Frame>
     ),
   },
@@ -305,16 +385,28 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
     ),
   },
   {
+    id: 'paylater',
+    seconds: 20,
+    say: "New in 2.0: the same purchase, on credit. The 402 offers a second option, tessera-paylater. The buyer signs one buy_now, and the merchant sends it. In that one instruction the pool pays the order's vault and the escrow confirms it, so the pool's money never sits in an unconfirmed order the buyer could cancel. From there it is an ordinary order: deliver, hold, release. The buyer repays the pool later, every loan in one transaction.",
+    render: () => <PayLaterFlowScene />,
+  },
+  {
+    id: 'paylater-commands',
+    seconds: 16,
+    say: 'These are the commands from the README. Run the merchant agents on devnet: every 402 now offers pay later, and the server keeps the pool, marking late loans. Nova, a Building buyer, buys on credit over A2A. It prints the order, the transaction, the loan and when it is due. Then credit shows what it owes, and repay all settles every loan at once.',
+    render: () => <PayLaterCommandsScene />,
+  },
+  {
+    id: 'failed',
+    seconds: 24,
+    say: 'What happens when a payment fails. If the 402 asks more than the buyer allows, it signs nothing. If the facilitator fails, nothing is delivered and the buyer is told not to pay again. A quote nobody pays expires, and anything in its vault goes back. A merchant that never delivers is refunded against. New in 2.0: a forged pay-later header is refused before the merchant signs anything, and a loan not repaid is marked in default by the keeper, which freezes the line. In every case the money either never moves or goes back to the buyer.',
+    render: () => <FailedScene />,
+  },
+  {
     id: 'find',
     seconds: 13,
     say: 'Before buying, an agent asks who to buy from. One call ranks merchants by reviews that cost real sales. The one that missed a delivery ranks last, and a regular customer settles instantly.',
     render: () => <FindScene />,
-  },
-  {
-    id: 'rewards',
-    seconds: 12,
-    say: 'Reviews are paid by a rebate from the fees. Three buyers reviewed Glib, then Glib failed a delivery. The honest warning earned the most; the glowing reviews earned nothing.',
-    render: () => <RewardsScene />,
   },
   {
     id: 'score',
@@ -379,16 +471,16 @@ let evidence = (450 * history + 300 * tenure
   {
     id: 'stack',
     seconds: 13,
-    say: 'The stack: Anchor, Solana Kit and Codama, x402, A2A, and the Solana Agent Registry. Agents call it over an API, MCP, a skill or a CLI. It is devnet only, with one arbiter key and no audit.',
+    say: 'The stack: Anchor, Solana Kit and Codama, x402 with a second option the merchant settles itself, A2A, and the Solana Agent Registry. Agents call it over an API, MCP, a skill or a CLI. It is devnet only, with test money, single keys and no audit, and an escrow refund leaves a loan owed.',
     render: () => (
       <Frame pad={84}>
         <Kicker>Stack, and what is not done</Kicker>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 44, marginTop: 34 }}>
           <div>
             {[
-              ['Program', 'Anchor 1.1.2 · 472 KB · devnet'],
+              ['Programs', 'Anchor 1.1.2 · escrow (472 KB) + pay-later · devnet'],
               ['Clients', '@solana/kit 8 · Codama-generated'],
-              ['Payments', 'x402 v2 `exact` · two facilitators quoted per order'],
+              ['Payments', 'x402 v2 exact, two facilitators · tessera-paylater, settled by the merchant'],
               ['Agents', 'A2A JSON-RPC · a2a-x402 extension v0.2'],
               ['Identity', 'Solana Agent Registry (ERC-8004) · reviews mirrored'],
               ['For agents', 'HTTP API · MCP · skill · CLI · find_merchants ranks sellers'],
@@ -403,9 +495,16 @@ let evidence = (450 * history + 300 * tenure
             ))}
           </div>
           <div>
-            {['Devnet only; the demo traffic is our own agents', 'Time is compressed 1,440 to 1: a period is a minute, not a day', 'The arbiter and the upgrade authority are single keys', 'The program is unaudited', 'A2A endpoint is hand-rolled, not yet run against the official test kit'].map((t, i) => (
+            {[
+              'Devnet only, with test USDC; the demo traffic is our own agents',
+              'Time is compressed: a period is a minute, a loan term 600 s',
+              "Single keys: the upgrade authorities and the pool's authority",
+              "The devnet escrow's arbiter key is lost: a dispute there ends in the even split anyone may call after the complaint period",
+              'An escrow refund goes to the buyer; the loan stays owed',
+              'Unaudited; the A2A endpoint is hand-rolled, not yet run against the official test kit',
+            ].map((t, i) => (
               <Rise key={t} delay={0.5 + i * 0.12}>
-                <div style={{ display: 'grid', gridTemplateColumns: '34px 1fr', padding: '16px 0', borderTop: '1px solid #272b21', fontSize: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '34px 1fr', padding: '12px 0', borderTop: '1px solid #272b21', fontSize: 22, lineHeight: 1.35 }}>
                   <span style={{ color: '#ec835a' }}>○</span>
                   <span>{t}</span>
                 </div>

@@ -65,42 +65,43 @@ function RewardsSlide() {
 }
 
 function PayLaterSlide() {
-  const rows: [string, string, string, string][] = [
-    ['Fresh wallet', 'New · no settled trade yet', '0.00', '#8b8a7c'],
-    ['Alice', 'Established 775 · bought 1.50, repaid on time', '3.88 → 4.84', mint],
-    ['Bob', 'Established 775 · bought 2.00, never repaid', 'frozen 0.00', '#ec835a'],
+  const rows: [string, string, string][] = [
+    ['The merchant quotes', 'opens an escrow order; its 402 names it as payTo', '0.20'],
+    ['The pool pays the order', 'buy_now: into the escrow vault, never to the merchant', '0.20'],
+    ['The escrow pays the merchant', 'after delivery and the hold, minus its 1% fee', '0.198'],
+    ['The buyer repays the pool', 'the price plus 2%, by the due date', '0.204'],
   ];
   return (
     <Frame pad={84}>
-      <Kicker>Pain 3 · top up before every job, count the tokens · Fix 3: pay later</Kicker>
+      <Kicker>Pain 3 · top up before every job, count the tokens · Fix 3, new in 2.0: pay later</Kicker>
       <Big size={78} max="22ch" color={white}>
-        Fund it roughly once. <em>Buy now, pay later.</em>
+        Buy now, pay later. <em>Still through escrow.</em>
       </Big>
       <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 52, marginTop: 36, alignItems: 'start' }}>
         <Rise delay={0.4}>
           <div style={{ display: 'grid', gap: 10 }}>
-            {rows.map(([name, line, limit, color], k) => (
+            {rows.map(([name, line, amount], k) => (
               <Rise key={name} delay={0.6 + k * 0.16}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '14px 22px', borderRadius: 16, border: `1px solid ${k === 1 ? mint : '#272b21'}`, background: k === 1 ? '#121a14' : '#10120e' }}>
                   <div style={{ flex: 1 }}>
                     <span className="display" style={{ fontSize: 32, color: white }}>{name}</span>
-                    <div className="mono" style={{ fontSize: 16, color: k === 0 ? '#8b8a7c' : color }}>{line}</div>
+                    <div className="mono" style={{ fontSize: 16, color: k === 1 ? mint : '#8b8a7c' }}>{line}</div>
                   </div>
-                  <span className="display" style={{ fontSize: 40, color }}>{limit}</span>
+                  <span className="display" style={{ fontSize: 40, color: k === 1 ? mint : white }}>{amount}</span>
                 </div>
               </Rise>
             ))}
           </div>
-          <Rise delay={1.2}>
+          <Rise delay={1.3}>
             <div className="mono" style={{ fontSize: 17, marginTop: 14, color: '#c9c6b6' }}>
-              Limit in test USDC. The merchant got <span style={{ color: mint }}>1.47 of 1.50 at once</span>; the pool kept 2%.
+              A 0.20 USDC purchase on credit. <span style={{ color: mint }}>Credit never skips buyer protection</span>: refund and dispute work as for any order.
             </div>
           </Rise>
         </Rise>
         <div style={{ display: 'grid', gap: 16 }}>
           {[
-            ['Buy now', 'A pool pays the merchant at once. Only the buyer agent can spend its own credit.'],
-            ['Pay later', 'The full price by the due date, no interest. On time raises the limit by 25%.'],
+            ['Credit from the record', 'Only a wallet with a Tessera record gets a limit: tier limit × score ÷ 1000. A New wallet gets nothing.'],
+            ['Pay later', 'The price plus 2% by the due date, no interest. Paying on time raises the limit, up to double.'],
             ['Or default, in public', 'Anyone can mark a late loan. The line freezes at zero for good.'],
           ].map(([h, b], k) => (
             <Rise key={h} delay={0.9 + k * 0.15}>
@@ -112,7 +113,113 @@ function PayLaterSlide() {
           ))}
         </div>
       </div>
-      <Source>Recorded 2026-10-11 on a local validator running the escrow program and the new pay-later program (preview, not on devnet). Tested by npm run test:paylater. Try it: npm run build:program && npm run paylater:local</Source>
+      <Source>New in 2.0. buy_now pays the order's vault and has the escrow confirm it in the same instruction; the escrow program is unchanged. Tested by npm run test:paylater.</Source>
+    </Frame>
+  );
+}
+
+/** The 402 with its second option. The shape is the merchant server's (apps/agents/src/paylater.ts). */
+function X402Slide() {
+  const grey = '#5d5c52';
+  return (
+    <Frame pad={84}>
+      <Kicker>x402 · a second way to pay, in the same 402</Kicker>
+      <Big size={80} max="30ch" color={white}>
+        The 402 also offers <em style={{ whiteSpace: 'nowrap' }}>tessera-paylater.</em>
+      </Big>
+      <Rise delay={0.6} style={{ marginTop: 36 }}>
+        <pre className="mono" style={{ fontSize: 22, lineHeight: 1.6, margin: 0, padding: '28px 36px', borderRadius: 22, background: '#10120e', border: '1px solid #272b21', color: '#c9c6b6' }}>
+{`HTTP/1.1 402 Payment Required
+"accepts": [
+  { "scheme": "exact",            "payTo": "<order>", "amount": "200000" },   `}<span style={{ color: grey }}>{'// any x402 client'}</span>{`
+  { "scheme": `}<span style={{ color: mint }}>"tessera-paylater"</span>{`, "payTo": "<order>", "amount": "200000",
+    "extra": { "feePayer": "<merchant>", "buyerLimit": "602000",
+               "fee": "4000", "termSecs": 600, "eligible": true } }
+]`}
+        </pre>
+      </Rise>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22, marginTop: 30 }}>
+        {[
+          ['1 · The buyer signs', 'One buy_now for that order, with the merchant as fee payer.'],
+          ['2 · The merchant settles it', 'It checks the transaction, simulates it, signs as fee payer and sends it.'],
+          ['3 · Then it delivers', 'The pool has paid the vault and the escrow has confirmed it, in one instruction.'],
+        ].map(([h, b], k) => (
+          <Rise key={h} delay={1.0 + k * 0.15}>
+            <div style={{ padding: '18px 24px', borderRadius: 18, border: `1px solid ${k === 2 ? mint : '#272b21'}`, background: k === 2 ? '#121a14' : '#10120e', height: '100%' }}>
+              <div className="display" style={{ fontSize: 30, color: white }}>{h}</div>
+              <div style={{ fontSize: 20, marginTop: 6, lineHeight: 1.35, color: '#c9c6b6' }}>{b}</div>
+            </div>
+          </Rise>
+        ))}
+      </div>
+      <Source>Standard x402 clients are unaffected: the exact entries come first. buyerLimit: 2 USDC × 301 ÷ 1000, a Building buyer on the devnet pool. Tested by npm run test:paylater-402.</Source>
+    </Frame>
+  );
+}
+
+export const DEVNET: [string, string, string, boolean][] = [
+  ['Escrow program', 'TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ', 'version 1, unchanged', true],
+  ['Pay-later program', 'LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D', 'new in 2.0', true],
+  ['Pool', 'GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq', 'funded with 8 devnet USDC', true],
+  ['Pool vault', 'DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV', "the pool's USDC", false],
+  ['USDC (devnet)', '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', "Circle's devnet mint", false],
+];
+
+export function DevnetSlide({ pad = 96 }: { pad?: number }) {
+  return (
+    <Frame pad={pad}>
+      <Kicker>Live on Solana devnet</Kicker>
+      <Big size={80} max="22ch" color={white}>
+        Two programs and a pool, <em>on devnet.</em>
+      </Big>
+      <div style={{ marginTop: 40 }}>
+        {DEVNET.map(([k, a, note, accent], i) => (
+          <Rise key={k} delay={0.4 + i * 0.12}>
+            <div style={{ display: 'grid', gridTemplateColumns: '250px 640px 1fr', alignItems: 'baseline', padding: '14px 0', borderTop: '1px solid #272b21', borderBottom: i === DEVNET.length - 1 ? '1px solid #272b21' : undefined, fontSize: 24 }}>
+              <span style={{ color: white }}>{k}</span>
+              <span className="mono" style={{ fontSize: 20, color: accent ? mint : '#c9c6b6' }}>{a}</span>
+              <span style={{ fontSize: 20, color: '#8b8a7c' }}>{note}</span>
+            </div>
+          </Rise>
+        ))}
+      </div>
+      <Rise delay={1.1} style={{ marginTop: 30 }}>
+        <span className="mono" style={{ fontSize: 20 }}>
+          Pool rules: limits <span style={{ color: white }}>0 / 2 / 5 / 10 USDC</span> by tier · fee <span style={{ color: white }}>2%</span> · term <span style={{ color: white }}>600 s</span> + 60 s grace · merchants at Building or above
+        </span>
+      </Rise>
+      <Source>Read on chain on 27 Oct 2026 (getAccountInfo). explorer.solana.com/address/&lt;address&gt;?cluster=devnet</Source>
+    </Frame>
+  );
+}
+
+function LimitsSlide() {
+  const items: [string, string][] = [
+    ['Devnet test money.', "Circle's devnet USDC, and the traffic is this project's own agents."],
+    ['One pool authority key.', 'One lender, one pool: that key alone sets the rules and withdraws.'],
+    ['Unaudited.', 'Both programs have had internal reviews only.'],
+    ['A refund goes to the buyer, and the loan stays owed.', 'The buyer repays out of the refund, or defaults.'],
+    ['A default freezes the line, not the score.', 'The escrow program does not know about loans.'],
+  ];
+  return (
+    <Frame>
+      <Kicker>Honest limits</Kicker>
+      <Big size={84} max="20ch" color={white}>
+        What it is not, <em>yet.</em>
+      </Big>
+      <div style={{ marginTop: 40, maxWidth: 1300 }}>
+        {items.map(([h, b], i) => (
+          <Rise key={h} delay={0.4 + i * 0.14}>
+            <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr', padding: '16px 0', borderTop: '1px solid #272b21', borderBottom: i === items.length - 1 ? '1px solid #272b21' : undefined, fontSize: 27, lineHeight: 1.35 }}>
+              <span style={{ color: '#ec835a' }}>○</span>
+              <span>
+                <span style={{ color: white }}>{h}</span> {b}
+              </span>
+            </div>
+          </Rise>
+        ))}
+      </div>
+      <Source>docs/PAYLATER.md, "Limits", and README, "What is real and what is not".</Source>
     </Frame>
   );
 }
@@ -152,7 +259,7 @@ export const PITCH: Slide[] = [
   {
     id: 'title',
     seconds: 10,
-    say: "GM everyone. I'm Edison Liu, a computer engineering student at the ZJU-UIUC Institute. I'm building Tessera, the credit layer for agentic commerce.",
+    say: "GM everyone. I'm Edison Liu, a computer engineering student at the ZJU-UIUC Institute. I'm building Tessera, the credit layer for agentic commerce. This is version 2.0, for the Best Use of x402 on Solana track.",
     render: () => (
       <Frame center>
         <motion.div initial={{ scale: 0.6, opacity: 0, rotate: -20 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} transition={{ duration: 1.2, ease: EASE }}>
@@ -160,7 +267,10 @@ export const PITCH: Slide[] = [
         </motion.div>
         <Big size={150} delay={0.4} color={white}>Tessera</Big>
         <Body delay={0.9} size={38} max="30ch">The credit layer for agentic commerce.</Body>
-        <Rise delay={1.3} style={{ marginTop: 64 }}>
+        <Rise delay={1.2} style={{ marginTop: 52 }}>
+          <span className="mono" style={{ fontSize: 22, color: mint }}>2.0 · Encode Club Solana Hackathon 2026 · Best Use of x402 on Solana</span>
+        </Rise>
+        <Rise delay={1.4} style={{ marginTop: 18 }}>
           <span className="mono" style={{ fontSize: 22, color: '#8b8a7c' }}>Edison Liu · Computer Engineering, ZJU-UIUC Institute</span>
         </Rise>
       </Frame>
@@ -280,9 +390,27 @@ export const PITCH: Slide[] = [
   },
   {
     id: 'pay-later',
-    seconds: 18,
-    say: "Last pain: today you top up an agent's wallet before every job and count the tokens it needs. With Tessera, fund it roughly once. When a purchase is more than it holds, it buys now and pays later; the merchant is paid at once. The limit comes from the score: a new wallet gets nothing, paying on time raises it, and a default freezes it in public.",
+    seconds: 24,
+    say: "Last pain: today you top up an agent's wallet before every job and count the tokens it needs. Tessera 2.0 fixes that. An agent with a Tessera record can buy now and pay later. A pool pays, but not to the merchant: it pays into the same escrow order the agent would have paid itself. So the merchant still delivers and waits out the hold, and the buyer keeps its refund and its dispute. Credit never skips buyer protection. The limit comes from the score: a new wallet gets nothing, paying on time raises it, and a default freezes it in public.",
     render: () => <PayLaterSlide />,
+  },
+  {
+    id: 'x402',
+    seconds: 18,
+    say: "How does an agent ask for credit? Through x402 itself. The merchant's 402 keeps the standard exact option first, and adds a second one, tessera-paylater: the same order, the same price, and the buyer's live limit. The buyer signs one buy_now. The merchant checks it, pays the network fee, sends it, and delivers: it settles this option itself. A standard x402 client takes the first option and never sees a difference.",
+    render: () => <X402Slide />,
+  },
+  {
+    id: 'devnet',
+    seconds: 9,
+    say: 'All of it is live on Solana devnet: the escrow program from version 1, unchanged, and the new pay-later program next to it, with a pool funded with devnet USDC. Anyone can read these accounts.',
+    render: () => <DevnetSlide />,
+  },
+  {
+    id: 'limits',
+    seconds: 14,
+    say: 'And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults.',
+    render: () => <LimitsSlide />,
   },
   {
     id: 'close',
