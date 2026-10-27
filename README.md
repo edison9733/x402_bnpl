@@ -157,7 +157,11 @@ The same score that shortens the hold can set a credit line. A second program,
 - **Or run a tab.** Buy several things, then settle every loan still owed in one transaction
   (`tessera repay --all`).
 - **Or default.** Anyone can mark an unpaid loan in default once its grace period ends, and the line
-  freezes at zero.
+  freezes at zero. The demo agents server does it as a keeper.
+- **Over x402.** Where the pool exists, a merchant's 402 offers the order on credit as a second
+  `accepts` entry (scheme `tessera-paylater`) after the standard ones, with the buyer's live limit.
+  The buyer answers with a signed `buy_now`; the merchant checks it, signs as fee payer and sends it
+  (`npm run buy -- --pay-later`, `tessera buy-later <merchant url> <skill>`).
 
 The limit is `tier limit × score ÷ 1000 × on-time boost`, read live from the buyer's Tessera credit
 file. A New wallet gets nothing. The escrow program is unchanged; pay-later only reads its accounts
@@ -189,6 +193,7 @@ agree. Full write-up: [docs/SCORING.md](docs/SCORING.md).
 |---|---|---|
 | `npm run test:local` | **395 / 395** | Runs the real program on a local validator. After every instruction, every account is compared field by field with a reference model. Every attack in [docs/SECURITY.md](docs/SECURITY.md) is sent as a real transaction and must fail. |
 | `npm run test:paylater` | **72 / 72** | The pay-later program next to the real escrow program on a local validator: every purchase on credit goes through a real escrow order (the pool pays the vault, the escrow pays the merchant), limits from live Tessera scores matched against the off-chain formula, on-time repayment of price plus fee, a tab of three settled in one transaction, default and freeze, an escrow refund with the loan still owed, pool accounting, and the refusal paths as real transactions. |
+| `npm run test:paylater-402` | **45 / 45** | Pay later over x402, with the real merchant server on a local validator: the 402 offers the order on credit after its exact entries with the buyer's live limit, a tiered buyer hands over a signed `buy_now` and the merchant settles and delivers (plain HTTP, the CLI and the buyer agent over A2A), `repay --all` clears the tab, a New wallet is told it is not eligible, forged headers are refused before the merchant signs, and the keeper marks an unpaid loan in default. |
 | `npm run test:formula` | **44 / 44** | The guarantees stated in the docs and on the site, as tests, including the review-reward rules. |
 | `npm run demo:rewards` | **pass** | The review-reward rebate on a local validator with the real program: real purchases and reviews, a merchant that then misses a delivery, and a real payout from the treasury. It checks each reward and label, the on-chain balances, the 75%-of-fees bound, and that `--verify` recomputes the payout. |
 | `npm run test:doors` | **pass** (94 checks) | All four doors against the real program on a local validator: every API tool and refusal path with transactions signed and sent, `find_merchants` against real and copycat agent cards, the MCP tools and their enums, SKILL.md, and the CLI signing locally and refusing a tampered transaction from a fake API. |
@@ -246,6 +251,7 @@ npm run codegen              # typed client from the IDL
 npm run test:formula         # 44 formula and reward tests, no chain needed
 npm run test:local           # 395 checks on a local validator (about 4 minutes)
 npm run test:paylater        # 72 pay-later checks on a local validator
+npm run test:paylater-402    # pay later through the merchant server's x402 route, the CLI and the buyer agent
 npm run paylater:local       # a local pay-later world to try the CLI by hand (docs/PAYLATER.md)
 ```
 

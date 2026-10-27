@@ -28,6 +28,7 @@ import { Addr, EASE, Reveal, TierBadge } from '../components/ui';
 import { loadBurner, sendWith } from '../lib/burner';
 import { AGENTS_URL, readRpc } from '../lib/client';
 import { duration, explorerAddress, explorerTx, short, tierName, usd } from '../lib/format';
+import { usePayLater } from '../lib/paylater';
 import { refresh, useChain, useProfiles } from '../lib/store';
 
 type Item = { merchant: string; merchantWallet: string; title: string; sku: string; name: string; description: string; price: string; example: Record<string, unknown> };
@@ -443,6 +444,9 @@ export function Market() {
   const { balances, reload } = useBalances(payer?.address);
   const { byWallet, params } = useProfiles();
   const { pairs } = useChain();
+  // Where the pay-later pool exists, a merchant's 402 also offers its price on
+  // credit. Said here as information: the test wallet has no credit to use it.
+  const pl = usePayLater();
 
   useEffect(() => {
     api<Item[]>('/api/catalog').then(setCatalog).catch(() => setDown(true));
@@ -516,6 +520,7 @@ export function Market() {
           {(catalog ?? []).map((it, i) => {
             const m = byWallet.get(it.merchantWallet);
             const hold = holdWith(it.merchantWallet);
+            const onCredit = pl.status === 'live' && pl.pool !== null && m !== undefined && m.eval.tier >= pl.pool.params.minMerchantTier && BigInt(it.price) >= pl.pool.params.minLoan;
             return (
               <Reveal key={`${it.merchant}/${it.sku}`} delay={i * 0.06}>
                 <motion.div whileHover={{ y: -5 }} transition={{ duration: 0.35, ease: EASE }} className="card flex h-full flex-col p-6">
@@ -530,6 +535,11 @@ export function Market() {
                       <div className="display text-[2rem] leading-none">{usd(BigInt(it.price))}</div>
                       <div className="mono mt-1.5 text-[0.72rem]" style={{ color: '#878371' }}>
                         {hold === null ? 'USDC' : hold === 0 ? 'USDC · settles instantly for you' : `USDC · held ${duration(hold)} for you`}
+                        {onCredit && (
+                          <span title={`This merchant's 402 also offers the price on credit (scheme tessera-paylater): the pool pays the escrow and a buyer with a Tessera tier repays it plus ${pl.pool!.params.feeBps / 100}% within ${duration(pl.pool!.params.termSecs)}. Agents use it with tessera buy-later; this test wallet has no credit.`} style={{ color: '#126b4a' }}>
+                            {' '}· pay later
+                          </span>
+                        )}
                       </div>
                     </div>
                     <button className="btn btn-ink" onClick={() => setOpen(it)} disabled={!payer}>Buy</button>

@@ -1,9 +1,13 @@
 /**
  * Pay-later commands. Unlike the escrow commands these do not go through the
  * API: they read the chain themselves and build the one pay-later instruction
- * locally, so there is no reply to check before signing.
+ * locally, so there is no reply to check before signing. `buy-later` with a
+ * merchant agent's URL runs the whole x402 purchase: it asks for the quote,
+ * checks the escrow it names on-chain, hands the merchant a signed buy_now,
+ * and prints what came back and the loan.
  *
  *   tessera credit <wallet>
+ *   tessera buy-later <merchant agent url> <skill> [--input JSON] --keypair PATH
  *   tessera buy-later --order <order> --keypair PATH [--send]
  *   tessera repay <loan> --keypair PATH [--send]
  *   tessera repay --all --keypair PATH [--send]      every loan still owed, in one transaction
@@ -33,18 +37,24 @@ import {
   fetchMaybeConfig,
   fetchMaybeOrder,
   findAta,
+  fromHex,
   fromUnits,
+  hashJson,
+  OrderVerificationError,
   paylater,
   score,
+  verifyOrderForPayment,
 } from '@tessera/sdk';
 
 export const PAYLATER_COMMANDS = new Set(['credit', 'buy-later', 'repay', 'mark-default']);
 
 export const PAYLATER_HELP = `Pay later (reads the chain itself; no API)
-  credit <wallet>                                a wallet's pay-later limit and record
+  credit <wallet>                                a wallet's pay-later limit, what it owes and when each loan is due
+  buy-later <merchant agent url> <skill> [--input JSON] --keypair PATH
+                                                 buy over x402 on credit: the merchant quotes an escrow order, you
+                                                 sign one buy_now for it, the merchant sends it and the pool pays
   buy-later --order <order> --keypair PATH [--send]
-                                                 the pool pays the quoted escrow order for you; you repay
-                                                 the price plus the pool's fee by the due date
+                                                 the same for an escrow order you already hold a quote for
   repay <loan> --keypair PATH [--send]           pay a loan back in full (anyone may repay for the buyer)
   repay --all --keypair PATH [--send]            pay every loan you still owe, in one transaction
   mark-default <loan> --keypair PATH [--send]    anyone, once a loan is past its due date and grace period`;
@@ -53,9 +63,24 @@ const TIERS = ['New', 'Building', 'Established', 'Trusted'] as const;
 const CLOCK = address('SysvarC1ock11111111111111111111111111111111');
 const short = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`;
 const usdc = (u: bigint) => `${fromUnits(u)} USDC`;
+const when = (secs: bigint) => new Date(Number(secs) * 1000).toISOString();
 const STATE = ['open', 'repaid on time', 'repaid late', 'in default'] as const;
+/** The a2a extension whose params carry a merchant's wallet and prices (apps/agents/src/config.ts). */
+const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/agentic_commerce/blob/main/docs/A2A-EXTENSION.md';
 
-type Opts = { rpcUrl: string; kp?: KeyPairSigner; send: boolean; json: boolean; all: boolean; order?: string; die: (m: string) => never };
+type Opts = {
+  rpcUrl: string;
+  kp?: KeyPairSigner;
+  send: boolean;
+  json: boolean;
+  all: boolean;
+  order?: string;
+  /** --input for the HTTP form of buy-later: the request the skill is asked with. */
+  input?: unknown;
+  /** The CLI's URL check: https, or http to this machine. */
+  endpoint: (url: string, what: string) => string;
+  die: (m: string) => never;
+};
 
 /** Repay instructions per transaction: each adds one loan account, so a tab of this size fits a v0 transaction comfortably. */
 const REPAYS_PER_TX = 8;
@@ -103,8 +128,8 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
 
   /** One line per loan still owed, with how its due date stands. */
   function describeOwed(a: Address, d: paylater.Loan, now: bigint): string {
-    const when = d.state === paylater.LoanState.Defaulted ? 'in default, a late repayment clears the debt' : d.dueAt >= now ? `due in ${d.dueAt - now} s` : `${now - d.dueAt} s late`;
-    return `  ${short(a)}  ${usdc(paylater.owedOf(d))}  order ${short(d.order)}  ${when}`;
+    const standing = d.state === paylater.LoanState.Defaulted ? 'in default, a late repayment clears the debt' : d.dueAt >= now ? `due in ${d.dueAt - now} s` : `${now - d.dueAt} s late`;
+    return `  ${short(a)}  ${usdc(paylater.owedOf(d))}  order ${short(d.order)}  ${standing} (${when(d.dueAt)})`;
   }
   const owedTotal = (tab: { data: paylater.Loan }[]) => tab.reduce((sum, l) => sum + paylater.owedOf(l.data), 0n);
 
@@ -177,6 +202,10 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     return;
   }
 
+  if (cmd === 'buy-later' && !o.order && a1 && /^https?:\/\//i.test(a1)) {
+    return buyLaterOverHttp(a1, a2, kp);
+  }
+
   if (cmd === 'buy-later') {
     // The order is the merchant's quote: the payTo of its 402, opened in your name.
     const orderAddr = addr(o.order ?? a1, '--order');
@@ -226,4 +255,102 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     payerToken: await findAta(kp.address, pool.data.mint),
   });
   return sendOrPrint(kp, [ix]);
+
+  /**
+   * The whole purchase over x402, on credit. The merchant's URL is the base
+   * its agent card and `/x402/<skill>` hang off (the card's own URL is
+   * accepted too). Nothing the merchant sends is trusted: the price is capped
+   * by what its card advertises, the order is read from the chain and checked
+   * against what was asked, and the only thing signed is one buy_now for it.
+   */
+  async function buyLaterOverHttp(merchantUrl: string, skill: string | undefined, kp: KeyPairSigner): Promise<void> {
+    if (!skill) o.die('buy-later <merchant agent url> needs a <skill> (see: tessera help)');
+    const base = o.endpoint(merchantUrl, '<merchant agent url>').replace(/\/\.well-known\/agent-card\.json$/, '').replace(/\/$/, '');
+    const input = o.input ?? {};
+    if (typeof input !== 'object' || input === null || Array.isArray(input)) o.die('--input must be a JSON object');
+    const get = async (url: string, headers: Record<string, string> = {}) => {
+      let res: Response;
+      try {
+        res = await fetch(url, { headers, signal: AbortSignal.timeout(90_000) });
+      } catch (e) {
+        return o.die(`${new URL(url).host} is unreachable (${(e as Error).message})`);
+      }
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      return { res, body };
+    };
+
+    // 0. The most this buyer pays: what the merchant's card advertises for the skill.
+    const { body: card } = await get(`${base}/.well-known/agent-card.json`);
+    const ext = ((card.capabilities as { extensions?: { uri: string; params?: Record<string, unknown> }[] } | undefined)?.extensions ?? []).find((e) => e.uri === TESSERA_EXTENSION_URI);
+    const prices = (ext?.params?.prices ?? {}) as Record<string, string>;
+    const advertised = BigInt(String(prices[skill] ?? '0'));
+    if (!ext || advertised === 0n) o.die(`${base} does not advertise a price for ${skill} on its agent card`);
+    const merchantWallet = addr(String(ext.params?.wallet ?? ''), 'the merchant wallet on the agent card');
+
+    // 1. Ask. The 402 names the escrow order and, when the pool is here, the credit option.
+    const askUrl = `${base}/x402/${encodeURIComponent(skill)}?buyer=${kp.address}&input=${encodeURIComponent(JSON.stringify(input))}`;
+    const first = await get(askUrl);
+    if (first.res.status !== 402) o.die(`expected 402 from ${base}, got ${first.res.status}: ${String(first.body.error ?? '')}`);
+    const required = first.body as { accepts?: { scheme: string; asset: string; amount: string; payTo: string; extra: Record<string, unknown> }[]; extensions?: { tessera?: { orderId: string; holdSecs: number } } };
+    const option = (required.accepts ?? []).find((a) => a.scheme === paylater.X402_SCHEME);
+    if (!option) o.die(`${base} does not offer pay later for ${skill}`);
+    const offer = option.extra as unknown as paylater.PayLaterOffer;
+    const amount = BigInt(option.amount);
+    const terms = required.extensions?.tessera;
+    if (!terms) o.die('the 402 carries no escrow terms');
+    console.log(`402      ${usdc(amount)} into escrow order ${short(option.payTo)}, hold ${terms.holdSecs} s`);
+    console.log(`credit   limit ${usdc(BigInt(offer.buyerLimit))} · owing ${usdc(BigInt(offer.buyerOutstanding))} · fee ${usdc(BigInt(offer.fee))} · due ${offer.termSecs} s after the purchase`);
+    if (!offer.eligible) o.die(`not eligible for pay later: ${offer.reason ?? 'the merchant did not say why'}`);
+    if (amount > advertised) o.die(`refusing: the 402 asks ${usdc(amount)}, more than the ${usdc(advertised)} the card advertises`);
+    if (offer.program !== paylater.TESSERA_PAYLATER_PROGRAM_ADDRESS) o.die(`the merchant names another pay-later program (${offer.program})`);
+    const feePayer = addr(offer.feePayer, 'the fee payer in the 402');
+
+    // 2. The order, from the chain: opened for this wallet by this merchant, for this request, at the address quoted.
+    const expected = {
+      orderId: fromHex(terms.orderId),
+      buyer: kp.address,
+      merchant: merchantWallet,
+      amount,
+      mint: addr(option.asset, 'the asset in the 402'),
+      payTo: addr(option.payTo, 'payTo in the 402'),
+      requestHash: await hashJson({ sku: skill, input }),
+    };
+    let verified: Awaited<ReturnType<typeof verifyOrderForPayment>> | undefined;
+    for (let i = 0; !verified; i += 1) {
+      try {
+        verified = await verifyOrderForPayment(rpc, expected);
+      } catch (e) {
+        if (e instanceof OrderVerificationError && /does not exist/.test(e.message) && i < 8) await new Promise((r) => setTimeout(r, 600));
+        else o.die(e instanceof OrderVerificationError ? e.message : `cannot read the chain at ${new URL(o.rpcUrl).host}: ${(e as Error).message}`);
+      }
+    }
+    const now = await chainNow();
+    const vault = await fetchMaybeToken(rpc, verified.vault);
+    const why = paylater.orderRefusal(verified.data, vault.exists ? vault.data.amount : 0n, kp.address, now, scoreParams);
+    if (why) o.die(`order ${short(verified.order)}: ${why}`);
+    const mine = await standing(kp.address, now);
+    if (amount > mine.available) o.die(`${usdc(amount)} is above your available credit (${usdc(mine.available)}) by this machine's reading of the chain`);
+    console.log(`order    ${short(verified.order)} verified on-chain: opened for you by ${short(merchantWallet)}, ${usdc(amount)}, your request`);
+
+    // 3. Sign one buy_now for it, with the merchant's wallet as fee payer, and hand it over.
+    const built = await paylater.buyNowForMerchant(rpc, kp, verified.order, feePayer);
+    const payload = { x402Version: 2, accepted: option, payload: { transaction: built.transaction } };
+    console.log(`BUY LATER  signed buy_now for ${short(verified.order)}; the merchant pays the network fee and sends it`);
+    const second = await get(askUrl, { 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify(payload), 'utf8').toString('base64') });
+    if (!second.res.ok) o.die(`the merchant refused (${second.res.status}): ${String(second.body.error ?? 'failed')}${second.body.note ? ` ${String(second.body.note)}` : ''}`);
+    const receipt = second.res.headers.get('PAYMENT-RESPONSE');
+    const settled = receipt ? (JSON.parse(Buffer.from(receipt, 'base64').toString('utf8')) as { transaction?: string }) : undefined;
+    if (o.json) {
+      const l = await paylater.fetchMaybeLoan(rpc, built.loan);
+      return void console.log(JSON.stringify({ ...second.body, loan: built.loan, loanAccount: l.exists ? l.data : null, settleTx: settled?.transaction }, (_, v) => (typeof v === 'bigint' ? v.toString() : v), 2));
+    }
+    if (settled?.transaction) console.log(`settled  ${settled.transaction}`);
+    console.log(`result   ${JSON.stringify(second.body.result).slice(0, 300)}`);
+    console.log(`escrow   ${JSON.stringify(second.body.escrow)}`);
+    const l = await paylater.fetchMaybeLoan(rpc, built.loan);
+    if (l.exists) {
+      console.log(`loan     ${built.loan}`);
+      console.log(`         owe ${usdc(paylater.owedOf(l.data))} (${usdc(l.data.amount)} + ${usdc(l.data.fee)} pool fee) by ${when(l.data.dueAt)}; pay with: tessera repay --all --keypair PATH --send`);
+    } else console.log(`loan     ${built.loan} (not readable yet)`);
+  }
 }

@@ -5,7 +5,16 @@
  * paid. A merchant only ever asks the program to look at the vault
  * (`confirm_funded`), and the program decides.
  */
-import { getBase58Decoder, getBase64Encoder, isSolanaError, type Address, type Instruction, type TransactionSigner } from '@solana/kit';
+import {
+  getBase58Decoder,
+  getBase64Encoder,
+  isSolanaError,
+  type Address,
+  type Base64EncodedWireTransaction,
+  type Instruction,
+  type Signature,
+  type TransactionSigner,
+} from '@solana/kit';
 import { fetchMaybeToken } from '@solana-program/token';
 import {
   agentPdaOf,
@@ -71,6 +80,39 @@ export async function send(
       if (landed && (await landed().catch(() => false))) return '';
       if (isProgramError(err) || attempt >= 5) throw err;
       await sleep(600 * attempt + Math.random() * 400);
+    }
+  }
+}
+
+/**
+ * Send a transaction that is already signed (a buyer's, co-signed by this
+ * server) and wait for it to land, the way `send` does: plain HTTP, polled,
+ * broadcast again every few seconds until it is confirmed or its blockhash
+ * can no longer be. `landed` says whether an attempt went through anyway.
+ */
+export async function sendSigned(actor: Actor, wire: Base64EncodedWireTransaction, signature: Signature, landed: () => Promise<boolean>): Promise<void> {
+  const broadcast = () => actor.rpc.sendTransaction(wire, { encoding: 'base64', preflightCommitment: 'confirmed' }).send();
+  try {
+    await broadcast();
+  } catch (err) {
+    if (await landed().catch(() => false)) return;
+    throw err;
+  }
+  const started = Date.now();
+  let lastBroadcast = started;
+  for (;;) {
+    await sleep(500);
+    const { value } = await read(() => actor.rpc.getSignatureStatuses([signature]).send());
+    const status = value[0];
+    if (status?.err) throw new Error(`transaction ${signature} failed: ${JSON.stringify(status.err, (_, v) => (typeof v === 'bigint' ? Number(v) : v))}`);
+    if (status && (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized')) return;
+    if (Date.now() - started > 60_000) {
+      if (await landed().catch(() => false)) return;
+      throw new Error(`transaction ${signature} was not confirmed within 60 s`);
+    }
+    if (Date.now() - lastBroadcast > 6000) {
+      lastBroadcast = Date.now();
+      await broadcast().catch(() => undefined);
     }
   }
 }

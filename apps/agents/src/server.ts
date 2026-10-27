@@ -44,7 +44,8 @@ import {
 } from './chain.js';
 import { config } from './config.js';
 import { facilitators } from './facilitator.js';
-import { loadEvidence, MerchantAgent, pruneEvidence, type Behaviour } from './merchant.js';
+import { loadEvidence, MerchantAgent, PaymentRefused, pruneEvidence, type Behaviour } from './merchant.js';
+import { markOverdue, poolInfo } from './paylater.js';
 import { hashOf } from './services.js';
 import { dataDir, writeFileDurable } from './store.js';
 
@@ -302,8 +303,12 @@ app.get('/agents/:id/x402/:skill', (req, res, next) => (req.header('PAYMENT-SIGN
     if (f.receipts[0]) res.setHeader('PAYMENT-RESPONSE', encodePaymentResponseHeader(f.receipts[0]));
     res.json({ result: f.deliverable, escrow: { order: f.order, deliveryHash: f.deliveryHash, state: f.state, instant: f.instant, releaseAt: f.releaseAt } });
   } catch (e) {
-    // Once money has moved, never invite the client to pay again.
-    const paid = Boolean(header);
+    const logs = (e as { context?: { logs?: string[] } }).context?.logs;
+    console.warn(`[x402] ${m.id}/${String(req.params.skill)}: ${publicMessage(e).slice(0, 160)}${logs?.length ? `\n  ${logs.slice(-4).join('\n  ')}` : ''}`);
+    // Once money may have moved, never invite the client to pay again. A
+    // credit purchase refused before this merchant signed anything is the
+    // one case where nothing has: the client may pay another way.
+    const paid = Boolean(header) && !(e instanceof PaymentRefused);
     res.status(paid ? 502 : 400).json({
       error: publicMessage(e),
       ...(paid ? { note: 'Do not pay again. If the escrow was funded, the merchant refunds it before the delivery deadline.' } : {}),
@@ -673,6 +678,26 @@ async function tidy(): Promise<void> {
   }
 }
 
+/**
+ * The keeper for the pay-later pool: a loan past its due date and its grace
+ * period is marked in default, which freezes the buyer's line. Anyone may do
+ * it (`mark_default` is permissionless); this server does, with its ops key,
+ * where the pool exists on this network. Each pass is one program-accounts
+ * read of the open loans and at most a handful of transactions.
+ */
+let keeping = false;
+async function keep(): Promise<void> {
+  if (keeping || !ready) return;
+  keeping = true;
+  try {
+    await markOverdue(ops, backedOff, (loan, e) => failed(loan, 'mark default', e));
+  } catch (e) {
+    console.warn(`[keeper] ${publicMessage(e).slice(0, 160)}`);
+  } finally {
+    keeping = false;
+  }
+}
+
 let cranking = false;
 async function tick(): Promise<void> {
   if (cranking || !ready) return;
@@ -747,11 +772,18 @@ async function start(): Promise<void> {
   console.log(`  trust proxy: ${config.trustProxy || 'off'}`);
   console.log(`  facilitators: ${(await facilitators()).map((f) => f.url).join(', ') || 'NONE REACHABLE'}`);
   console.log(`  holds by tier: ${TIER_NAMES.map((t, i) => `${t} ${cfg.params.holdSecs[i]}s`).join(', ')}; fee ${cfg.feeBps / 100}%`);
+  const pool = await poolInfo(ops).catch(() => null);
+  console.log(
+    pool
+      ? `  pay later: pool ${pool.pool} holds ${fromUnits(pool.liquidity)} USDC; quotes offer tessera-paylater, and this server marks overdue loans in default`
+      : '  pay later: no pool on this network; quotes offer exact only',
+  );
   for (const m of merchants.values()) {
     console.log(`  ${m.id.padEnd(8)} ${m.wallet}  ${m.services.map((s) => `${s.sku} ${fromUnits(s.price)}`).join(', ')}`);
   }
   setInterval(() => void tick(), config.crankEveryMs);
   setInterval(() => void tidy(), 90_000);
+  setInterval(() => void keep(), config.keeperEveryMs);
   void tidy();
 }
 

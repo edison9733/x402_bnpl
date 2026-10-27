@@ -37,6 +37,33 @@ is not deployed to devnet. Its program id, from the keypair the build generates,
 Each loan records the order it funded (`loan.order`), the price (`amount`) and the fee. The price is
 what counts against the buyer's limit; the fee is owed on top.
 
+## Over x402
+
+A merchant agent whose network has the pool offers it in every quote. Its 402 (`apps/agents`, the
+`/agents/:id/x402/:skill` route and the A2A `x402.payment.required`) keeps its `exact` entries first
+and adds one with scheme `tessera-paylater`: same order as `payTo`, same price and asset, and in
+`extra` the program, the pool, the merchant's ops wallet as `feePayer`, the buyer's live `buyerLimit`
+and `buyerOutstanding`, the `fee` on this price, the `termSecs`, and `eligible` (false, with a
+`reason`, when the program would refuse). The same facts sit under `extensions.tessera.payLater`.
+
+To pay that way the buyer builds one `buy_now` for the quoted order with the merchant's wallet as
+fee payer, signs it, and sends it as `payload.transaction` (base64) in `PAYMENT-SIGNATURE` or the
+A2A payload. The merchant is its own facilitator: it checks the transaction is exactly that (the
+program, the instruction, this order's accounts, the buyer's signature, no other instruction than
+compute-budget settings), simulates it, signs as fee payer and sends it, then confirms the funding
+with the escrow and delivers. The buyer pays the loan account's rent; the merchant pays the network
+fee. A forged transaction is refused before anything is signed, and nothing has moved.
+[docs/A2A-EXTENSION.md](A2A-EXTENSION.md) has the exact shapes.
+
+- `npm run buy -- --buyer scout --merchant atlas --pay-later` buys over A2A on credit, and
+  `npm run buy:http -w @tessera/agents -- --pay-later` over plain HTTP; both log the loan and the due date.
+- `tessera buy-later <merchant agent url> <skill> [--input JSON] --keypair PATH` runs the whole HTTP
+  flow from the CLI. It caps the price at what the merchant's agent card advertises, reads the order
+  from the chain and checks it is the one it asked for, and signs only one `buy_now` for it.
+- `tessera credit <wallet>` shows the limit, what is owed, and each loan's due date; `tessera repay --all` settles the tab.
+- The agents server is also the keeper: every `KEEPER_MS` (30 s) it reads the pool's open loans and
+  marks any past its grace period in default, with its ops key. Anyone could run this instead.
+
 ## The limit
 
 ```
@@ -79,6 +106,17 @@ tiers through real escrow orders, then every purchase on credit goes merchant `o
 - a merchant never delivers: a stranger has the escrow refund the buyer, the pool gets nothing back, the loan is still open and owed, and the buyer repays it out of the refund;
 - the pool's balance equals deposits minus withdrawals minus what it lent, plus repayments, plus the fees earned at repayment;
 - only the authority can create the pool, change its rules or withdraw, the rules can never give New wallets credit, a vault account created by someone else before the pool does not block it, and an empty pool refuses purchases.
+
+`npm run test:paylater-402` runs the merchant server on the same kind of validator and buys through
+its HTTP 402 route: the 402 offers the order on credit after its exact entries with the buyer's live
+limit; a tiered buyer hands over a signed `buy_now`, the merchant settles it and delivers, the same
+header again returns the same delivery and opens no second loan; the CLI form and the buyer agent
+over A2A do the same; `repay --all` clears the tab; a New wallet is told it is not eligible and its
+forged header is refused by the program in simulation; a `buy_now` for another order, one with the
+buyer as fee payer, one with an extra transfer of the merchant's SOL, one the buyer never signed and
+one with no transaction are each refused before anything is signed; and the server's keeper marks a
+loan in default a few seconds after its grace period ends, after which the buyer's next 402 says the
+line is frozen.
 
 ## Try it
 

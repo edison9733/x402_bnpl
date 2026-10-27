@@ -61,6 +61,8 @@ export const config = {
    */
   allowEphemeralState: process.env.TESSERA_ALLOW_EPHEMERAL_STATE === '1',
   crankEveryMs: num('CRANK_MS', 4000, 500),
+  /** How often the keeper looks for pay-later loans past their grace period (one program-accounts read each time). */
+  keeperEveryMs: num('KEEPER_MS', 30_000, 1000),
 };
 
 /** The a2a-x402 extension this server implements (standalone flow). */

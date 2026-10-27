@@ -100,8 +100,11 @@ export function forgetEnvKeys(): void {
   envKeys = {};
 }
 
+/** Where `.keys/` lives: the repo, unless TESSERA_KEYS_DIR says otherwise (a test runs the server with keys of its own). */
+const keysRoot = () => process.env.TESSERA_KEYS_DIR || REPO_ROOT;
+
 export async function loadKeypair(path: string): Promise<KeyPairSigner> {
-  const full = path.startsWith('~') ? path.replace('~', process.env.HOME ?? '') : resolve(REPO_ROOT, path);
+  const full = path.startsWith('~') ? path.replace('~', process.env.HOME ?? '') : resolve(keysRoot(), path);
   const fromEnv = existsSync(full) ? undefined : keyFromEnv(path);
   let fromFile: unknown;
   if (!fromEnv) {
@@ -128,7 +131,7 @@ export async function generateKeypairBytes(): Promise<{ signer: KeyPairSigner; b
 
 /** Load a role's keypair from `.keys/`, creating it on first use. */
 export async function loadOrCreateKeypair(path: string): Promise<KeyPairSigner> {
-  const full = resolve(REPO_ROOT, path);
+  const full = resolve(keysRoot(), path);
   if (existsSync(full)) return loadKeypair(path);
   const { signer, bytes } = await generateKeypairBytes();
   mkdirSync(dirname(full), { recursive: true });

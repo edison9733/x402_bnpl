@@ -17,6 +17,7 @@
     "test:formula": "tsx --test packages/sdk/test/*.test.ts",
     "test:local": "tsx scripts/test-local.ts",
     "test:paylater": "tsx scripts/test-paylater.ts",
+    "test:paylater-402": "tsx scripts/test-paylater-402.ts",
     "paylater:local": "tsx scripts/paylater-local.ts",
     "setup:devnet": "tsx scripts/setup-devnet.ts",
     "agents": "npm run start -w @tessera/agents",

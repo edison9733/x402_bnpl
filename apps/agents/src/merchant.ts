@@ -7,7 +7,7 @@ import { address, getCompiledTransactionMessageDecoder, getPublicKeyFromAddress,
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import type { PaymentPayload, PaymentRequired, PaymentRequirements, SettleResponse } from '@x402/core/types';
 import { decodeTransactionFromPayload, getTokenPayerFromTransaction } from '@x402/svm';
-import { bytesEqual, fromHex, fromUnits, MAX_HOLD_SECS, score, TESSERA_PROGRAM_ADDRESS, TIER_NAMES, toHex, type Config, type Decoded, type Order } from '@tessera/sdk';
+import { bytesEqual, fromHex, fromUnits, MAX_HOLD_SECS, paylater, score, TESSERA_PROGRAM_ADDRESS, TIER_NAMES, toHex, type Config, type Decoded, type Order } from '@tessera/sdk';
 import {
   cancelUnpaid,
   confirmFunded,
@@ -24,6 +24,7 @@ import {
 } from './chain.js';
 import { config } from './config.js';
 import { facilitators, verifyAndSettle } from './facilitator.js';
+import { payLaterOption, PaymentRefused, settlePayLater } from './paylater.js';
 import { canonical, hashOf, SERVICES, type Service } from './services.js';
 import { appendLineDurable, dataFile, readJsonFile, writeFileDurable } from './store.js';
 import { chainNow } from '../../../scripts/lib.js';
@@ -425,6 +426,13 @@ export class MerchantAgent {
         maxTimeoutSeconds: 120,
         extra: { feePayer: f.feePayer, facilitator: f.url },
       }));
+      // Then, where this network has the pay-later pool, the same order on
+      // credit. After the `exact` entries, so a standard client takes those.
+      const onCredit = await payLaterOption(this, { buyer, order: opened.order, amount: d.amount, mint: d.mint }, cfg).catch((e: Error) => {
+        console.warn(`[quote] ${this.id}: could not offer pay later: ${e.message.slice(0, 120)}`);
+        return null;
+      });
+      if (onCredit) accepts.push(onCredit.requirement);
       const required: PaymentRequired = {
         x402Version: 2,
         resource: {
@@ -433,7 +441,7 @@ export class MerchantAgent {
           mimeType: 'application/json',
         },
         accepts,
-        extensions: { tessera: terms },
+        extensions: { tessera: onCredit ? { ...terms, payLater: onCredit.offer } : terms },
       };
       const quote: Quote = { sku: service.sku, input, terms, required, openedAt: Date.now(), client };
       this.quotes.set(opened.order, quote);
@@ -482,16 +490,18 @@ export class MerchantAgent {
 
     if (payment) {
       const accepted = quote.required.accepts.find(
-        (a) => a.payTo === payment.accepted.payTo && a.extra?.feePayer === payment.accepted.extra?.feePayer,
+        (a) => a.scheme === payment.accepted.scheme && a.payTo === payment.accepted.payTo && a.extra?.feePayer === payment.accepted.extra?.feePayer,
       );
       if (!accepted || payment.accepted.amount !== accepted.amount || payment.accepted.asset !== accepted.asset) {
         throw new Error('payment does not match any option that was quoted');
       }
+      const onCredit = accepted.scheme === paylater.X402_SCHEME;
       // The order address is public on-chain. Without this, anyone could pay
       // for an order quoted to another wallet and walk off with what that
       // wallet asked for. The buyer's signature and what it signed are checked
-      // here, not left to the facilitator.
-      if (!(await paysThisOrder(payment, quote.terms))) {
+      // here, not left to the facilitator. A purchase on credit is checked the
+      // same way, against the one buy_now this merchant will sign for.
+      if (!onCredit && !(await paysThisOrder(payment, quote.terms))) {
         throw new Error('payment does not match: it is not this order\'s buyer paying this order\'s vault');
       }
       // Only a payment that funds this order now is taken as paying for it.
@@ -504,10 +514,14 @@ export class MerchantAgent {
       if ((await chainNow(this.ops)) + PAY_MARGIN_SECS > before.createdAt + BigInt(cfg.params.unpaidSecs)) {
         throw new Error('the payment window for this quote has closed; ask for a new quote');
       }
-      const settled = await verifyAndSettle(payment, accepted);
+      // On credit this merchant is the facilitator: it signs the buyer's
+      // buy_now as fee payer and sends it. Otherwise the facilitator named
+      // in the option does.
+      const settled = onCredit ? await settlePayLater(this.ops, payment, quote.terms) : await verifyAndSettle(payment, accepted);
       receipts.push(settled.response);
       timings.verifyMs = settled.verifyMs;
       timings.settleMs = settled.settleMs;
+      if ('loan' in settled) console.log(`[fulfil] ${order.slice(0, 8)}: the pool paid ${fromUnits(before.amount)} USDC into escrow for ${quote.terms.buyer.slice(0, 8)}; loan ${settled.loan.slice(0, 8)}`);
     }
 
     // The program decides whether the order is paid. Not the facilitator, not us.
@@ -793,5 +807,5 @@ const stub = (o: Order, order: string): Quote => ({
 export const pruneEvidence = (cfg: Config): number => compactEvidence(cfg.params.complaintSecs);
 
 export const requestHashHex = async (sku: string, input: unknown) => toHex(await hashOf({ sku, input }));
-export { canonical, fromHex };
+export { canonical, fromHex, PaymentRefused };
 export type { Order };

@@ -19,7 +19,7 @@ import { randomUUID } from 'node:crypto';
 import type { PaymentPayload } from '@x402/core/types';
 import { fromUnits, TESSERA_PROGRAM_ADDRESS, USDC_DECIMALS } from '@tessera/sdk';
 import { config, TESSERA_EXTENSION_URI, X402_EXTENSION_URI } from './config.js';
-import type { Fulfilment, MerchantAgent, Quote } from './merchant.js';
+import { PaymentRefused, type Fulfilment, type MerchantAgent, type Quote } from './merchant.js';
 
 export type Part = { kind: 'text'; text: string } | { kind: 'data'; data: unknown };
 export type Message = {
@@ -265,7 +265,7 @@ export async function handleRpc(
       ? 'MERCHANT_NO_SHOW'
       : /not been funded|VaultUnderfunded/.test(detail)
         ? 'INSUFFICIENT_FUNDS'
-        : /rejected by facilitator|does not match/.test(detail)
+        : e instanceof PaymentRefused || /rejected by facilitator|does not match/.test(detail)
           ? 'INVALID_PAYLOAD'
           : 'SETTLEMENT_FAILED';
     entry.task = failed(entry.task, code, detail);

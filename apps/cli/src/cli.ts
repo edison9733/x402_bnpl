@@ -121,6 +121,7 @@ const { values: flags, positionals } = parseArgs({
     'min-hold': { type: 'string' },
     deliverable: { type: 'string' },
     'delivery-hash': { type: 'string' },
+    input: { type: 'string' },
     outcome: { type: 'string' },
     rating: { type: 'string' },
     comment: { type: 'string' },
@@ -544,9 +545,17 @@ const need = (v: unknown, what: string) => (v === undefined || v === '' ? die(`$
 
 if (PAYLATER_COMMANDS.has(cmd)) {
   const rpcUrl = endpoint(String(flags.rpc ?? ((process.env.TESSERA_RPC_URLS ?? '').split(',')[0]!.trim() || 'https://api.devnet.solana.com')), flags.rpc ? '--rpc' : 'TESSERA_RPC_URLS');
-  await payLater(cmd, a1, a2, { rpcUrl, kp, send: Boolean(flags.send), json: Boolean(flags.json), all: Boolean(flags.all), order: flags.order as string | undefined, die }).catch(
-    (e: Error) => die(`${cmd} failed: ${e.message} (RPC ${new URL(rpcUrl).host})`),
-  );
+  await payLater(cmd, a1, a2, {
+    rpcUrl,
+    kp,
+    send: Boolean(flags.send),
+    json: Boolean(flags.json),
+    all: Boolean(flags.all),
+    order: flags.order as string | undefined,
+    input: json(flags.input as string, '--input'),
+    endpoint,
+    die,
+  }).catch((e: Error) => die(`${cmd} failed: ${e.message} (RPC ${new URL(rpcUrl).host})`));
   process.exit(0);
 }
 
