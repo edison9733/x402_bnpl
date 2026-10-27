@@ -90,25 +90,25 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
   <p class="source">The escrow program is unchanged: buy_now calls its permissionless confirm_funded by CPI. Without that call, a buyer could cancel_unpaid the order and take the pool&#x27;s money as a refund. Tested by npm run test:paylater and npm run test:paylater-402.</p>
 </section>
 
-<section data-document-role="page" data-label="Pay later, a real devnet run" data-speaker-notes="This is a real run on devnet. Nova, a Building buyer, buys a report on credit. One transaction: the pool pays the escrow, and the escrow confirms it. Nova owes twenty point four cents, due in ten minutes. The report arrives, its hash matches, and the money is released. Nova repays every loan in one transaction, and its limit goes up. Scout is new, so its 402 says no, and it signs nothing." style="--gap: 120ms;">
-  <p class="kicker">Pay later over x402 · a real run on devnet, 27 Oct 2026</p>
+<section data-document-role="page" data-label="Pay later, a real devnet run" data-speaker-notes="This is a real run on devnet, on the upgraded program. Nova, a Building buyer, buys a summary on credit. One transaction, signed by Nova and by Quill, the merchant: the pool pays the escrow, and the escrow confirms it. Nova owes twenty-five and a half cents, due in ten minutes. The summary arrives, its hash matches, and the money is released. Nova repays in one transaction, and its limit goes up. Scout is new, so it is refused and signs nothing." style="--gap: 120ms;">
+  <p class="kicker">Pay later over x402 · a real run on devnet, 28 Oct 2026</p>
   <div class="term" style="padding: 28px 34px; font-size: 19px; line-height: 1.7;">
-    <div class="white">$ npm run buy -- --buyer nova --merchant atlas --pay-later</div>
-    <div>  [nova] Atlas/telemetry: 0.20 USDC into escrow j8Bfe9k5, hold 45s (merchant Building, me Building, pair trusted)</div>
-    <div>  [nova] Atlas/telemetry: on credit; limit 0.602 USDC, owing 0.00; fee 0.004, due in 600s</div>
-    <div class="mint">  settle tx  explorer.solana.com/tx/ttLNpyhU…MkoHw   # BuyNow pays the vault, ConfirmFunded inside it</div>
-    <div>  loan       hEppTpuw…  owe 0.204 USDC (0.20 + 0.004 pool fee) by 14:00:47 UTC</div>
+    <div class="white">$ npm run buy -- --buyer nova --merchant quill --pay-later</div>
+    <div>  [nova] Quill/summary: 0.25 USDC into escrow 8VAF9ZWQ, hold 45s (merchant Building, me Building, pair trusted)</div>
+    <div>  [nova] Quill/summary: on credit; limit 0.74825 USDC, owing 0.00; fee 0.005, due in 600s</div>
+    <div class="mint">  settle tx  explorer.solana.com/tx/1K7VsBKV…4b2xG   # signed by the server, Nova and Quill; ConfirmFunded inside</div>
+    <div>  loan       9sS9yBDG…  owe 0.255 USDC (0.25 + 0.005 pool fee) by 17:33:28 UTC</div>
     <div>  hash check matches the hash committed on-chain</div>
     <div class="mint">  final      Released</div>
     <div class="white" style="margin-top: 10px;">$ npm run tessera -- repay --all --keypair .keys/agents/nova.json --send</div>
-    <div>  REPAY ALL  0.204 USDC in one transaction</div>
-    <div class="mint">  confirmed: 2tyLtJe2…yAU2r6</div>
+    <div>  REPAY ALL  0.255 USDC in one transaction; each loan is closed and its rent comes back to you</div>
+    <div class="mint">  confirmed: 3oL3qukd…YNEiJu</div>
     <div class="white" style="margin-top: 10px;">$ npm run tessera -- credit Acy1…t7PW</div>
-    <div>  limit 0.74825 USDC · owes 0.00 USDC · record: 1 loan, 1 on time · limit boost +2.50%</div>
+    <div>  limit 0.819611 USDC · owes 0.00 USDC · record: 2 loans, 2 on time · limit boost +5.62%</div>
     <div class="white" style="margin-top: 10px;">$ npm run buy -- --buyer scout --merchant atlas --pay-later</div>
     <div class="warn">  NOT BOUGHT not eligible for pay later: the buyer has no credit yet (New, score 242)</div>
   </div>
-  <p class="source">The limit follows the score: 0.602 USDC in Nova&#x27;s 402, 0.74825 after the on-time repayment (score 365, boost +2.5% for a 0.20 loan). Output lines shortened with …; links in the README, &quot;First purchase on credit on devnet&quot;.</p>
+  <p class="source">The limit follows the score: 0.74825 USDC in Nova&#x27;s 402, 0.819611 after its second on-time repayment (score 388, boost +5.62% after loans of 0.20 and 0.25). Times in UTC (28 Oct in UTC+8). Lines shortened with …; links in the README.</p>
 </section>
 
 <section data-document-role="page" data-label="Failed payments" data-speaker-notes="What happens when a payment fails. If the 402 asks more than the buyer allows, it signs nothing. If the facilitator fails, nothing is delivered and the buyer is told not to pay again. A quote nobody pays expires, and anything in its vault goes back. A merchant that never delivers is refunded against. New in 2.0: a forged pay-later header is refused before the merchant signs anything, and a loan not repaid is marked in default by the keeper, which freezes the line. In every case the money either never moves or goes back to the buyer.">

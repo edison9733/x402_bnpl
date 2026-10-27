@@ -159,7 +159,7 @@ function X402Slide() {
 
 export const DEVNET: [string, string, string, boolean][] = [
   ['Escrow program', 'TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ', 'version 1, unchanged', true],
-  ['Pay-later program', 'LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D', 'new in 2.0 · upgraded 27 Oct', true],
+  ['Pay-later program', 'LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D', 'new in 2.0 · upgraded 28 Oct', true],
   ['Pool', 'GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq', 'funded with 8 devnet USDC', true],
   ['Pool vault', 'DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV', "the pool's USDC", false],
   ['USDC (devnet)', '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', "Circle's devnet mint", false],
@@ -188,7 +188,7 @@ export function DevnetSlide({ pad = 96 }: { pad?: number }) {
           Pool rules: limits <span style={{ color: white }}>0 / 2 / 5 / 10 USDC</span> by tier · fee <span style={{ color: white }}>2%</span> · term <span style={{ color: white }}>600 s</span> + 60 s grace · merchants at Building or above
         </span>
       </Rise>
-      <Source>Read on chain on 27 Oct 2026 (getAccountInfo). explorer.solana.com/address/&lt;address&gt;?cluster=devnet</Source>
+      <Source>Read on chain on 28 Oct 2026 (getAccountInfo). explorer.solana.com/address/&lt;address&gt;?cluster=devnet</Source>
     </Frame>
   );
 }

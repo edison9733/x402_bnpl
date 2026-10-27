@@ -185,20 +185,20 @@ function PayLaterFlowScene() {
   );
 }
 
-/** A real run on devnet, 27 October 2026, copied from the terminal (long lines shortened with …). */
+/** A real run on devnet on the upgraded program, 28 October 2026 (UTC+8), copied from the terminal (long lines shortened with …). */
 const PAYLATER_TERMINAL = [
-  ['$', 'npm run buy -- --buyer nova --merchant atlas --pay-later'],
-  ['', '[nova] Atlas/telemetry: 0.20 USDC into escrow j8Bfe9k5, hold 45s (merchant Building, me Building, pair trusted)'],
-  ['', '[nova] Atlas/telemetry: on credit; limit 0.602 USDC, owing 0.00; fee 0.004, due in 600s'],
-  ['ok', 'settle tx  explorer.solana.com/tx/ttLNpyhU…MkoHw   # BuyNow pays the vault, ConfirmFunded inside it'],
-  ['', 'loan       hEppTpuw…  owe 0.204 USDC (0.20 + 0.004 pool fee) by 14:00:47 UTC'],
+  ['$', 'npm run buy -- --buyer nova --merchant quill --pay-later'],
+  ['', '[nova] Quill/summary: 0.25 USDC into escrow 8VAF9ZWQ, hold 45s (merchant Building, me Building, pair trusted)'],
+  ['', '[nova] Quill/summary: on credit; limit 0.74825 USDC, owing 0.00; fee 0.005, due in 600s'],
+  ['ok', 'settle tx  explorer.solana.com/tx/1K7VsBKV…4b2xG   # signed by the server, Nova and Quill; ConfirmFunded inside'],
+  ['', 'loan       9sS9yBDG…  owe 0.255 USDC (0.25 + 0.005 pool fee) by 17:33:28 UTC'],
   ['', 'hash check matches the hash committed on-chain'],
   ['ok', 'final      Released'],
   ['$', 'npm run tessera -- repay --all --keypair .keys/agents/nova.json --send'],
-  ['', 'REPAY ALL  0.204 USDC in one transaction'],
-  ['ok', 'confirmed: 2tyLtJe2…yAU2r6'],
+  ['', 'REPAY ALL  0.255 USDC in one transaction; each loan is closed and its rent comes back to you'],
+  ['ok', 'confirmed: 3oL3qukd…YNEiJu'],
   ['$', 'npm run tessera -- credit Acy1…t7PW'],
-  ['', 'limit 0.74825 USDC · owes 0.00 USDC · record: 1 loan, 1 on time · limit boost +2.50%'],
+  ['', 'limit 0.819611 USDC · owes 0.00 USDC · record: 2 loans, 2 on time · limit boost +5.62%'],
   ['$', 'npm run buy -- --buyer scout --merchant atlas --pay-later'],
   ['no', 'NOT BOUGHT not eligible for pay later: the buyer has no credit yet (New, score 242)'],
 ] as const;
@@ -206,7 +206,7 @@ const PAYLATER_TERMINAL = [
 function PayLaterCommandsScene() {
   return (
     <Frame pad={84}>
-      <Kicker>Pay later over x402 · a real run on devnet, 27 Oct 2026</Kicker>
+      <Kicker>Pay later over x402 · a real run on devnet, 28 Oct 2026</Kicker>
       <div style={{ marginTop: 26, borderRadius: 22, background: '#050605', border: '1px solid #272b21', padding: '26px 32px', flex: 1 }}>
         {PAYLATER_TERMINAL.map(([tag, line], k) => (
           <motion.div key={k} className="mono" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.5 + k * 1.1 }} style={{ fontSize: 18.5, lineHeight: 1.72, color: tag === 'ok' ? mint : tag === 'no' ? '#ec835a' : tag === '$' ? white : '#c9c6b6', whiteSpace: 'pre', overflow: 'hidden', marginTop: tag === '$' && k > 0 ? 10 : 0 }}>
@@ -216,7 +216,7 @@ function PayLaterCommandsScene() {
         ))}
       </div>
       <div className="mono" style={{ fontSize: 14, color: '#5d5c52', marginTop: 12 }}>
-        The limit follows the score: 0.602 USDC in Nova's 402, 0.74825 after the on-time repayment (score 365, boost +2.5% for a 0.20 loan). Output lines shortened with …; links in the README, "First purchase on credit on devnet".
+        The limit follows the score: 0.74825 USDC in Nova's 402, 0.819611 after its second on-time repayment (score 388, boost +5.62% after loans of 0.20 and 0.25). Times in UTC (28 Oct in UTC+8). Lines shortened with …; links in the README.
       </div>
     </Frame>
   );
@@ -364,8 +364,8 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
   },
   {
     id: 'paylater-commands',
-    seconds: 24,
-    say: 'This is a real run on devnet. Nova, a Building buyer, buys a report on credit. One transaction: the pool pays the escrow, and the escrow confirms it. Nova owes twenty point four cents, due in ten minutes. The report arrives, its hash matches, and the money is released. Nova repays every loan in one transaction, and its limit goes up. Scout is new, so its 402 says no, and it signs nothing.',
+    seconds: 27,
+    say: 'This is a real run on devnet, on the upgraded program. Nova, a Building buyer, buys a summary on credit. One transaction, signed by Nova and by Quill, the merchant: the pool pays the escrow, and the escrow confirms it. Nova owes twenty-five and a half cents, due in ten minutes. The summary arrives, its hash matches, and the money is released. Nova repays in one transaction, and its limit goes up. Scout is new, so it is refused and signs nothing.',
     render: () => <PayLaterCommandsScene />,
   },
   {
