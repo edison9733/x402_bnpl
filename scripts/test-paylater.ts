@@ -82,6 +82,7 @@ import {
   type Cluster,
   type ScriptClient,
 } from './lib.js';
+import { closeOrder, closeOrderAccountList } from '../apps/agents/src/chain.js';
 
 // Its own port, so it never attaches to `npm run paylater:local` or another suite's validator.
 const RPC_PORT = Number(process.env.PAYLATER_TEST_RPC_PORT ?? 19599);
@@ -304,8 +305,11 @@ try {
       }
     }
   }
+  /** Escrow orders that settled, oldest first, for the rent check at the end. */
+  const settledOrders: Address[] = [];
   async function escrowOrder(buyer: ScriptClient, merchant: ScriptClient, amount: bigint): Promise<void> {
     const { order, vault } = await quote(buyer, merchant, amount);
+    settledOrders.push(order);
     await buyer.sendTransaction([await tok.transferIx(buyer, vault, amount)]);
     await confirm(order);
     await deliver(order, merchant);
@@ -812,6 +816,26 @@ try {
   await expectFail('a purchase when the pool is empty', 'PoolEmpty', async () =>
     alice.sendTransaction([(await buyIx(alice, m1.identity.address, qEmpty.order)).ix]),
   );
+
+  // ------------------------------------- 6. the server takes its rent back
+  // The merchant server fronts each quote's rent and closes the order for it
+  // once the review window has passed. The escrow on devnet is an older build
+  // whose close_order takes one account fewer, so this also runs with
+  // ESCROW_SO pointed at it.
+  log.step('6. The merchant server closes a settled order and gets its rent back');
+  const oldest = settledOrders[0]!;
+  const settledOrder = (await fetchOrder(rpc, oldest)).data;
+  await waitForChainTime(server, settledOrder.settledAt + BigInt(PARAMS.reviewSecs) + 1n);
+  const orderRent = (await rpc.getBalance(oldest).send()).value;
+  const serverBefore = (await rpc.getBalance(server.identity.address).send()).value;
+  await closeOrder(server, oldest, settledOrder);
+  const gone = await rpc.getAccountInfo(oldest, { encoding: 'base64' }).send();
+  const serverAfter = (await rpc.getBalance(server.identity.address).send()).value;
+  log.info(`close_order took the ${closeOrderAccountList()} account list on this escrow build`);
+  eq('the order account is closed', gone.value, null);
+  eq('the server got the rent back, less one network fee', serverAfter - serverBefore, orderRent - 5_000n);
+  await closeOrder(server, settledOrders[1]!, (await fetchOrder(rpc, settledOrders[1]!)).data);
+  eq('a second close uses the account list the first one found', (await rpc.getAccountInfo(settledOrders[1]!, { encoding: 'base64' }).send()).value, null);
 } catch (e) {
   failures += 1;
   console.log(`\n   FAIL the run stopped on an unexpected error:\n${errText(e).slice(0, 1500)}`);

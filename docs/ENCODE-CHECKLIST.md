@@ -110,7 +110,7 @@ Only work done from now to 8 November is judged.
 | Dates | Goal |
 |---|---|
 | 22–23 Oct | Section 1 done; toolchain fixed; scope frozen (toolchain and scope done 27 Oct; the sign-in and project creation in section 1 are still unticked) |
-| 24–31 Oct | Feature built and deployed to devnet; tests passing (built and tested 27 Oct: `test:paylater` 84/84, `test:paylater-402` 58/58; deployed to devnet 27 Oct, upgrade with the CPI fix pending) |
+| 24–31 Oct | Feature built and deployed to devnet; tests passing (built and tested 27 Oct: `test:paylater` 87/87, `test:paylater-402` 58/58; deployed to devnet 27 Oct, upgrade with the CPI fix pending) |
 | 1 Nov | Mid-submission on the platform |
 | 2–5 Nov | Failure demo, docs, site, reliability runs |
 | 6–7 Nov | Record and cut the video; final README read-through |

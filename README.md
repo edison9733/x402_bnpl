@@ -402,7 +402,7 @@ directly, outside the escrow, with the CLI commands `credit`, `buy-later --order
 - **The website.** `apps/web/src/lib/paylater.ts` (new) reads the pool, a wallet's line and its
   loans; the Agents and Market pages show them where the pool exists (`Agents.tsx`, `Market.tsx`).
 - **Tests and docs.** `scripts/test-paylater-402.ts` (new, 58 checks), `scripts/test-paylater.ts`
-  rewritten for the escrow flow (84 checks), `scripts/paylater-local.ts`, `scripts/lib.ts`
+  rewritten for the escrow flow (87 checks), `scripts/paylater-local.ts`, `scripts/lib.ts`
   (`TESSERA_KEYS_DIR`); `docs/PAYLATER.md`, `docs/ENCODE-CHECKLIST.md`, this README.
 - **Pay later on devnet (27 October).** The pay-later program deployed to devnet
   (`LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D`, slot 515513248, built from `9d543b1`), and its pool
@@ -488,7 +488,7 @@ npm run build:program        # anchor build
 npm run codegen              # typed client from the IDL
 npm run test:formula         # 44 formula and reward tests, no chain needed
 npm run test:local           # 395 checks on a local validator (about 4 minutes)
-npm run test:paylater        # 84 pay-later checks on a local validator
+npm run test:paylater        # 87 pay-later checks on a local validator
 npm run test:paylater-402    # 58 checks: pay later through the merchant server's x402 route, the CLI and the buyer agent
 npm run paylater:local       # a local pay-later world to try the CLI by hand (docs/PAYLATER.md)
 ```
@@ -532,7 +532,7 @@ After any build that changes an IDL, `npm run codegen` regenerates `packages/sdk
 ```bash
 npm run build:program
 npm run codegen
-npm run test:paylater        # 84 checks: both programs on a local validator
+npm run test:paylater        # 87 checks: both programs on a local validator
 npm run test:paylater-402    # 58 checks: the merchant server's 402, the CLI, the buyer agent, the keeper
 npm run paylater:local       # a local world: tiered wallets, a funded pool, a shop with open quotes
 npm run tessera -- credit <alice> --rpc http://127.0.0.1:18999

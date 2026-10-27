@@ -151,7 +151,7 @@ agents read the rules from the pool account, not from the SDK.
 `cargo test -p tessera-paylater` (**6 / 6**) checks `credit.rs` on its own: the limit, the fee and
 the boost a repayment earns.
 
-`npm run test:paylater` (**84 / 84**, run on 27 October 2026; also 84 / 84 with `ESCROW_SO` set to the escrow bytes dumped from devnet) starts a local validator with both
+`npm run test:paylater` (**87 / 87**, run on 27 October 2026; also 87 / 87 with `ESCROW_SO` set to the escrow bytes dumped from devnet) starts a local validator with both
 programs. Wallets earn their tiers through real escrow orders, then every purchase on credit goes
 merchant `open_order` → buyer `buy_now` (the pool pays the vault and the escrow confirms the order, in one
 instruction) → `deliver` → `release`:
@@ -169,7 +169,8 @@ instruction) → `deliver` → `release`:
 - a merchant never delivers: a stranger has the escrow refund the buyer, the pool gets nothing back, the loan is still open and owed, and the buyer repays it out of the refund;
 - the pool's balance equals deposits minus withdrawals minus what it lent, plus repayments, plus the fees earned at repayment;
 - every `buy_now` logs the compute units it used (about 100,000 to 125,000), and `BUY_NOW_COMPUTE_UNITS` (400,000) leaves at least 30% spare;
-- only the authority can create the pool, change its rules or withdraw, the rules can never give New wallets credit, a vault account created by someone else before the pool does not block it, and an empty pool refuses purchases.
+- only the authority can create the pool, change its rules or withdraw, the rules can never give New wallets credit, a vault account created by someone else before the pool does not block it, and an empty pool refuses purchases;
+- the merchant server closes a settled order once its review window has passed and gets the order's rent back. The escrow on devnet is its 4 October build, whose `close_order` takes no vault account, so the server's `closeOrder` sends the current account list and, if that build answers Unauthorized, the list without the vault; with `ESCROW_SO` set to the devnet bytes the run shows it taking the second list.
 
 `npm run test:paylater-402` (**58 / 58**) runs the merchant server on the same kind of validator and
 buys through its HTTP 402 route: the 402 offers the order on credit after its exact entries with the

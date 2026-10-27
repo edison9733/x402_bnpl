@@ -361,9 +361,38 @@ export async function cancelUnpaid(payer: Actor, order: Address, o: Order): Prom
   );
 }
 
+/**
+ * Which `close_order` account list the escrow on this network takes. The
+ * escrow on devnet is the 4 October build (commit c6dbcd7), whose
+ * `close_order` has no vault account: its fourth account is the payer. Given
+ * the current list it reads the vault as the payer and refuses with
+ * Unauthorized (error 6000), which no current build can return here, since
+ * the payer is read from the order itself. The first such refusal settles it
+ * for the life of the process.
+ */
+let closeWithoutVault: boolean | undefined;
+
+/** The account list `close_order` has used in this process: 'current', 'without vault' (the devnet build), or undefined before the first close. */
+export const closeOrderAccountList = (): string | undefined =>
+  closeWithoutVault === undefined ? undefined : closeWithoutVault ? 'without vault' : 'current';
+
+const isUnauthorized = (err: unknown) => /custom program error: 0x1770\b|Error Code: Unauthorized\b/.test(errText(err));
+
 /** Return a settled or cancelled order's rent to whoever paid it, once the program allows. Anyone may. */
 export async function closeOrder(actor: Actor, order: Address, o: Order): Promise<string> {
-  return send(actor, [await getCloseOrderInstructionAsync({ order, vault: await findAta(order, o.mint), merchantAgent: await agentPdaOf(o.merchant), payer: o.payer })]);
+  const ix = await getCloseOrderInstructionAsync({ order, vault: await findAta(order, o.mint), merchantAgent: await agentPdaOf(o.merchant), payer: o.payer });
+  // config, order, merchant agent, payer: the list without the vault (the fourth account).
+  const withoutVault: Instruction = { ...ix, accounts: ix.accounts.filter((_, i) => i !== 3) };
+  if (closeWithoutVault) return send(actor, [withoutVault]);
+  try {
+    const sig = await send(actor, [ix]);
+    closeWithoutVault = false;
+    return sig;
+  } catch (err) {
+    if (closeWithoutVault === false || !isUnauthorized(err)) throw err;
+    closeWithoutVault = true;
+    return send(actor, [withoutVault]);
+  }
 }
 
 export async function openDispute(buyer: Actor, order: Address, o: Order, disputeHash: Uint8Array): Promise<string> {
