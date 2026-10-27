@@ -220,7 +220,7 @@ const PAYLATER_TERMINAL = [
   ['$', 'npm run buy -- --buyer nova --merchant atlas --pay-later'],
   ['#', '# 402 → signed buy_now → the merchant sends it → pool pays the vault, escrow confirms → delivered'],
   ['#', '# prints the order, the loan, what is owed (0.20 + 0.004 pool fee) and the due date, 600 s on'],
-  ['ok', 'settle tx  https://explorer.solana.com/tx/<signature>?cluster=devnet'],
+  ['ok', 'settle tx  explorer.solana.com/tx/ttLNpyhU…MkoHw?cluster=devnet  (27 Oct, real)'],
   ['', ''],
   ['$', "npm run tessera -- credit <nova's address>"],
   ['#', "# limit, owed, each loan's due time"],
