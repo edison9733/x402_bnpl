@@ -12,12 +12,17 @@ escrow program, end to end through the merchant server's x402 route. The source 
 merchant's signature on `buy_now`; the build on devnet (`61196cc`) does not yet, until the next
 upgrade (see [Limits](#limits)).
 
+The first purchase on credit on devnet, 27 October 2026: Nova bought Atlas's 0.20 USDC telemetry
+report over x402 (settle transaction [`ttLNpyhU…`](https://explorer.solana.com/tx/ttLNpyhUrgMoTkobtBB3QveynRHrBcnwDxyzYSsc5YYsUrfWncVAD2LLmAxRLHLAFJTg4Dr6jEzm2CJPTjMkoHw?cluster=devnet), where `BuyNow` pays the order's vault
+and calls the escrow's `ConfirmFunded` in the same instruction) and repaid 0.204 USDC on time
+([`2tyLtJe2…`](https://explorer.solana.com/tx/2tyLtJe2nabhmjeUtCh4hzQymwQxGzFGbz1KM6KqQNxQHTiLyanUeSS2igjM58WdEmHdJkubZyWMUtJTqyAU2r6?cluster=devnet)). Order [`j8Bfe9k5…`](https://explorer.solana.com/address/j8Bfe9k5QejA48pQQH3ca2LzHgQqpNGAtkbqhaRLQYh?cluster=devnet), loan [`hEppTpuw…`](https://explorer.solana.com/address/hEppTpuwxfcS9Fyp7koittoPADBS5HhcsSMgXc9uH4G?cluster=devnet).
+
 | | Devnet |
 |---|---|
 | Program | `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` (`Anchor.toml`, `declare_id!`, the generated SDK), deployed 27 October 2026 in slot 515513248 from commit `9d543b1`; upgraded the same day in slot 515711875 to the build of `61196cc` (transaction `ZsQ12niKDQnMijF1TE5czfHsjFcnNaZ2GB7U7TWb6pLAf3xCgyt2arCza7e9bTAAu7nBHcrzgYviUfn7GoScg5V`) |
 | Upgrade and pool authority | `EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6` |
 | Pool | `GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq`, rules `DEVNET_LINE_PARAMS` (below) |
-| Pool vault | `DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV`, 8 devnet USDC on 27 October, no loans yet |
+| Pool vault | `DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV`, 8 devnet USDC on 27 October; after the first loan and its repayment, 8.004 |
 | Escrow it lends into | `TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`, config `DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2` |
 
 The same addresses, and the last deploy's slot, commit and transaction, are in

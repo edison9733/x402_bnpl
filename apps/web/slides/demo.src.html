@@ -89,25 +89,25 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
   <p class="source">The escrow program is unchanged: buy_now calls its permissionless confirm_funded by CPI. Without that call, a buyer could cancel_unpaid the order and take the pool&#x27;s money as a refund. Tested by npm run test:paylater and npm run test:paylater-402.</p>
 </section>
 
-<section data-document-role="page" data-label="Pay later, the commands" data-speaker-notes="These are the commands from the README. Run the merchant agents on devnet: every 402 now offers pay later, and the server keeps the pool, marking late loans. Nova, a Building buyer, buys on credit over A2A. It prints the order, the transaction, the loan and when it is due. Then credit shows what it owes, and repay all settles every loan at once." style="--gap: 120ms;">
-  <p class="kicker">Pay later over x402 · the commands, from the README</p>
-  <div class="term" style="padding: 30px 34px; font-size: 21px;">
-    <div class="white">$ npm run agents</div>
-    <div class="grey">  # merchants on devnet: every 402 offers tessera-paylater; the keeper runs every 30 s</div>
+<section data-document-role="page" data-label="Pay later, a real devnet run" data-speaker-notes="This is a real run on devnet. Nova, a Building buyer, buys a report on credit. One transaction: the pool pays the escrow, and the escrow confirms it. Nova owes twenty point four cents, due in ten minutes. The report arrives, its hash matches, and the money is released. Nova repays every loan in one transaction, and its limit goes up. Scout is new, so its 402 says no, and it signs nothing." style="--gap: 120ms;">
+  <p class="kicker">Pay later over x402 · a real run on devnet, 27 Oct 2026</p>
+  <div class="term" style="padding: 28px 34px; font-size: 19px; line-height: 1.7;">
     <div class="white">$ npm run buy -- --buyer nova --merchant atlas --pay-later</div>
-    <div class="grey">  # 402 → signed buy_now → the merchant sends it → pool pays the vault, escrow confirms → delivered</div>
-    <div class="grey">  # prints the order, the loan, what is owed (0.20 + 0.004 pool fee) and the due date, 600 s on</div>
-    <div class="mint">  settle tx  https://explorer.solana.com/tx/&lt;signature&gt;?cluster=devnet</div>
-    <div> </div>
-    <div class="white">$ npm run tessera -- credit &lt;nova&#x27;s address&gt;</div>
-    <div class="grey">  # limit, owed, each loan&#x27;s due time</div>
-    <div class="white">$ npm run tessera -- repay --all --keypair .keys/agents/nova.json --send</div>
-    <div class="grey">  # every loan still owed, settled in one transaction</div>
-    <div> </div>
-    <div class="white">$ npm run tessera -- buy-later &lt;merchant agent url&gt; &lt;skill&gt; --keypair PATH</div>
-    <div class="grey">  # the same purchase from the CLI: caps the price, checks the order on-chain, signs one buy_now</div>
+    <div>  [nova] Atlas/telemetry: 0.20 USDC into escrow j8Bfe9k5, hold 45s (merchant Building, me Building, pair trusted)</div>
+    <div>  [nova] Atlas/telemetry: on credit; limit 0.602 USDC, owing 0.00; fee 0.004, due in 600s</div>
+    <div class="mint">  settle tx  explorer.solana.com/tx/ttLNpyhU…MkoHw   # BuyNow pays the vault, ConfirmFunded inside it</div>
+    <div>  loan       hEppTpuw…  owe 0.204 USDC (0.20 + 0.004 pool fee) by 14:00:47 UTC</div>
+    <div>  hash check matches the hash committed on-chain</div>
+    <div class="mint">  final      Released</div>
+    <div class="white" style="margin-top: 10px;">$ npm run tessera -- repay --all --keypair .keys/agents/nova.json --send</div>
+    <div>  REPAY ALL  0.204 USDC in one transaction</div>
+    <div class="mint">  confirmed: 2tyLtJe2…yAU2r6</div>
+    <div class="white" style="margin-top: 10px;">$ npm run tessera -- credit Acy1…t7PW</div>
+    <div>  limit 0.74825 USDC · owes 0.00 USDC · record: 1 loan, 1 on time · limit boost +2.50%</div>
+    <div class="white" style="margin-top: 10px;">$ npm run buy -- --buyer scout --merchant atlas --pay-later</div>
+    <div class="warn">  NOT BOUGHT not eligible for pay later: the buyer has no credit yet (New, score 242)</div>
   </div>
-  <p class="mono" style="font-size: 14px; color: #5d5c52; margin: 12px 0 0;">Nova is a Building buyer on devnet (score 301, limit 0.60 USDC). A New buyer&#x27;s 402 says eligible: false, with the reason, and the buyer does not try. The same flow on a local validator: npm run test:paylater-402.</p>
+  <p class="source">The limit follows the score: 0.602 USDC in Nova&#x27;s 402, 0.74825 after the on-time repayment (score 365, boost +2.5% for a 0.20 loan). Output lines shortened with …; links in the README, &quot;First purchase on credit on devnet&quot;.</p>
 </section>
 
 <section data-document-role="page" data-label="Failed payments" data-speaker-notes="What happens when a payment fails. If the 402 asks more than the buyer allows, it signs nothing. If the facilitator fails, nothing is delivered and the buyer is told not to pay again. A quote nobody pays expires, and anything in its vault goes back. A merchant that never delivers is refunded against. New in 2.0: a forged pay-later header is refused before the merchant signs anything, and a loan not repaid is marked in default by the keeper, which freezes the line. In every case the money either never moves or goes back to the buyer.">

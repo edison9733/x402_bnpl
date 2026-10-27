@@ -441,6 +441,16 @@ directly, outside the escrow, with the CLI commands `credit`, `buy-later --order
   confirms the order itself (slot 515711875, transaction
   [`ZsQ12niK…`](https://explorer.solana.com/tx/ZsQ12niKDQnMijF1TE5czfHsjFcnNaZ2GB7U7TWb6pLAf3xCgyt2arCza7e9bTAAu7nBHcrzgYviUfn7GoScg5V?cluster=devnet)).
   The pool kept its rules and its 8 USDC through the upgrade.
+- **First purchase on credit on devnet (27 October).** Nova (Building, score 341) bought Atlas's
+  0.20 USDC telemetry report through the 402's `tessera-paylater` option, with
+  `npm run buy -- --buyer nova --merchant atlas --pay-later`: order [`j8Bfe9k5…`](https://explorer.solana.com/address/j8Bfe9k5QejA48pQQH3ca2LzHgQqpNGAtkbqhaRLQYh?cluster=devnet),
+  settle transaction [`ttLNpyhU…`](https://explorer.solana.com/tx/ttLNpyhUrgMoTkobtBB3QveynRHrBcnwDxyzYSsc5YYsUrfWncVAD2LLmAxRLHLAFJTg4Dr6jEzm2CJPTjMkoHw?cluster=devnet) (the merchant server as fee payer; `BuyNow` moves the
+  pool's 0.20 USDC into the order's vault and calls the escrow's `ConfirmFunded` inside the same
+  instruction, 123,734 compute units), loan [`hEppTpuw…`](https://explorer.solana.com/address/hEppTpuwxfcS9Fyp7koittoPADBS5HhcsSMgXc9uH4G?cluster=devnet), delivered, held 45 s and
+  released. Nova then repaid 0.204 USDC with `npm run tessera -- repay --all --keypair .keys/agents/nova.json --send`
+  (transaction [`2tyLtJe2…`](https://explorer.solana.com/tx/2tyLtJe2nabhmjeUtCh4hzQymwQxGzFGbz1KM6KqQNxQHTiLyanUeSS2igjM58WdEmHdJkubZyWMUtJTqyAU2r6?cluster=devnet), on time). Its limit went from 0.682 to 0.74825 USDC: the score
+  rose to 365 and the boost by 2.5%, the 25% step scaled by 0.20 / 2.00. The pool afterwards: lent
+  0.20, repaid 0.20, 8.004 USDC in the vault.
 - **New demo agents (27 October).** The version 1 agents' keys were lost, so a new merchant server
   key and sixteen new agent wallets were created and funded (`npm run setup:devnet -- --light`, the
   smaller amounts added to `scripts/setup-devnet.ts`), and traded on devnet until four merchants and

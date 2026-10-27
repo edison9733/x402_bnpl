@@ -1,8 +1,8 @@
 /**
  * The pay-later pool on the network the site reads, and one wallet's line
  * and loans, read straight from the pay-later program like everything else
- * here. On a network without the pool (devnet, until it is deployed) the
- * pages fall back to the preview rules.
+ * here. Until the pool has been read (or on a network without one) the pages
+ * fall back to the preview rules, and say which of the two it is.
  */
 import { useEffect, useState } from 'react';
 import { address, type Address } from '@solana/kit';
@@ -10,8 +10,8 @@ import { paylater } from '@tessera/sdk';
 import { readRpc } from './client';
 
 export type PayLaterState = {
-  /** `none`: no pool on this network. `live`: the numbers are from the chain. */
-  status: 'loading' | 'none' | 'live';
+  /** `none`: read, and there is no pool on this network. `unread`: the read failed (a busy endpoint); it is retried. `live`: the numbers are from the chain. */
+  status: 'loading' | 'unread' | 'none' | 'live';
   poolAddress: Address | null;
   pool: paylater.Pool | null;
   line: paylater.CreditLine | null;
@@ -40,8 +40,8 @@ export function usePayLater(wallet?: string): PayLaterState {
         }
         if (live) setState({ status: 'live', poolAddress, pool: pool.data, line, loans });
       } catch {
-        // a busy endpoint: keep what is shown, or say there is nothing to show
-        if (live) setState((s) => (s.status === 'loading' ? { ...s, status: 'none' } : s));
+        // a busy endpoint: keep what is shown; a failed read is not proof there is no pool
+        if (live) setState((s) => (s.status === 'loading' ? { ...s, status: 'unread' } : s));
       }
     };
     void load();
