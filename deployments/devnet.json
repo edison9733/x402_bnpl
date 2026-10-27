@@ -113,10 +113,10 @@
     "vault": "DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV",
     "deployedAt": "2026-10-27",
     "lastDeploy": {
-      "slot": "515711875",
-      "time": "2026-10-27T13:44:14.000Z",
-      "build": "61196cc",
-      "tx": "ZsQ12niKDQnMijF1TE5czfHsjFcnNaZ2GB7U7TWb6pLAf3xCgyt2arCza7e9bTAAu7nBHcrzgYviUfn7GoScg5V"
+      "slot": "515766612",
+      "time": "2026-10-27T17:22:02.000Z",
+      "build": "1bd11be",
+      "tx": "3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E"
     },
     "params": {
       "tierLimit": [

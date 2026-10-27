@@ -86,8 +86,12 @@ The a2a-x402 standalone flow, with three additions.
    (read-only; one wallet when the merchant is its own fee payer), each listed once, and only the
    buyer's signature is on it: `buy_now` requires the order's merchant's signature as well as the
    buyer's, so the pool only pays orders their merchant agreed to, and the merchant adds it. (Both
-   rules are in this source; the pay-later program on devnet is the older `61196cc` build, which has
-   neither until the next upgrade, see [PAYLATER.md](PAYLATER.md#limits).) The merchant is its own
+   rules are on devnet since the pay-later program there was upgraded to the build of `1bd11be` on
+   28 October 2026, UTC+8
+   ([transaction](https://explorer.solana.com/tx/3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E?cluster=devnet)).
+   The payment that confirmed it, a transaction with three signatures whose `buy_now` carries 80
+   bytes of data (discriminator, loan id, amount 250000, request hash), is
+   [this settle transaction](https://explorer.solana.com/tx/1K7VsBKVWYHXmMmEdytiUck99inmuuRQuYfDUBAyGuhpzQ7b4vou7CkAT9L73hTBxo7CfURvpVGvLsfAf44b2xG?cluster=devnet).) The merchant is its own
    facilitator: it reads the order at the quoted address and refuses one that is not the order it
    opened (price, request hash, hold, rent payer, time opened), decodes the transaction, checks the
    signers, the program, the instruction, that the `buy_now` carries the quoted price and request

@@ -4,7 +4,9 @@ Track: **Best Use of x402 on Solana**. Every rule below is quoted from the
 [hackathon page](https://www.encodeclub.com/programmes/solana-hackathon-2026), read on 22 October 2026.
 Code facts point to files in this repository. Written 22 October 2026; 17 days to the deadline.
 Ticked items carry the date they were done. Last update: 28 October 2026. **Pay later is on devnet
-(27 Oct), upgraded the same day to the build with the CPI fix (`61196cc`, slot 515711875).**
+(27 Oct), upgraded the same day to the build with the CPI fix (`61196cc`, slot 515711875), and on 28 Oct
+to the build where `buy_now` requires the merchant's signature and carries the agreed price (`1bd11be`,
+slot 515766612).**
 
 ## 0. Dates
 
@@ -35,8 +37,8 @@ shows whether a *new* project can still be created.
 
 | Requirement (quoted) | Status on 22 Oct | To do |
 |---|---|---|
-| "A working demo; deployment on Solana devnet is sufficient." | The escrow program is on devnet (`getAccountInfo` returns `executable: true` for `TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`). On 22 Oct the pay-later program was not (the `pay-once` address `7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU` returned `null`). On 27 Oct it was deployed under `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` (slot 515513248, from `9d543b1`), and the pool `GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq` created with 8 devnet USDC. The same day it was upgraded to the build with the `confirm_funded` CPI (`61196cc`, slot 515711875). | Done 27 Oct: Nova bought on credit ([settle tx](https://explorer.solana.com/tx/ttLNpyhUrgMoTkobtBB3QveynRHrBcnwDxyzYSsc5YYsUrfWncVAD2LLmAxRLHLAFJTg4Dr6jEzm2CJPTjMkoHw?cluster=devnet)) and repaid on time ([repay tx](https://explorer.solana.com/tx/2tyLtJe2nabhmjeUtCh4hzQymwQxGzFGbz1KM6KqQNxQHTiLyanUeSS2igjM58WdEmHdJkubZyWMUtJTqyAU2r6?cluster=devnet)). |
-| "A code repository with a README and setup instructions." | [README.md](../README.md) has `npm install` / `npm run web`; [TRY-IT.md](TRY-IT.md) walks through a trade. A clean `npm install` works (checked 21 Oct). Pay-later setup steps added 27 Oct, with `npm run setup:paylater` for the pool. | Keep it working; test the pay-later steps from a fresh clone after the upgrade. |
+| "A working demo; deployment on Solana devnet is sufficient." | The escrow program is on devnet (`getAccountInfo` returns `executable: true` for `TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`). On 22 Oct the pay-later program was not (the `pay-once` address `7uM4V7H5xH6PGPEvqzw2CJ7s3EY3Qs95RUcV9kPJELDU` returned `null`). On 27 Oct it was deployed under `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` (slot 515513248, from `9d543b1`), and the pool `GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq` created with 8 devnet USDC. The same day it was upgraded to the build with the `confirm_funded` CPI (`61196cc`, slot 515711875). On 28 Oct it was upgraded to the build of `1bd11be` (slot 515766612, [upgrade tx](https://explorer.solana.com/tx/3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E?cluster=devnet)), where `buy_now` requires the order's merchant's signature and carries the price and request hash the buyer agreed to. | Done 27 Oct: Nova bought on credit ([settle tx](https://explorer.solana.com/tx/ttLNpyhUrgMoTkobtBB3QveynRHrBcnwDxyzYSsc5YYsUrfWncVAD2LLmAxRLHLAFJTg4Dr6jEzm2CJPTjMkoHw?cluster=devnet)) and repaid on time ([repay tx](https://explorer.solana.com/tx/2tyLtJe2nabhmjeUtCh4hzQymwQxGzFGbz1KM6KqQNxQHTiLyanUeSS2igjM58WdEmHdJkubZyWMUtJTqyAU2r6?cluster=devnet)). Again 28 Oct on the upgraded program: Nova bought Quill's 0.25 USDC summary on credit ([settle tx](https://explorer.solana.com/tx/1K7VsBKVWYHXmMmEdytiUck99inmuuRQuYfDUBAyGuhpzQ7b4vou7CkAT9L73hTBxo7CfURvpVGvLsfAf44b2xG?cluster=devnet), signed by the merchant server, Nova and Quill) and repaid on time ([repay tx](https://explorer.solana.com/tx/3oL3qukdUPiM6Tvgd8D8RM8XsUgTHjqMQiuGjZLUHiJEMYKnMr5sk8XKQkwXA6CoMSPoC2XUBAwFoyXguBYNEiJu?cluster=devnet)). |
+| "A code repository with a README and setup instructions." | [README.md](../README.md) has `npm install` / `npm run web`; [TRY-IT.md](TRY-IT.md) walks through a trade. A clean `npm install` works (checked 21 Oct). Pay-later setup steps added 27 Oct, with `npm run setup:paylater` for the pool. | Keep it working; test the pay-later steps from a fresh clone. |
 | "A 2–4-minute demo video." | 2:03 (fits), 1:41 (too short), 2:58 pay-later (fits). All three were recorded on a local validator and before the hackathon. | Record a **new** 2–4 minute video of the 2.0 flow, on devnet. |
 | "A clear explanation of how Solana powers the project." | README section "How Solana powers this", added 27 Oct. | Done. |
 
@@ -56,8 +58,8 @@ FAQ: judged on "what has actually been built and works, technical depth, and how
 | Paid, and the merchant never delivers | `refund`, `lib.rs` line 298; the crank refunds at the deadline (`server.ts` lines 531–549) |
 | A pay-later header that fails verification (new) | `checkBuyNowTransaction`, [`packages/sdk/src/paylater/index.ts`](../packages/sdk/src/paylater/index.ts) lines 292–406; `settlePayLater`, [`apps/agents/src/paylater.ts`](../apps/agents/src/paylater.ts) lines 200–230 |
 | A pay-later loan not repaid (new) | `mark_default`, [`programs/tessera-paylater/src/lib.rs`](../programs/tessera-paylater/src/lib.rs) lines 278–293; the keeper, `apps/agents/src/paylater.ts` lines 267–288 |
-| A purchase on credit its merchant never agreed to (new) | `buy_now` requires the order's merchant's signature, [`programs/tessera-paylater/src/lib.rs`](../programs/tessera-paylater/src/lib.rs) line 511; the merchant's server adds it after its checks, `apps/agents/src/paylater.ts` lines 205 and 225–226. Not on devnet until the next upgrade (devnet runs the `61196cc` build) |
-| A merchant reprices the order behind the buyer's signed `buy_now` (new) | `buy_now(loan_id, amount, request_hash)` refuses an order whose price or request hash is not the one the buyer signed for, `lib.rs` lines 133–134; the merchant's check requires the quoted ones, `index.ts` (`checkBuyNowTransaction`). Not on devnet until the next upgrade |
+| A purchase on credit its merchant never agreed to (new) | `buy_now` requires the order's merchant's signature, [`programs/tessera-paylater/src/lib.rs`](../programs/tessera-paylater/src/lib.rs) line 511; the merchant's server adds it after its checks, `apps/agents/src/paylater.ts` lines 205 and 225–226. On devnet since the 28 Oct upgrade (`1bd11be`): the [28 Oct settle tx](https://explorer.solana.com/tx/1K7VsBKVWYHXmMmEdytiUck99inmuuRQuYfDUBAyGuhpzQ7b4vou7CkAT9L73hTBxo7CfURvpVGvLsfAf44b2xG?cluster=devnet) carries Quill's signature as the order's merchant |
+| A merchant reprices the order behind the buyer's signed `buy_now` (new) | `buy_now(loan_id, amount, request_hash)` refuses an order whose price or request hash is not the one the buyer signed for, `lib.rs` lines 133–134; the merchant's check requires the quoted ones, `index.ts` (`checkBuyNowTransaction`). On devnet since the 28 Oct upgrade (`1bd11be`): the 28 Oct `buy_now` carried the amount 250000 (0.25 USDC) and the 32-byte request hash |
 | A buyer swaps the order at the quoted address (new) | `quotedOrderRefusal`, [`packages/sdk/src/verify.ts`](../packages/sdk/src/verify.ts); the merchant compares before signing (`apps/agents/src/merchant.ts` lines 618–621) and before confirming or delivering (lines 652–653, 688–689) |
 
 - [x] (2026-10-27) README section "Failed payments" listing these cases (all nine, with file:line).
@@ -89,7 +91,13 @@ Only work done from now to 8 November is judged.
   merchant server key created the same day (the version 1 keys were lost); addresses in
   [deployments/devnet.json](../deployments/devnet.json). `npm run setup:paylater` repeats the pool
   step. Upgraded on 27 Oct to the build with the CPI fix (`61196cc`, slot 515711875); the deployed bytes
-  hash the same as a local build of that commit.
+  hash the same as a local build of that commit. Upgraded again on 28 Oct to the build of `1bd11be`
+  (slot 515766612, [tx](https://explorer.solana.com/tx/3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E?cluster=devnet)),
+  in the order of [PAYLATER.md "Upgrading devnet"](PAYLATER.md#upgrading-devnet): merchant server restarted
+  on the new commit first, then the program. The first 403,176 bytes of the program dumped from devnet
+  hash the same as the local build (sha256
+  `b0cd57426386b9b8d31dcaf484b0b1ed280aff4fdff744ca3c39689e000381e3`); the rest of the 420,000-byte
+  account is zeros.
 - [x] (2026-10-27) **Keep the x402 flow visible end to end.** The track wants "a payment request, payment verification
   or settlement on Solana, and delivery of the requested resource." The route at `server.ts` lines 284–319
   does this today. The new feature must not bypass it. It does not: pay later is one more `accepts`
@@ -104,7 +112,7 @@ Only work done from now to 8 November is judged.
   with the new agents so the README can quote a number built during the window. Unblocked: the upgrade landed 27 Oct.
 - [x] (2026-10-27) **Docs.** Add to the README: "How Solana powers this", "Failed payments", "What existed before
   12 October and what is new", and setup steps for the new feature. All four added. Still open: test the
-  setup steps from a fresh clone, after the devnet upgrade.
+  setup steps from a fresh clone.
 - [ ] **Video, 2–4 minutes, recorded on devnet.** Show a 402 response, the payment verified or settled on
   Solana (open the transaction in the devnet explorer), the delivery, one failed-payment case, and the 2.0
   feature. Stay under 4:00.
@@ -116,7 +124,7 @@ Only work done from now to 8 November is judged.
 | Dates | Goal |
 |---|---|
 | 22–23 Oct | Section 1 done; toolchain fixed; scope frozen (toolchain and scope done 27 Oct; the sign-in and project creation in section 1 are still unticked) |
-| 24–31 Oct | Feature built and deployed to devnet; tests passing (built and tested 27 Oct: `test:paylater` 87/87, `test:paylater-402` 58/58; deployed to devnet and upgraded with the CPI fix 27 Oct; then `buy_now` made to require the merchant's signature, `test:paylater` 93/93 and 94/94 on the devnet escrow's bytes, `test:paylater-402` 63/63, not yet on devnet; 28 Oct, `buy_now` made to carry the agreed price and request hash, the server to check the order at its quoted address, repaid loans and settled orders closed for their rent: `test:paylater` 101/101 and 103/103 on the devnet escrow's bytes, `test:paylater-402` 68/68 and 72/72, `test:formula` 55/55, not yet on devnet) |
+| 24–31 Oct | Feature built and deployed to devnet; tests passing (built and tested 27 Oct: `test:paylater` 87/87, `test:paylater-402` 58/58; deployed to devnet and upgraded with the CPI fix 27 Oct; then `buy_now` made to require the merchant's signature, `test:paylater` 93/93 and 94/94 on the devnet escrow's bytes, `test:paylater-402` 63/63, not yet on devnet; 28 Oct, `buy_now` made to carry the agreed price and request hash, the server to check the order at its quoted address, repaid loans and settled orders closed for their rent: `test:paylater` 101/101 and 103/103 on the devnet escrow's bytes, `test:paylater-402` 68/68 and 72/72, `test:formula` 55/55, not yet on devnet; later on 28 Oct, the pay-later program upgraded on devnet to `1bd11be` (slot 515766612), so the merchant's signature and the bound price and request hash are on devnet now; Nova then bought Quill's 0.25 USDC summary on credit and repaid it on time on the upgraded program ([settle tx](https://explorer.solana.com/tx/1K7VsBKVWYHXmMmEdytiUck99inmuuRQuYfDUBAyGuhpzQ7b4vou7CkAT9L73hTBxo7CfURvpVGvLsfAf44b2xG?cluster=devnet), [repay tx](https://explorer.solana.com/tx/3oL3qukdUPiM6Tvgd8D8RM8XsUgTHjqMQiuGjZLUHiJEMYKnMr5sk8XKQkwXA6CoMSPoC2XUBAwFoyXguBYNEiJu?cluster=devnet))) |
 | 1 Nov | Mid-submission on the platform |
 | 2–5 Nov | Failure demo, docs, site, reliability runs |
 | 6–7 Nov | Record and cut the video; final README read-through |

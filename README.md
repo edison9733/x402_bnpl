@@ -169,8 +169,8 @@ The same score that shortens the hold can set a credit line. A second program,
   `tessera buy-later <merchant url> <skill>`). `buy_now` needs the merchant's signature as well as the
   buyer's, and carries the price and request hash the buyer agreed to, which the order must match;
   the merchant's server signs only for the order it opened at the quoted address. So the pool only
-  pays an order its merchant agreed to, at the price its buyer agreed to (in this source; devnet runs
-  an older build until the next upgrade, see below).
+  pays an order its merchant agreed to, at the price its buyer agreed to (on devnet too since the
+  upgrade of 28 October 2026, see below).
 
 The limit is `tier limit × score ÷ 1000 × on-time boost`, read live from the buyer's Tessera credit
 file. A New wallet gets nothing. The escrow program is unchanged; pay-later only reads its accounts
@@ -180,15 +180,17 @@ pool `GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq` with 8 devnet USDC (all addr
 [How Solana powers this](#how-solana-powers-this)). The rules differ by place, and only in time: the
 devnet pool has a 600 s term and a 60 s grace period (`DEVNET_LINE_PARAMS`), the local preview
 (`npm run paylater:local`, the test suites) 60 s and 5 s (`PREVIEW_LINE_PARAMS`); both have limits of
-0 / 2 / 5 / 10 USDC by tier and a 2% fee. The program on devnet is the build of commit `61196cc`, in
-which `buy_now` confirms the order itself (upgraded 27 October 2026, slot 515711875; the deployed bytes
-match a local build of that commit). **That build does not require the merchant's signature on
-`buy_now` and reads the price from the order instead of from the buyer's signed instruction; the
-source does both, and devnet runs without them until the next upgrade** (cases 7 and 8 of
-[Failed payments](#failed-payments)). The merchant server and the clients here sign as the merchant
-and send the price either way, and the devnet build accepts those transactions (it ignores both).
-The program and the merchant server must be upgraded together, server first:
-[docs/PAYLATER.md](docs/PAYLATER.md#upgrading-devnet).
+0 / 2 / 5 / 10 USDC by tier and a 2% fee. The program on devnet was upgraded on 27 October 2026
+(slot 515711875) to the build of commit `61196cc`, in which `buy_now` confirms the order itself (the
+deployed bytes matched a local build of that commit), and on 28 October 2026 (UTC+8, slot 515766612,
+[transaction](https://explorer.solana.com/tx/3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E?cluster=devnet))
+to the build of `1bd11be`. The program source has not changed since, and the first 403,176 bytes of
+the program on devnet hash the same as a local build (the rest of its account is zeros). So on devnet
+`buy_now` requires the order's merchant's signature and carries the price and request hash the buyer
+agreed to (cases 7 and 8 of [Failed payments](#failed-payments)). A purchase on credit and its
+repayment ran on the upgraded program the same day
+([What is new](#what-existed-before-12-october-2026-and-what-is-new)). The program and the merchant
+server must be upgraded together, server first: [docs/PAYLATER.md](docs/PAYLATER.md#upgrading-devnet).
 Rules, checks and limits: [docs/PAYLATER.md](docs/PAYLATER.md).
 
 ## The score
@@ -280,10 +282,10 @@ balance in between. These are `solana rent` on each network on 27 October 2026;
 | Escrow config | [`DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2`](https://explorer.solana.com/address/DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2?cluster=devnet) |
 | USDC mint (devnet, Circle) | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` |
 | Escrow config authority and arbiter | `5i7zzV9hQUCbpg8MXSNJB3QQkL6zscDd8VQKow46vg7E` and `3GydKy3acrVxvwyF26oDMwvbxVjrQ5yBDEc1GzUoVKz2`. Both are version 1 keys and were lost, as was the escrow's upgrade key (the same `5i7z…`): the config cannot be changed, and a dispute on devnet cannot be resolved by this deployment: the build there lets only the order's arbiter resolve one, so a disputed order stays Disputed. |
-| Pay-later program | [`LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D`](https://explorer.solana.com/address/LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D?cluster=devnet), deployed 27 October 2026 (slot 515513248) from commit `9d543b1`, upgraded the same day to the build of `61196cc` (slot 515711875, [transaction](https://explorer.solana.com/tx/ZsQ12niKDQnMijF1TE5czfHsjFcnNaZ2GB7U7TWb6pLAf3xCgyt2arCza7e9bTAAu7nBHcrzgYviUfn7GoScg5V?cluster=devnet)). Max length 420,000 bytes. |
+| Pay-later program | [`LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D`](https://explorer.solana.com/address/LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D?cluster=devnet), deployed 27 October 2026 (slot 515513248) from commit `9d543b1`, upgraded the same day to the build of `61196cc` (slot 515711875, [transaction](https://explorer.solana.com/tx/ZsQ12niKDQnMijF1TE5czfHsjFcnNaZ2GB7U7TWb6pLAf3xCgyt2arCza7e9bTAAu7nBHcrzgYviUfn7GoScg5V?cluster=devnet)), and on 28 October 2026 (UTC+8) to the build of `1bd11be` (slot 515766612, [transaction](https://explorer.solana.com/tx/3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E?cluster=devnet)). Max length 420,000 bytes. |
 | Pay-later upgrade and pool authority | [`EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6`](https://explorer.solana.com/address/EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6?cluster=devnet) |
 | Pay-later pool | [`GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq`](https://explorer.solana.com/address/GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq?cluster=devnet). Rules (`DEVNET_LINE_PARAMS`): limits 0 / 2 / 5 / 10 USDC for New / Building / Established / Trusted, step 2,500 bps, boost cap 10,000 bps, term 600 s, grace 60 s, fee 200 bps, merchants at Building or above, loans of at least 0.001 USDC. |
-| Pool vault | [`DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV`](https://explorer.solana.com/address/DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV?cluster=devnet): 8 devnet USDC on 27 October 2026, nothing lent yet |
+| Pool vault | [`DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV`](https://explorer.solana.com/address/DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV?cluster=devnet): 8 devnet USDC on 27 October 2026; 8.009 on 28 October, after two loans repaid with their fees |
 | Merchant server (ops wallet) | [`DJ8sWBFJT5oFW2MTyX1Zok5JWt6QPS3Uang3hHXwcM4R`](https://explorer.solana.com/address/DJ8sWBFJT5oFW2MTyX1Zok5JWt6QPS3Uang3hHXwcM4R?cluster=devnet): fronts the rent of every quote and pays the network fee of each pay-later `buy_now`, for every merchant the server runs; its crank closes unpaid quotes after their payment window, so that rent comes back, and keeps settled orders as on-chain history unless it runs with `CLOSE_SETTLED_ORDERS=1` ([docs/PAYLATER.md](docs/PAYLATER.md#limits) lists what is closed when) |
 
 The demo agents, created on 27 October 2026 because the version 1 agents' keys were lost. Their
@@ -398,8 +400,9 @@ are at the commit this README is in.
    pool pays only an order its merchant signed for, on any escrow build: a buyer's `buy_now` without
    it fails with `AccountNotSigner` and nothing moves. Over x402 the merchant's server adds that
    signature only after every check of case 5. `npm run test:paylater` sends the attack on the
-   devnet escrow's bytes (`ESCROW_SO`) and it fails. **Devnet runs the `61196cc` build of the
-   pay-later program, which does not have this check, until the next upgrade.**
+   devnet escrow's bytes (`ESCROW_SO`) and it fails. The pay-later program on devnet has this check
+   since its upgrade of 28 October 2026 to the build of `1bd11be`; the purchase on credit run on it
+   that day was signed by the merchant server as fee payer, the buyer and the order's merchant.
 8. **A merchant reprices the order behind the buyer's signature.** On the escrow on devnet either
    party may close an unpaid order at any time, and anyone may open another at the same address at
    once. A merchant handed a buyer's signed `buy_now` could cancel its quote, reopen the same id for
@@ -409,8 +412,9 @@ are at the commit this README is in.
    and refuses an order that does not carry exactly those (`lib.rs` lines 133–134, `PriceMismatch`,
    `RequestMismatch`); the buyer's clients pass what they checked (`http402.ts` line 92, `buyer.ts`
    line 263, the CLI). `npm run test:paylater` with `ESCROW_SO` reprices an order after the buyer
-   signed and the buyer's `buy_now` fails, nothing moving. **Devnet runs the `61196cc` build, which
-   reads the price from the order, until the next upgrade.**
+   signed and the buyer's `buy_now` fails, nothing moving. The pay-later program on devnet has this
+   check since the same upgrade; the `buy_now` of the purchase run on it carries the amount 250000
+   (0.25 USDC) and the request hash after the loan id.
 9. **A buyer swaps the order at the quoted address.** The same escrow build lets the buyer cancel the
    merchant's quote and open an order at its address in the merchant's name, without the merchant's
    signature, at the minimum price or with a hold of its choosing. The merchant server compares the
@@ -464,13 +468,13 @@ directly, outside the escrow, with the CLI commands `credit`, `buy-later --order
   rewritten for the escrow flow (101 checks), `scripts/paylater-local.ts`, `scripts/lib.ts`
   (`TESSERA_KEYS_DIR`), `packages/sdk/test/paylater-check.test.ts` (new); `docs/PAYLATER.md`,
   `docs/ENCODE-CHECKLIST.md`, this README.
-- **The merchant signs every purchase on credit (27 October, after the upgrade).** `buy_now` requires
+- **The merchant signs every purchase on credit (27 October, after the `61196cc` upgrade).** `buy_now` requires
   the order's merchant's signature, so the pool cannot be made to fund an order its merchant never
   agreed to, which the escrow on devnet allows anyone to open (case 7 of
   [Failed payments](#failed-payments), [SECURITY.md](docs/SECURITY.md#pay-later) P1). The merchant
   server signs with the merchant's key after its checks, `checkBuyNowTransaction` requires exactly
   the fee payer, the buyer and the merchant as signers, and `buyOrderOnCredit` and
-  `tessera buy-later --order` take the merchant's key. Not on devnet until the next upgrade.
+  `tessera buy-later --order` take the merchant's key. On devnet since the upgrade of 28 October.
 - **The price is in what both parties sign, and the server signs only its own order (28 October).**
   `buy_now(loan_id, amount, request_hash)` carries the price and request hash the buyer verified, and
   the program refuses an order that does not carry exactly those, so a merchant can no longer reprice
@@ -482,8 +486,8 @@ directly, outside the escrow, with the CLI commands `credit`, `buy-later --order
   fronted once their review window is over (off by default, to keep them as history); the demo faucet keeps 0.1 SOL in the ops wallet and quotes stop below 0.03 SOL; a
   failed-on-chain `buy_now` is answered as refused, with a lower priority-fee cap (P4); the crank
   stops re-reading disputes it cannot judge; the 402 accounts for a wallet's own rent-exempt minimum.
-  Not on devnet until the next upgrade, which must go with a restart of the merchant server
-  ([docs/PAYLATER.md](docs/PAYLATER.md#upgrading-devnet)).
+  The program's part is on devnet since the upgrade of 28 October, made after the merchant server
+  was restarted on the new commit ([docs/PAYLATER.md](docs/PAYLATER.md#upgrading-devnet)).
 - **Pay later on devnet (27 October).** The pay-later program deployed to devnet
   (`LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D`, slot 515513248, built from `9d543b1`), and its pool
   created with the devnet rules and funded with 8 devnet USDC. `scripts/setup-paylater-devnet.ts`
@@ -502,6 +506,19 @@ directly, outside the escrow, with the CLI commands `credit`, `buy-later --order
   (transaction [`2tyLtJe2…`](https://explorer.solana.com/tx/2tyLtJe2nabhmjeUtCh4hzQymwQxGzFGbz1KM6KqQNxQHTiLyanUeSS2igjM58WdEmHdJkubZyWMUtJTqyAU2r6?cluster=devnet), on time). Its limit went from 0.682 to 0.74825 USDC: the score
   rose to 365 and the boost by 2.5%, the 25% step scaled by 0.20 / 2.00. The pool afterwards: lent
   0.20, repaid 0.20, 8.004 USDC in the vault.
+- **Upgrade and a purchase on credit on devnet (28 October, UTC+8).** With the merchant server
+  restarted on the new commit first, the pay-later program was upgraded to the build of `1bd11be`
+  (slot 515766612, transaction [`3vcqaD4M…`](https://explorer.solana.com/tx/3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E?cluster=devnet)),
+  in the order [docs/PAYLATER.md](docs/PAYLATER.md#upgrading-devnet) gives. Nova (Building, score
+  365, limit 0.74825 USDC) then bought Quill's 0.25 USDC summary on credit over A2A, with
+  `npm run buy -- --buyer nova --merchant quill --pay-later`: order [`8VAF9ZWQ…`](https://explorer.solana.com/address/8VAF9ZWQrdGVtcuvifh5GG4yPExp2iXE3S8fh3DmHn3b?cluster=devnet),
+  settle transaction [`1K7VsBKV…`](https://explorer.solana.com/tx/1K7VsBKVWYHXmMmEdytiUck99inmuuRQuYfDUBAyGuhpzQ7b4vou7CkAT9L73hTBxo7CfURvpVGvLsfAf44b2xG?cluster=devnet) (signed by the merchant server as fee payer, Nova,
+  and Quill as the order's merchant; its `buy_now` carries the amount 250000 and the request hash
+  after the loan id, and `BuyNow` calls the escrow's `ConfirmFunded` inside it), loan [`9sS9yBDG…`](https://explorer.solana.com/address/9sS9yBDGggQr3WUeCidPsLa5pwviiEGEi4Nf3z4T2Zoc?cluster=devnet),
+  delivered with the hash committed on chain, held 45 s and released to Quill. Nova repaid 0.255 USDC
+  on time (transaction [`3oL3qukd…`](https://explorer.solana.com/tx/3oL3qukdUPiM6Tvgd8D8RM8XsUgTHjqMQiuGjZLUHiJEMYKnMr5sk8XKQkwXA6CoMSPoC2XUBAwFoyXguBYNEiJu?cluster=devnet): `Repay`, then `CloseLoan`, the
+  loan's rent back to Nova). Afterwards its score is 388 and its limit 0.819611 USDC: 2 loans, both
+  on time, boost +5.62%.
 - **New demo agents (27 October).** The version 1 agents' keys were lost, so a new merchant server
   key and sixteen new agent wallets were created and funded (`npm run setup:devnet -- --light`, the
   smaller amounts added to `scripts/setup-devnet.ts`), and traded on devnet until four merchants and
@@ -511,7 +528,7 @@ directly, outside the escrow, with the CLI commands `credit`, `buy-later --order
 The escrow program (`programs/tessera`) was not changed in the window. The program on devnet is older
 still: it was deployed on 4 October (slot 507449356), a build of the first commit, before the audit
 fixes of 7 and 10 October, and its upgrade key was lost with the version 1 keys. The pay-later
-program was deployed to devnet in the window, on 27 October.
+program was deployed to devnet in the window, on 27 October, and upgraded on 27 and 28 October.
 
 ## What is checked
 
@@ -667,10 +684,9 @@ npm run tessera -- repay --all --keypair .keys/agents/nova.json --send
 
 `buy-later --order` sends the `buy_now` itself, so it takes the order's merchant's key as well
 (`--merchant-keypair`): in the local world you hold the shop's. Over x402 the merchant's server adds
-its own signature. The devnet program is still the `61196cc` build, which does not require the
-merchant's signature and reads the price from the order; it accepts these transactions as they are
-(it ignores the extra signature and the price and request hash after the loan id), and requires the
-signature and the matching price once it is upgraded to this commit's build.
+its own signature. The devnet program is the build of `1bd11be` since 28 October 2026: it requires
+that signature, and refuses an order whose price or request hash is not the one the `buy_now`
+carries (`PriceMismatch`, `RequestMismatch`).
 
 ### Hosting the API and the agents (Railway)
 
@@ -739,12 +755,11 @@ results.
 - **Pay later is new and small.** It is on devnet with an 8 USDC pool. A default freezes the pay-later
   line but does not lower the Tessera score, and an escrow refund goes to the buyer while the loan
   stays owed. On the devnet escrow a buyer can open an order in a merchant's name, and a party can
-  close an unpaid order and open another at its address at once; in this commit `buy_now` requires
-  the merchant's signature and carries the price the buyer agreed to, so the pool will not fund such
-  an order or pay a repriced one, but devnet runs the `61196cc` build without those checks until the
-  next upgrade. Until then a buyer at Building or above there could have the pool pay such an order
-  and take the escrow's refund as cash, and a merchant could reprice an order behind a buyer's signed
-  `buy_now`, each up to the buyer's available credit. See
+  close an unpaid order and open another at its address at once. `buy_now` requires the merchant's
+  signature and carries the price the buyer agreed to, on devnet too since the upgrade of 28 October
+  2026, so the pool will not fund such an order or pay a repriced one. What the devnet escrow allows
+  with a buyer's own money is unchanged: a buyer can open and fund an order in a merchant's name and
+  have it refunded after the deadline, and the merchant takes a missed-delivery penalty. See
   [docs/PAYLATER.md](docs/PAYLATER.md#limits).
 - **It prices faking; it does not detect it.** On-chain data cannot tell a bot from a customer who
   spends the same money. See the limits in [docs/SECURITY.md](docs/SECURITY.md).
