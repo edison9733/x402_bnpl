@@ -110,7 +110,7 @@
   <p class="source">New in 2.0. buy_now (programs/tessera-paylater) pays the order&#x27;s vault and has the escrow confirm it in the same instruction; the escrow program is unchanged. Fees: the escrow&#x27;s 1%, the pool&#x27;s 2%. Tested by npm run test:paylater.</p>
 </section>
 
-<section data-document-role="page" data-label="Over x402" data-speaker-notes="How does an agent ask for credit? Through x402 itself. The merchant&#x27;s 402 keeps the standard exact option first, and adds a second one, tessera-paylater: the same order, the same price, and the buyer&#x27;s live limit. The buyer signs one buy_now. The merchant checks it, pays the network fee, sends it, and delivers: it settles this option itself. A standard x402 client takes the first option and never sees a difference.">
+<section data-document-role="page" data-label="Over x402" data-speaker-notes="How does an agent ask for credit? Through x402 itself. The merchant&#x27;s 402 keeps the standard exact option first, and adds a second one, tessera-paylater: the same order, the same price, and the buyer&#x27;s live limit. The buyer signs one buy_now, which carries the price it agreed to. The merchant checks it, signs it too, pays the network fee, sends it, and delivers: it settles this option itself. A standard x402 client takes the first option and never sees a difference.">
   <p class="kicker">x402 · a second way to pay, in the same 402</p>
   <h1 style="font-size: 80px; max-width: 30ch;">The 402 also offers <em style="white-space: nowrap;">tessera-paylater.</em></h1>
   <div class="card" style="margin-top: 40px; padding: 30px 38px; border-radius: 22px;">
@@ -124,7 +124,7 @@
   </div>
   <div class="row" style="gap: 26px; margin-top: 36px; align-items: stretch;">
     <div class="card" style="flex: 1;"><h3>1 · The buyer signs</h3><p>One buy_now for that order, with the merchant as fee payer.</p></div>
-    <div class="card" style="flex: 1;"><h3>2 · The merchant settles it</h3><p>It checks the transaction, simulates it, signs as fee payer and sends it.</p></div>
+    <div class="card" style="flex: 1;"><h3>2 · The merchant settles it</h3><p>It checks the transaction and the order, signs as fee payer and as the order&#x27;s merchant, simulates it and sends it.</p></div>
     <div class="card on" style="flex: 1;"><h3>3 · Then it delivers</h3><p>The pool has paid the vault and the escrow has confirmed it, in one instruction.</p></div>
   </div>
   <p class="source">Standard x402 clients are unaffected: the exact entries come first and pay as before. Shape from apps/agents/src/paylater.ts; buyerLimit is 2 USDC × 301 ÷ 1000, a Building buyer at score 301 on the devnet pool. Tested over HTTP, the CLI and A2A: npm run test:paylater-402.</p>

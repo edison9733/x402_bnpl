@@ -39,7 +39,7 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
     ...
 }</pre>
   </div>
-  <p style="font-size: 27px; max-width: 60ch; margin: 36px 0 0; line-height: 1.4;">A facilitator can refuse a payment but cannot redirect one: the buyer's signature fixes recipient, amount and mint. A dishonest merchant server cannot either: the buyer re-derives the escrow address and reads the order from the chain before signing.</p>
+  <p style="font-size: 27px; max-width: 60ch; margin: 36px 0 0; line-height: 1.4;">A facilitator can refuse a payment but cannot redirect one: the buyer's signature fixes recipient, amount and mint. A dishonest merchant server cannot either: the buyer re-derives the escrow address and reads the order from the chain before signing, and on credit the buy_now it signs carries the price too.</p>
   <p class="source">programs/tessera/src/lib.rs. A July 2026 study found rule violations in all 15 x402 facilitators it tested (arXiv 2607.19545), which is why nothing here trusts one.</p>
 </section>
 
@@ -65,7 +65,7 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
   </div>
 </section>
 
-<section data-document-role="page" data-label="Pay later over x402" data-speaker-notes="New in 2.0: the same purchase, on credit. The 402 offers a second option, tessera-paylater. The buyer signs one buy_now, and the merchant sends it. In that one instruction the pool pays the order&#x27;s vault and the escrow confirms it, so the pool&#x27;s money never sits in an unconfirmed order the buyer could cancel. From there it is an ordinary order: deliver, hold, release. The buyer repays the pool later, every loan in one transaction.">
+<section data-document-role="page" data-label="Pay later over x402" data-speaker-notes="New in 2.0: the same purchase, on credit. The 402 offers a second option, tessera-paylater. The buyer signs one buy_now at the quoted price, and the merchant checks it, signs it too and sends it. In that one instruction the pool pays the order&#x27;s vault and the escrow confirms it, so the pool&#x27;s money never sits in an unconfirmed order the buyer could cancel. From there it is an ordinary order: deliver, hold, release. The buyer repays the pool later, every loan in one transaction.">
   <p class="kicker">New in 2.0 · pay later over x402 · programs/tessera-paylater</p>
   <h1 style="font-size: 64px;">One instruction pays the escrow <em>and confirms it.</em></h1>
   <div class="row" style="gap: 14px; margin-top: 40px; align-items: stretch;">
@@ -77,9 +77,10 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
     <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">6 · repay --all</h3><p style="font-size: 18px;">price + 2% to the pool, every loan in one transaction</p></div>
   </div>
   <div class="card" style="margin-top: 30px; padding: 26px 32px; border-radius: 22px;">
-<pre style="font-size: 20px; line-height: 1.6; color: #c9c6b6;">pub fn buy_now(ctx: Context&lt;BuyNow&gt;, loan_id: [u8; 32]) -&gt; Result&lt;()&gt; {
+<pre style="font-size: 20px; line-height: 1.6; color: #c9c6b6;">pub fn buy_now(ctx: Context&lt;BuyNow&gt;, loan_id: [u8; 32], amount: u64, request_hash: [u8; 32]) -&gt; Result&lt;()&gt; {
     let order = read_order(&amp;a.order)?;    <span style="color: #5d5c52;">// the escrow&#x27;s own order: owner, address and type checked</span>
     require_keys_eq!(order.buyer, a.buyer.key(), PayLaterError::NotTheBuyer);
+    require!(order.amount == amount, PayLaterError::PriceMismatch);   <span style="color: #5d5c52;">// the price the buyer signed for</span>
     require!(amount &lt;= limit.saturating_sub(line.outstanding), PayLaterError::CreditLimitExceeded);
     <span class="mint">pay_from_pool(&amp;a.pool, ..., a.order_vault.to_account_info(), amount)?;</span>   <span style="color: #5d5c52;">// pool → the order&#x27;s vault</span>
     <span class="mint">tessera::cpi::confirm_funded(...)?;</span>                                  <span style="color: #5d5c52;">// the escrow marks it Funded</span>
@@ -121,7 +122,7 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
     </div>
     <div class="col" style="flex: 1; gap: 14px;">
       <div class="card"><h3>Paid, never delivered</h3><p>After the deadline anyone may refund: the buyer gets it all, and the merchant&#x27;s score loses 10%.</p></div>
-      <div class="card on"><h3>A forged pay-later header <span class="mono mint" style="font-size: 16px;">new</span></h3><p>Checked and simulated before the merchant signs: HTTP 400, nothing sent, and the buyer may pay another way.</p></div>
+      <div class="card on"><h3>A forged pay-later header <span class="mono mint" style="font-size: 16px;">new</span></h3><p>Checked before the merchant signs, and simulated before anything is sent: HTTP 400, nothing sent, and the buyer may pay another way.</p></div>
       <div class="card on"><h3>A loan not repaid <span class="mono mint" style="font-size: 16px;">new</span></h3><p>After the grace period anyone marks it in default; the server&#x27;s keeper does, every 30 s. The line freezes, and the next 402 says so.</p></div>
     </div>
   </div>

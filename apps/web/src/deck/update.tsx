@@ -118,7 +118,7 @@ export const UPDATE: Slide[] = [
           items={[
             ['Pay later lends into the escrow', "buy_now reads the escrow's order and pays its vault. The buyer owes the price plus 2%; a refund leaves the loan owed."],
             ['Funded and confirmed at once', "buy_now calls the escrow's confirm_funded itself, so the pool's money never sits in an order the buyer could cancel."],
-            ['A second option in the 402', "A tessera-paylater entry after the exact ones, with the buyer's live limit. The merchant checks the buy_now, sends it and delivers."],
+            ['A second option in the 402', "A tessera-paylater entry after the exact ones, with the buyer's live limit. The merchant checks the buy_now and the order, signs it too, sends it and delivers."],
             ['The buyer agent and the CLI', 'npm run buy -- --pay-later, over A2A or plain HTTP; tessera buy-later <merchant agent url> <skill>; tessera credit shows due dates.'],
             ['The keeper and the site', "The agents server marks late loans in default. The site reads the pool, a wallet's line and its loans."],
             ['Tests and docs', 'scripts/test-paylater-402.ts (new) and test-paylater.ts, on local validators; README sections on Solana, failed payments and prior work.'],
@@ -131,7 +131,7 @@ export const UPDATE: Slide[] = [
   {
     id: 'hard',
     seconds: 15,
-    say: "The hard part: a loan must not turn into cash. Our first buy_now paid the order's vault and stopped there. The order was still awaiting payment, and the escrow lets its buyer cancel such an order and take back what is in the vault. So buy_now now has the escrow confirm the payment in the same instruction.",
+    say: "The hard part: a loan must not turn into cash. Our first buy_now paid the order's vault and stopped there. The order was still awaiting payment, and the escrow lets its buyer cancel such an order and take back what is in the vault. So buy_now now has the escrow confirm the payment in the same instruction. Two more routes exist on devnet's older escrow: a buyer opening an order in a merchant's name, and a merchant repricing an order after the buyer signed. So buy_now now also needs the merchant's signature, and carries the agreed price.",
     render: () => (
       <Frame>
         <Kicker>The hard part</Kicker>
@@ -142,7 +142,10 @@ export const UPDATE: Slide[] = [
         <Rise delay={1.0} style={{ marginTop: 44 }}>
           <span className="mono" style={{ fontSize: 28, color: mint }}>the fix: pay the vault → confirm_funded, in one instruction</span>
         </Rise>
-        <Source>Found by an internal review on 27 Oct 2026. programs/tessera-paylater/src/lib.rs, buy_now.</Source>
+        <Rise delay={1.3} style={{ marginTop: 18 }}>
+          <span className="mono" style={{ fontSize: 22, color: '#c9c6b6' }}>two more on devnet's older escrow, an order opened in a merchant's name and one repriced after the buyer signed: the merchant signs buy_now, and buy_now carries the price</span>
+        </Rise>
+        <Source>Found by internal reviews on 27 and 28 Oct 2026. programs/tessera-paylater/src/lib.rs, buy_now.</Source>
       </Frame>
     ),
   },

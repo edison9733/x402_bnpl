@@ -141,7 +141,7 @@ function X402Slide() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22, marginTop: 30 }}>
         {[
           ['1 · The buyer signs', 'One buy_now for that order, with the merchant as fee payer.'],
-          ['2 · The merchant settles it', 'It checks the transaction, simulates it, signs as fee payer and sends it.'],
+          ['2 · The merchant settles it', "It checks the transaction and the order, signs as fee payer and as the order's merchant, simulates it and sends it."],
           ['3 · Then it delivers', 'The pool has paid the vault and the escrow has confirmed it, in one instruction.'],
         ].map(([h, b], k) => (
           <Rise key={h} delay={1.0 + k * 0.15}>
@@ -398,7 +398,7 @@ export const PITCH: Slide[] = [
   {
     id: 'x402',
     seconds: 18,
-    say: "How does an agent ask for credit? Through x402 itself. The merchant's 402 keeps the standard exact option first, and adds a second one, tessera-paylater: the same order, the same price, and the buyer's live limit. The buyer signs one buy_now. The merchant checks it, pays the network fee, sends it, and delivers: it settles this option itself. A standard x402 client takes the first option and never sees a difference.",
+    say: "How does an agent ask for credit? Through x402 itself. The merchant's 402 keeps the standard exact option first, and adds a second one, tessera-paylater: the same order, the same price, and the buyer's live limit. The buyer signs one buy_now, which carries the price it agreed to. The merchant checks it, signs it too, pays the network fee, sends it, and delivers: it settles this option itself. A standard x402 client takes the first option and never sees a difference.",
     render: () => <X402Slide />,
   },
   {

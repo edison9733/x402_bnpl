@@ -169,9 +169,10 @@ function PayLaterFlowScene() {
       </div>
       <Rise delay={1.4} style={{ marginTop: 26 }}>
         <pre className="mono" style={{ fontSize: 17.5, lineHeight: 1.6, margin: 0, padding: '24px 30px', borderRadius: 22, background: '#10120e', border: '1px solid #272b21', color: '#c9c6b6' }}>
-{`pub fn buy_now(ctx: Context<BuyNow>, loan_id: [u8; 32]) -> Result<()> {
+{`pub fn buy_now(ctx: Context<BuyNow>, loan_id: [u8; 32], amount: u64, request_hash: [u8; 32]) -> Result<()> {
     let order = read_order(&a.order)?;    `}<span style={{ color: grey }}>{"// the escrow's own order: owner, address and type checked"}</span>{`
     require_keys_eq!(order.buyer, a.buyer.key(), PayLaterError::NotTheBuyer);
+    require!(order.amount == amount, PayLaterError::PriceMismatch);   `}<span style={{ color: grey }}>{'// the price the buyer signed for'}</span>{`
     require!(amount <= limit.saturating_sub(line.outstanding), PayLaterError::CreditLimitExceeded);
     `}<span style={{ color: mint }}>{'pay_from_pool(&a.pool, ..., a.order_vault.to_account_info(), amount)?;'}</span>{`   `}<span style={{ color: grey }}>{"// pool → the order's vault"}</span>{`
     `}<span style={{ color: mint }}>{'tessera::cpi::confirm_funded(...)?;'}</span>{`                                  `}<span style={{ color: grey }}>{'// the escrow marks it Funded'}</span>{`
@@ -226,7 +227,7 @@ function FailedScene() {
     ['The 402 asks too much', "Above the buyer's ceiling, it signs nothing. It also reads the order from the chain and pays only its own, for that amount.", false],
     ['Paid, never delivered', "After the deadline anyone may refund: the buyer gets it all, and the merchant's score loses 10%.", false],
     ['The facilitator fails', 'Verify or settle fails: no delivery, and the HTTP 502 says "Do not pay again". Money that did land is finished or refunded by the crank.', false],
-    ['A forged pay-later header', 'Checked and simulated before the merchant signs: HTTP 400, nothing sent, and the buyer may pay another way.', true],
+    ['A forged pay-later header', 'Checked before the merchant signs, and simulated before anything is sent: HTTP 400, nothing sent, and the buyer may pay another way.', true],
     ['Nobody pays the quote', 'confirm_funded refuses money after the 300 s window, and cancel_unpaid sends anything in the vault back to the buyer.', false],
     ['A loan not repaid', "After the grace period anyone marks it in default; the server's keeper does, every 30 s. The line freezes, and the next 402 says so.", true],
   ];
@@ -319,7 +320,7 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
           </pre>
         </Rise>
         <Body delay={1.0} size={27} max="60ch">
-          A facilitator can refuse a payment but cannot redirect one: the buyer's signature fixes recipient, amount and mint. A dishonest merchant server cannot either: the buyer re-derives the escrow address and reads the order from the chain before signing.
+          A facilitator can refuse a payment but cannot redirect one: the buyer's signature fixes recipient, amount and mint. A dishonest merchant server cannot either: the buyer re-derives the escrow address and reads the order from the chain before signing, and on credit the buy_now it signs carries the price too.
         </Body>
         <Source>programs/tessera/src/lib.rs. A July 2026 study found rule violations in all 15 x402 facilitators it tested (arXiv 2607.19545), which is why nothing here trusts one.</Source>
       </Frame>
@@ -358,7 +359,7 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
   {
     id: 'paylater',
     seconds: 20,
-    say: "New in 2.0: the same purchase, on credit. The 402 offers a second option, tessera-paylater. The buyer signs one buy_now, and the merchant sends it. In that one instruction the pool pays the order's vault and the escrow confirms it, so the pool's money never sits in an unconfirmed order the buyer could cancel. From there it is an ordinary order: deliver, hold, release. The buyer repays the pool later, every loan in one transaction.",
+    say: "New in 2.0: the same purchase, on credit. The 402 offers a second option, tessera-paylater. The buyer signs one buy_now at the quoted price, and the merchant checks it, signs it too and sends it. In that one instruction the pool pays the order's vault and the escrow confirms it, so the pool's money never sits in an unconfirmed order the buyer could cancel. From there it is an ordinary order: deliver, hold, release. The buyer repays the pool later, every loan in one transaction.",
     render: () => <PayLaterFlowScene />,
   },
   {
