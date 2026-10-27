@@ -108,15 +108,26 @@ log.info(`deployer keeps ${fromUnits(await tok.balance(deployer.identity.address
 // this keeps it and replaces only the pay-later block.
 const file = resolve(REPO_ROOT, 'deployments/devnet.json');
 const deployment = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>) : { cluster: 'devnet' };
-const before = deployment.payLater as { program?: string; deployedAt?: string } | undefined;
+const before = deployment.payLater as
+  | { program?: string; deployedAt?: string; lastDeploy?: { slot?: string; build?: string; tx?: string } }
+  | undefined;
 const deployedAt =
   before?.program === PROGRAM && before.deployedAt
     ? before.deployedAt
     : deployTime
       ? new Date(Number(deployTime) * 1000).toISOString().slice(0, 10)
       : undefined;
+// The last deploy as the chain records it. `build` (the commit) and `tx` are
+// written by hand after an upgrade; they are kept while the slot is the same.
+const sameDeploy = before?.program === PROGRAM && before.lastDeploy?.slot === String(deploySlot);
+const lastDeploy = {
+  slot: deploySlot,
+  time: deployTime ? new Date(Number(deployTime) * 1000).toISOString() : undefined,
+  ...(sameDeploy && before?.lastDeploy?.build ? { build: before.lastDeploy.build } : {}),
+  ...(sameDeploy && before?.lastDeploy?.tx ? { tx: before.lastDeploy.tx } : {}),
+};
 deployment.payLater = JSON.parse(
-  show({ program: PROGRAM, authority: upgradeAuthority, pool, vault, deployedAt, params: (await paylater.fetchPool(rpc, pool)).data.params }),
+  show({ program: PROGRAM, authority: upgradeAuthority, pool, vault, deployedAt, lastDeploy, params: (await paylater.fetchPool(rpc, pool)).data.params }),
 );
 writeFileSync(file, JSON.stringify(deployment, null, 2) + '\n');
 

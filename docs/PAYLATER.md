@@ -12,19 +12,18 @@ escrow program, end to end through the merchant server's x402 route.
 
 | | Devnet |
 |---|---|
-| Program | `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` (`Anchor.toml`, `declare_id!`, the generated SDK), deployed 27 October 2026 in slot 515513248 from commit `9d543b1` |
+| Program | `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` (`Anchor.toml`, `declare_id!`, the generated SDK), deployed 27 October 2026 in slot 515513248 from commit `9d543b1`; upgraded the same day in slot 515711875 to the build of `61196cc` (transaction `ZsQ12niKDQnMijF1TE5czfHsjFcnNaZ2GB7U7TWb6pLAf3xCgyt2arCza7e9bTAAu7nBHcrzgYviUfn7GoScg5V`) |
 | Upgrade and pool authority | `EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6` |
 | Pool | `GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq`, rules `DEVNET_LINE_PARAMS` (below) |
 | Pool vault | `DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV`, 8 devnet USDC on 27 October, no loans yet |
 | Escrow it lends into | `TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`, config `DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2` |
 
-The same addresses are in [`deployments/devnet.json`](../deployments/devnet.json). **Upgrade pending.**
-The program on devnet is the build of `9d543b1`, from before `buy_now` called the escrow's
-`confirm_funded` itself (step 2 below): there `buy_now` leaves the order awaiting payment and the
-merchant confirms it in a separate transaction. Until the program is upgraded to the current build,
-the clients in this repository cannot buy on credit on devnet: their `buy_now` passes the escrow
-program as an account that build does not take, and the merchant's simulation refuses it. The pool
-account's layout is the same in both builds, so the upgrade keeps the pool.
+The same addresses, and the last deploy's slot, commit and transaction, are in
+[`deployments/devnet.json`](../deployments/devnet.json). The first deploy was the build of `9d543b1`,
+from before `buy_now` called the escrow's `confirm_funded` itself (step 2 below). The upgrade to
+`61196cc` replaced it the same day: the first 401,520 bytes of the program dumped from devnet hash
+the same as a local build of that commit (sha256 `69b91a7d…62d6`), and the rest is zero padding. The
+pool account's layout is the same in both builds, so the pool kept its rules and its 8 USDC.
 
 ## How it works
 
@@ -215,12 +214,12 @@ buyers at Building on 27 October; a New buyer such as Scout is told it is not el
 
 ## Limits
 
-- **Devnet runs the build from before the fix, until the upgrade.** In the `9d543b1` build on devnet,
-  `buy_now` pays the order's vault but leaves the order awaiting payment, and the escrow lets the
-  order's buyer `cancel_unpaid` it, which hands the vault to the buyer. So until the upgrade a buyer
-  at Building or above can send `buy_now` and `cancel_unpaid` together and keep up to its limit in
-  cash; the loan is still owed and defaults like any other, and the line freezes. The pool holds
-  8 USDC and a Building limit is at most 2 USDC.
+- **For a few hours on 27 October devnet ran the build from before the fix.** In the `9d543b1` build,
+  `buy_now` paid the order's vault but left the order awaiting payment, and the escrow lets the
+  order's buyer `cancel_unpaid` it, which hands the vault to the buyer. A buyer at Building or above
+  could have sent `buy_now` and `cancel_unpaid` together and kept up to its limit in cash. No loan was
+  opened under that build (the pool's `loansOpened` was 0 after the upgrade), and the upgrade to
+  `61196cc` closed it.
 - **A refund goes to the buyer, not to the pool, and the loan stays owed.** If the escrow refunds an
   order the pool paid for (the merchant never delivers, a late payment is cancelled, a dispute goes
   the buyer's way), the USDC lands in the buyer's token account and the loan is still owed. The buyer is expected to repay
