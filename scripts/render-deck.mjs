@@ -14,7 +14,10 @@
  *
  *   npm run web                          the site must be running
  *   npm run agents                       for the demo deck's live purchase
- *   node scripts/render-deck.mjs pitch   [--voice Daniel] [--no-voice] [--url http://localhost:5173] [--out DIR]
+ *   node scripts/render-deck.mjs pitch   [--voice Daniel] [--no-voice | --mute] [--url http://localhost:5173] [--out DIR]
+ *
+ * --no-voice: silent, each slide for its declared `seconds`. --mute: silent, but
+ * each slide as long as its narration takes, to talk over at the same pace.
  *   node scripts/render-deck.mjs demo
  *
  * Needs macOS (`say`), ffmpeg and Google Chrome. Writes to
@@ -36,12 +39,14 @@ const flag = (k, d) => {
   return i > -1 ? process.argv[i + 1] : d;
 };
 const voice = flag('voice', 'Daniel');
+const mute = process.argv.includes('--mute');
+// Narration is generated for timing whenever it is not --no-voice; --mute leaves it out of the video.
 const withVoice = !process.argv.includes('--no-voice');
 // A slide that performs something live keeps its declared length even if its narration is shorter.
 const floors = new Set(flag('floor', name === 'demo' ? 'checkout' : '').split(',').filter(Boolean));
 const site = flag('url', 'http://localhost:5173');
 const out = resolve(flag('out', join(repo, 'apps/web/slides/dist/videos')));
-const base = `tessera-${name}${withVoice ? '' : '-silent'}`;
+const base = `tessera-${name}${withVoice && !mute ? '' : '-silent'}`;
 const work = join(out, `.${base}`);
 rmSync(work, { recursive: true, force: true });
 mkdirSync(work, { recursive: true });
@@ -69,7 +74,7 @@ for (const s of slides) {
   s.hold = withVoice ? Math.max(4, floors.has(s.id) ? s.seconds : 0, Math.ceil((s.spoken + 1.1) * 10) / 10) : s.seconds;
 }
 const total = slides.reduce((n, s) => n + s.hold, 0);
-console.log(`${name}: ${slides.length} slides, ${total.toFixed(1)} s${withVoice ? ` (voice ${voice})` : ''}`);
+console.log(`${name}: ${slides.length} slides, ${total.toFixed(1)} s${withVoice ? ` (${mute ? 'timed to' : 'voice'} ${voice})` : ''}`);
 for (const s of slides) console.log(`  ${s.id.padEnd(18)} ${s.hold.toFixed(1).padStart(5)} s  ${s.say.slice(0, 70)}`);
 if (total > limit) console.warn(`  !! ${total.toFixed(1)} s is over the ${limit}-second limit: shorten the narration`);
 
@@ -161,7 +166,7 @@ if (anchor > 0) {
 }
 const mp4 = join(out, `${base}.mp4`);
 const args = ['-y', '-loglevel', 'error', '-ss', lead.toFixed(2), '-i', raw];
-if (withVoice) {
+if (withVoice && !mute) {
   let t = 0;
   const delays = [];
   slides.forEach((s, i) => {
