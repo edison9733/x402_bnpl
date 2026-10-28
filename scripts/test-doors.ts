@@ -297,7 +297,7 @@ try {
     capabilities: {
       extensions: [
         {
-          uri: 'https://github.com/edison9733/agentic_commerce/blob/main/docs/A2A-EXTENSION.md',
+          uri: 'https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md',
           params: { wallet, prices: { summary: '50000', telemetry: '200000' }, decimals: 6, x402Resource: 'http://127.0.0.1:1/x402/{skill}' },
         },
       ],

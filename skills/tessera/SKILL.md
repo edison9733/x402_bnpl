@@ -57,7 +57,12 @@ A `status` other than `ok` is never "fine by default":
    `sort: "fastest"`). Its list can be 30 s old, so still do step 1.
 1. `check_payment { merchant, buyer, amount }` → `decision`.
 2. Ask the merchant for its price. A Tessera merchant answers HTTP 402 whose `payTo` is an
-   escrow **order address**, not its own wallet.
+   escrow **order address**, not its own wallet. Where the pay-later pool exists, the 402 also
+   carries an `accepts` entry with scheme `tessera-paylater` (after the standard ones) whose `extra`
+   says your live credit limit and whether you are `eligible`: then the pool can pay the order for
+   you and you repay the price plus the pool's fee by the due date. The MCP and API tools do not do
+   this; the CLI does: `tessera buy-later <merchant agent url> <skill> --keypair ~/my.json`, then
+   `tessera credit <your wallet>` and `tessera repay --all --keypair ~/my.json --send`.
 3. `open_escrow { role: "buyer", merchant, buyer, amount, order: <payTo> }`. The API reads the order
    from the chain and refuses (`verification_failed`, with the `field`) unless the buyer, merchant,
    amount, mint and state all match. If you know what you ordered, pass it as `request` too.
@@ -132,7 +137,7 @@ curl -s 'localhost:4030/v1/merchants?need=text%20summary&buyer=<your wallet>&sor
 
 ```bash
 curl -s localhost:4030/v1/check -H 'content-type: application/json' \
-  -d '{"merchant":"BZ5MNkHdmvLoyof5ojyvsJuK5b1gGo4esPPTb4DGukoJ","buyer":"<your wallet>","amount":"0.20"}'
+  -d '{"merchant":"DzmuSTiwQLnZ4KMtWC3gZ5s68ySstf7UW37Jo4Wm8c2r","buyer":"<your wallet>","amount":"0.20"}'
 ```
 
 ```json
@@ -144,7 +149,7 @@ curl -s localhost:4030/v1/check -H 'content-type: application/json' \
 
 ```bash
 npm run tessera -- find text summary --sort fastest --buyer <address>
-npm run tessera -- check BZ5MNkHdmvLoyof5ojyvsJuK5b1gGo4esPPTb4DGukoJ 0.20 --buyer <address>
+npm run tessera -- check DzmuSTiwQLnZ4KMtWC3gZ5s68ySstf7UW37Jo4Wm8c2r 0.20 --buyer <address>
 npm run tessera -- open buyer --merchant <wallet> --amount 0.20 --order <payTo> --keypair ~/my.json --send
 npm run tessera -- report <order> --outcome satisfied --keypair ~/my.json --send
 ```

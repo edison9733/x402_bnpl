@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { EASE } from '../components/ui';
 import { useChain } from '../lib/store';
 
@@ -94,13 +94,18 @@ export function Deck({ slides, title }: { slides: Slide[]; title: string }) {
     if (auto && ready && startedAt === undefined) setStartedAt(Date.now());
   }, [auto, ready, startedAt]);
 
+  // When the slide on screen was first shown. The timer below counts from it, so a
+  // re-render (a chain read landing, say) does not restart the slide's time.
+  const shownAt = useRef<{ i: number; at: number } | null>(null);
   useEffect(() => {
     window.__deck = { index: i, total: slides.length, done: false, startedAt };
     if (!auto || !ready || startedAt === undefined) return;
+    if (shownAt.current?.i !== i) shownAt.current = { i, at: Date.now() };
+    const left = Math.max(0, secondsOf(i) * 1000 - (Date.now() - shownAt.current.at));
     const t = setTimeout(() => {
       if (i < slides.length - 1) next();
       else window.__deck = { index: i, total: slides.length, done: true, startedAt };
-    }, secondsOf(i) * 1000);
+    }, left);
     return () => clearTimeout(t);
   }, [auto, ready, startedAt, i, next, slides, secondsOf]);
 

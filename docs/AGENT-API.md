@@ -17,7 +17,7 @@ the same statuses, whichever an agent speaks.
 npm install
 npm run api        # the core, against devnet; TESSERA_RPC_URLS=<url,url> for another RPC
 npm run mcp        # MCP on http://127.0.0.1:4040/mcp; TESSERA_API_URL if the API is elsewhere
-npm run tessera -- check BZ5MNkHdmvLoyof5ojyvsJuK5b1gGo4esPPTb4DGukoJ 0.20
+npm run tessera -- check DzmuSTiwQLnZ4KMtWC3gZ5s68ySstf7UW37Jo4Wm8c2r 0.20
 ```
 
 Connect an MCP client:
@@ -50,6 +50,34 @@ an agent needs to see where an order stands, and some agents can sign but have n
 
 The full request and response shapes are in the OpenAPI document the API serves at
 `GET /v1/openapi.json`, generated from the same route table the server runs.
+
+**Pay later is a CLI door only.** A merchant's 402 can carry one more `accepts` entry, scheme
+`tessera-paylater`, in which the pay-later pool offers to pay the quoted order for the buyer against
+its live credit limit ([PAYLATER.md](PAYLATER.md), "Over x402"). None of the tools above build that
+payment; the CLI does, reading the chain itself: `tessera buy-later <merchant agent url> <skill>
+[--input JSON] --keypair PATH` runs the 402, the on-chain check of the order and one `buy_now` signed
+by the buyer; `tessera credit <wallet>` shows the limit and what is owed; `tessera repay --all
+--keypair PATH --send` settles every loan at once.
+
+Who signs the pay-later header: the buyer signs the `buy_now` in `payload.transaction`, with the
+merchant's ops wallet (`extra.feePayer`) named as fee payer and the order's merchant named as a
+signer, and leaves those two signatures empty. The `buy_now` carries the price and request hash the
+buyer verified, and the program refuses an order that does not carry exactly those. `buy_now`
+requires the signatures of both the buyer and the order's merchant, so the pool only pays
+orders their merchant agreed to, at the price their buyer agreed to; the merchant's server checks
+the transaction and that the order at the quoted address is the one it opened, then signs it as fee
+payer and as the merchant (one signature when they are the same wallet) and sends it. A buyer cannot
+send a `buy_now` on its own: `tessera buy-later --order <order> --keypair PATH --merchant-keypair
+PATH` does, and so needs the merchant's key too, which only a local world where you hold both has
+(`npm run paylater:local`). **Both rules are on devnet since 28 October 2026 (UTC+8)**, when the
+pay-later program there was upgraded to the build of `1bd11be`. It now runs the same code built at
+`eca65b0`, which names the escrow at `tESs6b4J…`
+([transaction](https://explorer.solana.com/tx/3YJDEfVq961AwaqKYFwoDRxEfDwJDmLUvXFNHVBjWyGzL9J1U5UrFomjNTLUoxmSG1QN1X1vXunTJBdSwwmp1XgG?cluster=devnet)).
+The purchase on credit that confirmed it on that escrow, Nova buying Quill's 0.25 USDC summary, is a
+`buy_now` that carries the price and request hash, in a transaction with three signatures: the
+merchant server's as fee payer, Nova's and Quill's
+([settle tx](https://explorer.solana.com/tx/2mZxEzfu5ReApNejhCz7GMEwkkBJc7rafjiG3LUiKPNGx1J3oFhxEty3xdLtFfdrJ8Aevauzoy4NX3xVGZJMnzW8?cluster=devnet);
+[SECURITY.md](SECURITY.md#pay-later) P1, P2).
 
 ## How `find_merchants` ranks
 
@@ -86,7 +114,8 @@ that embed an IPv4 address (checked on the address actually connected to), unles
 To see it with real agents, `npm run demo:find` (after `npm run build:program`) starts a local
 validator with the program, has three buyer agents make twelve purchases from four merchant agents
 through this API, each wallet signing its own transactions, then asks `find_merchants` as a new buyer
-and as a regular one. It prints the CLI output and records it in `deployments/find-demo.json`.
+and as a regular one. It prints the CLI output and records it in `deployments/find-demo.json` (the copy in
+the repository is a version 1 record, made on 9 October 2026 on a local validator).
 
 `GET /llms.txt` is the same story in one page of plain text, for agents and the crawlers that feed
 them.

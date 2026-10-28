@@ -43,7 +43,7 @@ devnet settings and two brand-new wallets.
 
 ### Step 0. One-time: install the tools
 
-1. Install **Node 20.18 or newer (22 recommended)**, from https://nodejs.org.
+1. Install **Node 22** (20.19 or newer also works), from https://nodejs.org.
 2. Install the **Solana CLI**:
    ```bash
    sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
@@ -51,8 +51,8 @@ devnet settings and two brand-new wallets.
    Close and reopen the terminal, then check that it works with `solana --version`.
 3. Get the code:
    ```bash
-   git clone https://github.com/edison9733/agentic_commerce.git
-   cd agentic_commerce
+   git clone https://github.com/edison9733/x402_bnpl.git
+   cd x402_bnpl
    npm ci
    ```
 
@@ -94,7 +94,7 @@ last four lines again.
 
 ### Step 3. Start the Tessera API
 
-In a **second terminal**, inside `agentic_commerce`:
+In a **second terminal**, inside `x402_bnpl`:
 
 ```bash
 npm run api

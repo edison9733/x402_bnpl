@@ -90,24 +90,27 @@ async function purchase(
 ): Promise<Purchase | null> {
   const skill = SERVICES[merchant]![0]!.sku;
   const agent = opts.x402 ? new BuyerAgent(b.id, b.actor, { ...b.opts, mode: 'x402' }) : b;
+  // Every attempt is a row, failures with their reason, so a success rate can be read from the file.
+  // `seller` names the merchant; `merchant`, as in the older rows, holds the merchant's own timings.
+  const record = (row: Record<string, unknown>) => appendFileSync(measurements, JSON.stringify({ at: Date.now(), buyer: b.id, seller: merchant, ...row }) + '\n');
   try {
     const p = await agent.buy(agentCardUrl(merchant), skill, inputFor(skill), { minHoldSecs: opts.minHoldSecs });
-    if (p.failed) stats.failed += 1;
-    else {
+    if (p.failed) {
+      stats.failed += 1;
+      record({ mode: p.mode, ok: false, failed: p.failed.slice(0, 200), ...p.timings });
+    } else {
       stats.ok += 1;
       if (p.instant) stats.instant += 1;
       else stats.held += 1;
       if (opts.x402) stats.x402 += 1;
-      appendFileSync(
-        measurements,
-        JSON.stringify({ at: Date.now(), buyer: b.id, merchant, mode: p.mode, instant: p.instant, holdSecs: p.terms.holdSecs, ...p.timings }) + '\n',
-      );
+      record({ mode: p.mode, ok: true, instant: p.instant, holdSecs: p.terms.holdSecs, ...p.timings });
     }
     // Rate (or dispute) in the background once the escrow settles.
     void agent.followUp(p, opts.follow).catch((e) => log(`[${b.id}] follow-up: ${(e as Error).message.slice(0, 100)}`));
     return p;
   } catch (e) {
     stats.failed += 1;
+    record({ mode: opts.x402 ? 'x402' : b.opts.mode, ok: false, failed: (e as Error).message.slice(0, 200) });
     log(`[${b.id}] ${merchant}: ${(e as Error).message.slice(0, 140)}`);
     return null;
   }

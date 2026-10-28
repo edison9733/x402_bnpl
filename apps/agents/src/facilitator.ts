@@ -9,6 +9,7 @@
 import { HTTPFacilitatorClient } from '@x402/core/server';
 import type { PaymentPayload, PaymentRequirements, SettleResponse } from '@x402/core/types';
 import { config } from './config.js';
+import { PaymentRefused } from './paylater.js';
 
 type Known = { url: string; client: HTTPFacilitatorClient; feePayer: string };
 
@@ -100,26 +101,64 @@ export async function facilitators(): Promise<Known[]> {
 export type Settled = { response: SettleResponse; facilitator: string; verifyMs: number; settleMs: number };
 
 /**
+ * A settlement the facilitator reported as failed. Its transaction may still
+ * land (a "settlement_pending" one often does), so it is not a refusal: the
+ * client is told not to pay again, and gets the facilitator's answer as its
+ * PAYMENT-RESPONSE.
+ */
+export class SettlementFailed extends Error {
+  constructor(public readonly response: SettleResponse) {
+    super(`settlement failed: ${response.errorReason ?? 'unknown'} ${response.errorMessage ?? ''}`.trim());
+    this.name = 'SettlementFailed';
+  }
+}
+
+/**
+ * A payment the facilitator did not settle, whose blockhash has since expired
+ * with the order's vault still short: it can never land, nothing was paid, and
+ * the client may pay again (through another facilitator, say).
+ */
+export class PaymentExpired extends PaymentRefused {
+  constructor(detail: string) {
+    super(detail);
+    this.name = 'PaymentExpired';
+  }
+}
+
+/**
  * Verify, then settle. The payment names one facilitator as fee payer, so it
  * goes to that one; a quote for another facilitator is a fresh quote.
+ *
+ * Verifying sends nothing, so every failure up to and including it is a
+ * PaymentRefused: the client may pay again or another way. From the settle
+ * call on, the payment may have been sent, and a failure is not a refusal.
  */
 export async function verifyAndSettle(payload: PaymentPayload, requirements: PaymentRequirements): Promise<Settled> {
   const feePayer = requirements.extra?.feePayer;
   const all = await facilitators();
-  const f = all.find((k) => k.feePayer === feePayer) ?? all[0];
-  if (!f) throw new Error('no x402 facilitator is reachable');
+  if (!all.length) throw new PaymentRefused('no x402 facilitator is reachable, so the payment was not sent; try again later or pay another way');
+  const f = all.find((k) => k.feePayer === feePayer) ?? (feePayer === undefined ? all[0] : undefined);
+  if (!f) throw new PaymentRefused(`the facilitator this payment names as fee payer (${String(feePayer)}) is not reachable now, so the payment was not sent; ask for a new quote`);
 
   const t0 = Date.now();
-  const verified = await f.client.verify(payload, requirements);
+  const verified = await f.client.verify(payload, requirements).catch((e: unknown) => {
+    throw new PaymentRefused(`the facilitator could not verify the payment, so it was not sent: ${e instanceof Error ? e.message : String(e)}`);
+  });
   if (!verified.isValid) {
     // The facilitator may have moved to another fee payer: ask it again for the next quote.
     if (/fee_payer/.test(verified.invalidReason ?? '')) void refresh().catch(() => undefined);
-    throw new Error(`payment rejected by facilitator: ${verified.invalidReason ?? 'unknown'} ${verified.invalidMessage ?? ''}`);
+    throw new PaymentRefused(`payment rejected by facilitator: ${verified.invalidReason ?? 'unknown'} ${verified.invalidMessage ?? ''}`.trim());
   }
   const t1 = Date.now();
-  const response = await f.client.settle(payload, requirements);
-  if (!response.success) {
-    throw new Error(`settlement failed: ${response.errorReason ?? 'unknown'} ${response.errorMessage ?? ''}`);
-  }
+  // A failed settlement may come back as success: false, or (on an HTTP error
+  // status) as the client's SettleError carrying the same fields.
+  const response = await f.client.settle(payload, requirements).catch((e: unknown) => {
+    const s = e as Partial<SettleResponse> & { statusCode?: unknown };
+    if (typeof s?.statusCode === 'number' && typeof s.network === 'string') {
+      throw new SettlementFailed({ success: false, errorReason: s.errorReason, errorMessage: s.errorMessage, payer: s.payer, transaction: s.transaction ?? '', network: s.network });
+    }
+    throw e;
+  });
+  if (!response.success) throw new SettlementFailed(response);
   return { response, facilitator: f.url, verifyMs: t1 - t0, settleMs: Date.now() - t1 };
 }

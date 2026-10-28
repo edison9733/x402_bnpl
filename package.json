@@ -9,21 +9,26 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=20.18"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "build:program": "NO_DNA=1 anchor build",
     "codegen": "tsx packages/sdk/codama.ts",
     "test:formula": "tsx --test packages/sdk/test/*.test.ts",
     "test:local": "tsx scripts/test-local.ts",
+    "test:paylater": "tsx scripts/test-paylater.ts",
+    "test:paylater-402": "tsx scripts/test-paylater-402.ts",
+    "paylater:local": "tsx scripts/paylater-local.ts",
     "setup:devnet": "tsx scripts/setup-devnet.ts",
+    "setup:paylater": "tsx scripts/setup-paylater-devnet.ts",
     "agents": "npm run start -w @tessera/agents",
-    "swarm": "npm run swarm -w @tessera/agents",
+    "swarm": "npm run swarm -w @tessera/agents --",
     "web": "npm run dev -w @tessera/web",
     "build:web": "npm run build -w @tessera/web",
     "typecheck": "tsc -p packages/sdk/tsconfig.json --noEmit && tsc -p apps/agents/tsconfig.json --noEmit && tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/mcp/tsconfig.json --noEmit && tsc -p apps/cli/tsconfig.json --noEmit && tsc -p scripts/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
     "snapshot": "tsx scripts/snapshot.ts",
     "buy": "npm run buy -w @tessera/agents --",
+    "buy:http": "npm run buy:http -w @tessera/agents --",
     "registry": "tsx scripts/registry.ts",
     "test:agents": "tsx scripts/smoke-agents.ts",
     "api": "npm run start -w @tessera/api",
@@ -34,7 +39,8 @@
     "keys:export": "tsx scripts/keys-export.ts",
     "rewards": "tsx scripts/rewards.ts",
     "demo:rewards": "tsx scripts/demo-rewards.ts",
-    "slides": "node apps/web/slides/build.mjs"
+    "slides": "node apps/web/slides/build.mjs",
+    "slides:pdf": "node apps/web/slides/pdf.mjs"
   },
   "devDependencies": {
     "@solana-program/compute-budget": "^0.19.0",

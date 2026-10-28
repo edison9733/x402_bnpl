@@ -13,7 +13,7 @@ use errors::TesseraError;
 use events::*;
 use state::*;
 
-declare_id!("TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ");
+declare_id!("tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry");
 
 /// Tessera: escrow for x402 payments, where an on-chain credit score decides
 /// how long the money is held.

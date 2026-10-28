@@ -1,0 +1,26 @@
+[package]
+name = "tessera-paylater"
+version = "0.1.0"
+description = "Tessera pay-later: buy now, pay later for AI agents, with a credit limit set by the Tessera score"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "tessera_paylater"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "=1.1.2", features = ["init-if-needed"] }
+anchor-spl = { version = "=1.1.2", features = ["token", "associated_token"] }
+# The escrow program's credit files, config and score formula, read directly,
+# and its permissionless `confirm_funded`, called by CPI from `buy_now` so an
+# order the pool paid leaves AwaitingPayment in the same instruction. `cpi`
+# implies `no-entrypoint`; the escrow program itself is not changed.
+tessera = { path = "../tessera", features = ["cpi"] }

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useScroll, useTransform } from 'motion/react';
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { DEVNET_PARAMS, MAINNET_TARGET_PARAMS } from '@tessera/sdk';
+import { DEVNET_PARAMS, MAINNET_TARGET_PARAMS, paylater, TESSERA_PROGRAM_ADDRESS } from '@tessera/sdk';
 import registry from '../../../../deployments/registry.json';
 import snapshot from '../../../../deployments/snapshot.json';
 import { AttackLab } from '../components/AttackLab';
@@ -12,13 +12,13 @@ import { Playground } from '../components/Playground';
 import { ReviewRewards } from '../components/ReviewRewards';
 import { Counter, EASE, Logo, Reveal, TierBadge, Words } from '../components/ui';
 import { NETWORK_LABEL } from '../lib/client';
-import { compactUsd, duration, explorerAddress, TIER_DARK, tierName } from '../lib/format';
+import { compactUsd, duration, explorerAddress, short, TIER_DARK, tierName } from '../lib/format';
 import { Link, usePath } from '../lib/router';
 import { useChain, useProfiles } from '../lib/store';
 import { recordedAt, session } from '../lib/findDemo';
 
-const REPO = 'https://github.com/edison9733/agentic_commerce';
-const PROGRAM = 'TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ';
+const REPO = 'https://github.com/edison9733/x402_bnpl';
+const PROGRAM: string = TESSERA_PROGRAM_ADDRESS;
 
 const mask = { display: 'inline-block', overflow: 'hidden', verticalAlign: 'top', paddingBottom: '0.2em', marginBottom: '-0.12em' } as const;
 
@@ -87,7 +87,7 @@ function Hero() {
           style={{ borderColor: '#ded7c2', background: 'rgba(255,255,255,0.6)' }}
         >
           <span style={{ width: 7, height: 7, borderRadius: 7, background: '#2f8f66', boxShadow: '0 0 0 4px rgba(47,143,102,0.18)' }} />
-          Live on {NETWORK_LABEL} · program TessSe…1CQ
+          Live on {NETWORK_LABEL} · program {short(PROGRAM)}
         </motion.a>
 
         <HeroTitle />
@@ -574,13 +574,13 @@ function Lanes() {
   );
 }
 
-/** Preview rules: the limit at a perfect score for each tier, in test USDC. */
-const PREVIEW_LIMITS = ['0', '2', '5', '10'];
+const PL = paylater.DEVNET_LINE_PARAMS;
+const usdcOf = (u: bigint) => (Number(u) / 1e6).toFixed(2);
 
 function PayLater() {
   const steps = [
-    ['Buy now', 'The pool pays the merchant at once, minus a 2% fee. The buyer agent signs; nobody can borrow in its name.'],
-    ['Pay later', 'The buyer repays the full price by the due date, with no interest. Each on-time repayment raises its limit by 25%, up to double.'],
+    ['Buy now', 'The pool pays the escrow order the merchant quoted, in the buyer\'s place. The escrow pays the merchant on delivery, and the buyer keeps its refund and dispute protection. The buyer agent signs; nobody can borrow in its name.'],
+    ['Pay later', 'The buyer repays the price plus a 2% pool fee by the due date, with no interest. A loan the size of its tier limit, repaid on time, raises its limit by 25%, a smaller one by its share of that, up to double.'],
     ['Or default', 'Miss the due date and its grace period, and anyone can mark the loan in default. The line freezes at zero, in public.'],
   ];
   const path = usePath();
@@ -594,17 +594,17 @@ function PayLater() {
       <div className="wrap">
         <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-end">
           <Reveal className="min-w-0">
-            <Stage kind="fix" n={3} label="Pay later for agents · preview" />
+            <Stage kind="fix" n={3} label="Pay later for agents · new" />
             <h2 className="display mt-4 text-[clamp(2.4rem,5vw,4.2rem)]">
               A good score earns speed. <em>Now it earns credit.</em>
             </h2>
           </Reveal>
           <Reveal delay={0.1} className="min-w-0">
             <p className="text-[1.08rem] leading-relaxed" style={{ color: '#4b483e' }}>
-              Fund the agent roughly, once. When a purchase costs more than its wallet holds, it can buy now and pay later, and the merchant is paid in the same transaction. How much it may borrow comes from the same score that shortens the hold: a wallet with no history gets nothing, and a wallet that earned its tier through real, settled trade gets a credit line.
+              Fund the agent roughly, once. When a purchase costs more than its wallet holds, it can buy now and pay later: a pool pays its escrow order, so the purchase is protected like any other. It can run a tab: buy several things, then settle every loan in one transaction. How much it may borrow comes from the same score that shortens the hold: a wallet with no history gets nothing, and a wallet that earned its tier through real, settled trade gets a credit line.
             </p>
-            <p className="mono mt-4 text-[0.76rem]" style={{ color: '#878371' }}>
-              Status: preview. A second Solana program, tested on a local validator with 48 automated checks, not deployed to devnet yet. The escrow program is unchanged. Code and docs are on the after-v1 branch of the repository.
+            <p className="mono mt-4 text-[0.76rem]" style={{ color: '#878371', overflowWrap: 'anywhere' }}>
+              A second Solana program, on devnet since 27 October 2026 (program LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D, pool GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq): loans there are due in 600 s, with 60 s of grace. Tested on a local validator too (npm run test:paylater; try it by hand with npm run paylater:local, where the term is 60 s). The escrow program is unchanged.
             </p>
           </Reveal>
         </div>
@@ -625,12 +625,12 @@ function PayLater() {
               {[0, 1, 2, 3].map((t) => (
                 <div key={t} className="flex items-center gap-3">
                   <TierBadge tier={t} />
-                  <span className="display text-[1.5rem]">{PREVIEW_LIMITS[t]}</span>
+                  <span className="display text-[1.5rem]">{usdcOf(PL.tierLimit[t]!)}</span>
                 </div>
               ))}
             </div>
             <div className="mono text-[0.76rem] md:text-right" style={{ color: '#878371' }}>
-              limit at a perfect score, test USDC, preview rules
+              limit at a perfect score, devnet USDC
               <br />
               limit = tier limit × score ÷ 1000 × on-time boost
             </div>
@@ -671,7 +671,7 @@ function Score() {
 
 function Rewards() {
   return (
-    <section id="rewards" className="py-24 md:py-32">
+    <section data-nav="/review" id="rewards" className="py-24 md:py-32">
       <div className="wrap">
         <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-end">
           <Reveal className="min-w-0">
@@ -696,6 +696,9 @@ function Rewards() {
               <p className="mt-2 text-[0.97rem] leading-relaxed" style={{ color: '#4b483e' }}>
                 No purchase, no review. The receipt is the settled order on Solana, and you sign with the wallet that made the trade. The buyer rates the merchant, and the merchant rates the buyer, once each.
               </p>
+              <Link to="/review" className="btn btn-ink mt-5">
+                Review an order on the website
+              </Link>
             </div>
             <div className="min-w-0">
               <div className="mono text-[0.72rem]" style={{ color: '#878371' }}>or in the terminal</div>
@@ -740,9 +743,9 @@ function Demo() {
   return (
     <section id="demo" className="wrap py-16 md:py-24" style={{ scrollMarginTop: 80 }}>
       <Reveal>
-        <div className="eyebrow" style={{ color: '#878371' }}>See it in 2 minutes</div>
+        <div className="eyebrow" style={{ color: '#878371' }}>See it in under 3 minutes</div>
         <h2 className="display mt-3 max-w-[20ch] text-[clamp(2.2rem,5vw,4rem)]">
-          Find a seller, pay, deliver, <em>and get a refund when it goes wrong.</em>
+          Find a seller, pay, get a refund, <em>then buy now and pay later.</em>
         </h2>
       </Reveal>
       <Reveal delay={0.1} className="mt-10">
@@ -751,12 +754,12 @@ function Demo() {
           preload="metadata"
           playsInline
           poster="/videos/tessera-demo-poster.jpg"
-          src="/videos/tessera-demo-voiceover.mp4"
+          src="/videos/tessera-demo-paylater.mp4"
           className="w-full"
           style={{ borderRadius: 24, border: '1px solid #272b21', background: '#0b0c0a', boxShadow: '0 50px 100px -50px rgba(20,19,15,0.55)' }}
         />
         <p className="mono mt-3 text-[0.72rem]" style={{ color: '#878371' }}>
-          Real commands and real output, on a local Solana validator running the real Tessera program.
+          Real commands and real output, on a local Solana validator running the real Tessera programs. The first 17 seconds explain why Tessera exists; pay later starts at 2:12.
         </p>
       </Reveal>
     </section>
@@ -905,7 +908,7 @@ function Proof() {
   const { profiles } = useProfiles();
   const rows: [string, string][] = [
     ['395 / 395', 'checks pass against the real program on a local validator, each account compared field by field with a reference model'],
-    ['44 / 44', 'formula and reward tests pass: every guarantee on this page is a test'],
+    ['55 / 55', 'formula and reward tests pass: every guarantee on this page is a test'],
     ['94 / 94', 'checks pass across the four ways in for agents (HTTP API, MCP, skill, CLI), from finding a merchant to a refund'],
     ['0 SOL', 'spent by the buyer on a purchase paid through the x402 facilitator on devnet (balance identical before and after)'],
     [`${((snapshot.measured.facilitatorSettleMsMedian ?? 0) / 1000).toFixed(1)} s`, `median time for the x402 facilitator to settle a payment into escrow on devnet (${snapshot.measured.viaFacilitator} payments measured)`],
@@ -966,7 +969,7 @@ export function Footer({ dark = false }: { dark?: boolean }) {
           <a className="link" href={`mailto:${CONTACT}?subject=Tessera`}>contact</a>
           <a className="link" href={REPO} target="_blank" rel="noreferrer">github</a>
           <a className="link" href="/decks/tessera-pitch-slides.html" target="_blank" rel="noreferrer">slides</a>
-          <a className="link" href="/videos/tessera-demo-voiceover.mp4" target="_blank" rel="noreferrer">demo video</a>
+          <a className="link" href="/videos/tessera-demo-paylater.mp4" target="_blank" rel="noreferrer">demo video</a>
           <a className="link" href="/videos/tessera-demo.mp4" target="_blank" rel="noreferrer">website walkthrough</a>
         </span>
       </div>

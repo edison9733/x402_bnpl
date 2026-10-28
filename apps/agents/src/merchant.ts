@@ -3,30 +3,48 @@
  * is funded does the work, commits a hash of it on-chain and hands it over.
  */
 import { readFileSync } from 'node:fs';
-import { address, getCompiledTransactionMessageDecoder, getPublicKeyFromAddress, verifySignature, type Address } from '@solana/kit';
+import { address, getCompiledTransactionMessageDecoder, getPublicKeyFromAddress, verifySignature, type Address, type Blockhash } from '@solana/kit';
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import type { PaymentPayload, PaymentRequired, PaymentRequirements, SettleResponse } from '@x402/core/types';
 import { decodeTransactionFromPayload, getTokenPayerFromTransaction } from '@x402/svm';
-import { bytesEqual, fromHex, fromUnits, MAX_HOLD_SECS, score, TESSERA_PROGRAM_ADDRESS, TIER_NAMES, toHex, type Config, type Decoded, type Order } from '@tessera/sdk';
+import {
+  bytesEqual,
+  fromHex,
+  fromUnits,
+  MAX_HOLD_SECS,
+  paylater,
+  quotedOrderRefusal,
+  score,
+  TESSERA_PROGRAM_ADDRESS,
+  TIER_NAMES,
+  toHex,
+  type Config,
+  type Decoded,
+  type Order,
+  type QuotedOrder,
+} from '@tessera/sdk';
 import {
   cancelUnpaid,
   confirmFunded,
   deliver,
   getConfig,
+  hasCreditFile,
   openOrder,
   OrderState,
   readAgent,
   readOrder,
   readUntil,
   refund,
+  solBalance,
   vaultBalance,
   type Actor,
 } from './chain.js';
 import { config } from './config.js';
-import { facilitators, verifyAndSettle } from './facilitator.js';
+import { facilitators, PaymentExpired, SettlementFailed, verifyAndSettle, type Settled } from './facilitator.js';
+import { payLaterOption, PaymentRefused, settlePayLater } from './paylater.js';
 import { canonical, hashOf, SERVICES, type Service } from './services.js';
 import { appendLineDurable, dataFile, readJsonFile, writeFileDurable } from './store.js';
-import { chainNow } from '../../../scripts/lib.js';
+import { chainNow, sleep } from '../../../scripts/lib.js';
 
 /**
  * A funded order is delivered, or refunded by its merchant (which costs the
@@ -130,6 +148,13 @@ export type Quote = {
   terms: EscrowTerms;
   required: PaymentRequired;
   openedAt: number;
+  /**
+   * The order's `created_at` as it was opened, in chain seconds: with the
+   * hold and the rent payer it tells this merchant's order from another
+   * opened later at the same address (see `quotedOrderRefusal`). Absent on
+   * quotes kept from before it was recorded.
+   */
+  createdAt?: string;
   /** Who asked for it (a network address), for the caps on what one client may leave unpaid. */
   client: string;
   /** The crank leaves it alone until then, after a step that failed. */
@@ -198,6 +223,53 @@ async function paysThisOrder(payment: PaymentPayload, terms: EscrowTerms): Promi
   }
 }
 
+/** How long to watch a payment the facilitator did not settle: past any blockhash's lifetime (150 slots). */
+const PENDING_WATCH_MS = 150_000;
+
+/**
+ * Settle an exact payment through its facilitator. A settlement it reports as
+ * failed may still land ("settlement_pending" often does), so the vault is
+ * watched until one of two things decides it: the vault is funded (it
+ * landed, and the purchase goes on), or the payment's blockhash has expired
+ * with the vault still short (it never can: PaymentExpired, the client may
+ * pay again). If neither shows within PENDING_WATCH_MS, the failure stands
+ * and the client is told not to pay again.
+ */
+async function settleExact(ops: Actor, payment: PaymentPayload, accepted: PaymentRequirements, terms: EscrowTerms, amount: bigint): Promise<Settled> {
+  try {
+    return await verifyAndSettle(payment, accepted);
+  } catch (e) {
+    if (!(e instanceof SettlementFailed)) throw e;
+    const t0 = Date.now();
+    const blockhash = (() => {
+      try {
+        const tx = decodeTransactionFromPayload(payment.payload as { transaction: string });
+        return getCompiledTransactionMessageDecoder().decode(tx.messageBytes).lifetimeToken as Blockhash;
+      } catch {
+        return undefined;
+      }
+    })();
+    const order = terms.order.slice(0, 8);
+    console.warn(`[fulfil] ${order}: ${e.message}; watching the vault until the payment lands or its blockhash expires`);
+    while (Date.now() - t0 < PENDING_WATCH_MS) {
+      if ((await vaultBalance(ops, terms.vault)) >= amount) {
+        console.log(`[fulfil] ${order}: the payment landed ${Math.round((Date.now() - t0) / 1000)}s after the facilitator reported it failed`);
+        return { response: { ...e.response, success: true, errorReason: undefined, errorMessage: undefined }, facilitator: 'landed late', verifyMs: 0, settleMs: Date.now() - t0 };
+      }
+      const valid = blockhash ? await ops.rpc.isBlockhashValid(blockhash, { commitment: 'confirmed' }).send().then((r) => r.value).catch(() => true) : true;
+      if (!valid) {
+        // A last look a few slots on: it may have landed in the block where the blockhash ran out.
+        await sleep(4000);
+        if ((await vaultBalance(ops, terms.vault)) >= amount) continue;
+        console.warn(`[fulfil] ${order}: the payment's blockhash expired and the vault is still short; it can no longer land`);
+        throw new PaymentExpired(`the facilitator did not settle the payment (${e.response.errorReason ?? 'unknown'}), and it can no longer land: its blockhash has expired and the escrow was not funded. Nothing was paid; pay again.`);
+      }
+      await sleep(2000);
+    }
+    throw e;
+  }
+}
+
 async function readStanding(m: MerchantAgent) {
   const [me, cfg] = await Promise.all([readAgent(m.ops, m.wallet), getConfig(m.ops)]);
   if (!me) return { score: 0, tier: TIER_NAMES[0], instantLimit: '0' };
@@ -214,6 +286,37 @@ async function readStanding(m: MerchantAgent) {
 type Standing = Awaited<ReturnType<typeof readStanding>>;
 
 type SavedState = { v: 1; quotes: Record<string, Quote>; fulfilled: Record<string, Delivered> };
+
+/**
+ * Credit files this server's quotes created for wallets that had none, by
+ * client, over the last hour. A quote for a new wallet costs the ops wallet
+ * the rent of that wallet's credit file, which never comes back, and wallet
+ * addresses cost nothing to invent: the caps on unpaid quotes bound how many
+ * are open at once, this bounds how many such files one client can have made.
+ * Shared by every merchant this process runs, since a wallet has one file.
+ */
+const newWallets = new Map<string, number[]>();
+const HOUR_MS = 3_600_000;
+function recentNewWallets(client: string): number[] {
+  const kept = (newWallets.get(client) ?? []).filter((t) => t > Date.now() - HOUR_MS);
+  if (kept.length) newWallets.set(client, kept);
+  else newWallets.delete(client);
+  return kept;
+}
+
+/** The ops wallet's SOL, read at most every 15 s by everyone who quotes. */
+let opsSol: { at: number; value: Promise<bigint> } | undefined;
+function opsBalance(ops: Actor): Promise<bigint> {
+  if (!opsSol || Date.now() - opsSol.at > 15_000) {
+    const value = solBalance(ops, ops.identity.address);
+    const mine = { at: Date.now(), value };
+    opsSol = mine;
+    value.catch(() => {
+      if (opsSol === mine) opsSol = undefined;
+    });
+  }
+  return opsSol.value;
+}
 
 export class MerchantAgent {
   /** Orders this merchant quoted and has not yet delivered, by order address. Kept on disk across restarts. */
@@ -242,7 +345,7 @@ export class MerchantAgent {
   constructor(
     readonly id: string,
     readonly title: string,
-    /** Signs deliveries. */
+    /** Signs deliveries, the orders it opens, and the buy_now of a purchase on credit. */
     readonly signer: Actor,
     /** Fronts rent for orders, so buyers need no SOL. */
     readonly ops: Actor,
@@ -381,7 +484,23 @@ export class MerchantAgent {
     }
     const slot = { buyer, client };
     this.opening.add(slot);
+    let newWallet: number | undefined;
     try {
+      // The ops wallet fronts every quote's rent, and pays the network fees
+      // that settle, release and refund what is already open. Below this it
+      // opens nothing new, so what it has left goes to the orders it holds.
+      const sol = await opsBalance(this.ops);
+      if (sol < BigInt(config.quoteSolFloorLamports)) {
+        throw new Error(`the merchant's ops wallet is low on SOL (${(Number(sol) / 1e9).toFixed(4)}); it opens no new quotes until it is topped up`);
+      }
+      if (!(await hasCreditFile(this.ops, buyer))) {
+        if (recentNewWallets(client).length >= config.maxNewWalletsPerHour) {
+          throw new Error(`this address has had credit files made for ${config.maxNewWalletsPerHour} new wallets in the last hour; quote for a wallet that already has one, or try again later`);
+        }
+        newWallet = Date.now();
+        newWallets.set(client, [...recentNewWallets(client), newWallet]);
+        if (newWallets.size > 5000) newWallets.delete(newWallets.keys().next().value!);
+      }
       const cfg = await getConfig(this.ops);
       // The merchant co-signs the hold. A buyer may ask for a longer one than
       // the tiers call for, within reason: until it ends the merchant is not paid.
@@ -395,6 +514,8 @@ export class MerchantAgent {
         requestHash,
         minHoldSecs: minHoldSecs || undefined,
       });
+      // The order is open, so any credit file it needed is made: that counts.
+      newWallet = undefined;
       const d = opened.data;
       const terms: EscrowTerms = {
         program: TESSERA_PROGRAM_ADDRESS,
@@ -425,6 +546,13 @@ export class MerchantAgent {
         maxTimeoutSeconds: 120,
         extra: { feePayer: f.feePayer, facilitator: f.url },
       }));
+      // Then, where this network has the pay-later pool, the same order on
+      // credit. After the `exact` entries, so a standard client takes those.
+      const onCredit = await payLaterOption(this, { buyer, order: opened.order, amount: d.amount, mint: d.mint }, cfg).catch((e: Error) => {
+        console.warn(`[quote] ${this.id}: could not offer pay later: ${e.message.slice(0, 120)}`);
+        return null;
+      });
+      if (onCredit) accepts.push(onCredit.requirement);
       const required: PaymentRequired = {
         x402Version: 2,
         resource: {
@@ -433,15 +561,35 @@ export class MerchantAgent {
           mimeType: 'application/json',
         },
         accepts,
-        extensions: { tessera: terms },
+        extensions: { tessera: onCredit ? { ...terms, payLater: onCredit.offer } : terms },
       };
-      const quote: Quote = { sku: service.sku, input, terms, required, openedAt: Date.now(), client };
+      const quote: Quote = { sku: service.sku, input, terms, required, openedAt: Date.now(), createdAt: d.createdAt.toString(), client };
       this.quotes.set(opened.order, quote);
       this.save();
       return quote;
     } finally {
       this.opening.delete(slot);
+      // No order opened, so no credit file was made: the slot goes back.
+      if (newWallet !== undefined) {
+        const kept = recentNewWallets(client).filter((t) => t !== newWallet);
+        if (kept.length) newWallets.set(client, kept);
+        else newWallets.delete(client);
+      }
     }
+  }
+
+  /** The order this merchant opened for a quote, as it recorded it, for `quotedOrderRefusal`. */
+  private quoted(q: Quote): QuotedOrder {
+    return {
+      buyer: q.terms.buyer,
+      merchant: q.terms.merchant,
+      mint: q.terms.mint,
+      amount: BigInt(q.terms.amount),
+      requestHash: fromHex(q.terms.requestHash),
+      holdSecs: q.terms.holdSecs,
+      payer: this.ops.identity.address,
+      ...(q.createdAt !== undefined ? { createdAt: BigInt(q.createdAt) } : {}),
+    };
   }
 
   /**
@@ -467,7 +615,8 @@ export class MerchantAgent {
       throw new Error('this order was already delivered');
     }
     const quote = this.quotes.get(orderAddress);
-    if (!quote) throw new Error('unknown or already fulfilled order');
+    // With a payment attached nothing of it was sent anywhere, so the client may quote again.
+    if (!quote) throw payment ? new PaymentRefused('unknown or already fulfilled order; ask for a new quote') : new Error('unknown or already fulfilled order');
     const done = this.work(orderAddress, quote, payment, proof).finally(() => this.inflight.delete(orderAddress));
     this.inflight.set(orderAddress, { payment: proof, client: client ?? 'local', done });
     return done;
@@ -479,41 +628,79 @@ export class MerchantAgent {
     const receipts: SettleResponse[] = [];
     const t0 = Date.now();
     const cfg = await getConfig(this.ops);
+    let paidOnCredit = false;
 
     if (payment) {
+      // Every refusal before the payment is handed to a facilitator or
+      // signed is a PaymentRefused: nothing was sent, the buyer may pay
+      // another way. Once it could have moved, a plain Error says not to.
       const accepted = quote.required.accepts.find(
-        (a) => a.payTo === payment.accepted.payTo && a.extra?.feePayer === payment.accepted.extra?.feePayer,
+        (a) => a.scheme === payment.accepted.scheme && a.payTo === payment.accepted.payTo && a.extra?.feePayer === payment.accepted.extra?.feePayer,
       );
       if (!accepted || payment.accepted.amount !== accepted.amount || payment.accepted.asset !== accepted.asset) {
-        throw new Error('payment does not match any option that was quoted');
+        throw new PaymentRefused('payment does not match any option that was quoted');
       }
+      const onCredit = accepted.scheme === paylater.X402_SCHEME;
       // The order address is public on-chain. Without this, anyone could pay
       // for an order quoted to another wallet and walk off with what that
       // wallet asked for. The buyer's signature and what it signed are checked
-      // here, not left to the facilitator.
-      if (!(await paysThisOrder(payment, quote.terms))) {
-        throw new Error('payment does not match: it is not this order\'s buyer paying this order\'s vault');
+      // here, not left to the facilitator. A purchase on credit is checked the
+      // same way, against the one buy_now this merchant will sign for.
+      if (!onCredit && !(await paysThisOrder(payment, quote.terms))) {
+        throw new PaymentRefused('payment does not match: it is not this order\'s buyer paying this order\'s vault');
       }
       // Only a payment that funds this order now is taken as paying for it.
       // One funded some other way is collected the way it was ordered, and
       // after settling, the vault, not the facilitator's word, says it was paid.
+      // An order already paid may have been paid by an earlier try of this
+      // same payment, so this one stays a plain Error: do not pay again.
       const before = await readOrder(this.ops, order);
       if (!before || before.state !== OrderState.AwaitingPayment || (await vaultBalance(this.ops, quote.terms.vault)) >= before.amount) {
         throw new Error('payment does not match: this order is already paid or closed');
       }
-      if ((await chainNow(this.ops)) + PAY_MARGIN_SECS > before.createdAt + BigInt(cfg.params.unpaidSecs)) {
-        throw new Error('the payment window for this quote has closed; ask for a new quote');
+      // The order at the quoted address must be the one this merchant opened.
+      // On an escrow build without the B13 and B16 fixes (the retired version 1
+      // escrow on devnet is one) the buyer may cancel the quote and open another
+      // order at the same address, in this merchant's name, at any price and
+      // hold: this merchant signs for, and delivers, only its own.
+      const swapped = quotedOrderRefusal(before, this.quoted(quote));
+      if (swapped) {
+        throw new PaymentRefused(`payment does not match: the order at ${order} is not the one this merchant quoted (${swapped}); ask for a new quote`);
       }
-      const settled = await verifyAndSettle(payment, accepted);
+      if ((await chainNow(this.ops)) + PAY_MARGIN_SECS > before.createdAt + BigInt(cfg.params.unpaidSecs)) {
+        throw new PaymentRefused('the payment window for this quote has closed; ask for a new quote');
+      }
+      // On credit this merchant is the facilitator: it signs the buyer's
+      // buy_now as fee payer (the ops wallet) and as the order's merchant
+      // (its own key, which buy_now requires) and sends it, and when that
+      // lands the order is already Funded (buy_now calls the escrow's
+      // confirm_funded itself). Otherwise the facilitator named in the option
+      // settles the transfer, and the order is confirmed below.
+      const settled = onCredit ? await settlePayLater(this.ops, this.signer, payment, quote.terms) : await settleExact(this.ops, payment, accepted, quote.terms, before.amount);
+      paidOnCredit = onCredit;
       receipts.push(settled.response);
       timings.verifyMs = settled.verifyMs;
       timings.settleMs = settled.settleMs;
+      if ('loan' in settled) console.log(`[fulfil] ${order.slice(0, 8)}: the pool paid ${fromUnits(before.amount)} USDC into escrow for ${quote.terms.buyer.slice(0, 8)}; loan ${settled.loan.slice(0, 8)}`);
     }
 
     // The program decides whether the order is paid. Not the facilitator, not us.
     let o = await readOrder(this.ops, order);
     if (!o) throw new Error('order no longer exists');
+    if (paidOnCredit) {
+      // The buy_now that landed paid the vault and had the escrow confirm the
+      // order in the same instruction. An order that still reads as awaiting
+      // payment is a read from a node a slot behind: wait for it, and never
+      // send a confirm_funded of our own (it would only fail).
+      o = await readUntil(() => readOrder(this.ops, order), (x) => x !== null && x.state !== OrderState.AwaitingPayment, 10);
+      if (!o || o.state === OrderState.AwaitingPayment) throw new Error('the pay-later purchase landed, but the order does not read as funded yet');
+    }
     if (o.state === OrderState.AwaitingPayment) {
+      // Not the order quoted here: this merchant does not confirm it (see the payment check above).
+      // The whole record is compared, not only the price and request: a buyer that reopened the
+      // quote at the quoted price, with a hold of its own, and paid it itself, is not served either.
+      const swapped = quotedOrderRefusal(o, this.quoted(quote));
+      if (swapped) throw new Error(`the order at ${order} is not the one this merchant quoted (${swapped}); it is not confirmed or delivered`);
       const amount = o.amount;
       const funded = await readUntil(() => vaultBalance(this.ops, quote.terms.vault), (b) => b >= amount, 6);
       if (funded < amount) throw new Error('the escrow vault has not been funded yet');
@@ -544,6 +731,13 @@ export class MerchantAgent {
     // refunded at once rather than left to expire.
     const funded = o;
     try {
+      // Delivered only for the order this merchant opened: one put at this
+      // address by someone else (another price, another hold, another rent
+      // payer) is refunded at once (its merchant's refund costs nothing). A
+      // purchase on credit carries the price and request in the signed
+      // buy_now, so for one the program has already checked those two.
+      const swapped = quotedOrderRefusal(funded, this.quoted(quote));
+      if (swapped) throw new Error(`the order at ${order} is not the one this merchant quoted (${swapped}); not delivering it`);
       const service = this.service(quote.sku);
       const margin = refundMargin(cfg);
       await this.beforeDeadline(funded, margin);
@@ -717,6 +911,13 @@ export class MerchantAgent {
       this.save();
     };
     if (!o) return drop();
+    // Another order now sits at the quoted address (the escrow build on devnet
+    // lets a party close an unpaid order and anyone open one there): the
+    // quote is over. That order is not this merchant's: it is not confirmed or
+    // delivered here, and if it is funded, its buyer gets the money back with
+    // cancel_unpaid or, once confirmed, with the refund anyone may call after
+    // the delivery deadline.
+    if (quotedOrderRefusal(o, this.quoted(q))) return drop();
     switch (o.state) {
       case OrderState.AwaitingPayment:
         if (now < o.createdAt + BigInt(cfg.params.unpaidSecs) + 15n) return;
@@ -793,5 +994,5 @@ const stub = (o: Order, order: string): Quote => ({
 export const pruneEvidence = (cfg: Config): number => compactEvidence(cfg.params.complaintSecs);
 
 export const requestHashHex = async (sku: string, input: unknown) => toHex(await hashOf({ sku, input }));
-export { canonical, fromHex };
+export { canonical, fromHex, PaymentRefused };
 export type { Order };

@@ -14,7 +14,7 @@ import { fetchMaybeOrder, type Order } from './generated/accounts/order.js';
 import { OrderState } from './generated/types/orderState.js';
 import { TESSERA_PROGRAM_ADDRESS } from './generated/programs/tessera.js';
 import { orderAddresses, reviewPdaOf } from './pda.js';
-import { bytesEqual } from './util.js';
+import { bytesEqual, type ReadonlyUint8ArrayLike } from './util.js';
 
 export type ExpectedOrder = {
   orderId: Uint8Array;
@@ -89,4 +89,54 @@ export async function verifyOrderForPayment(
     throw new OrderVerificationError('orderId', 'was used before, and this wallet already reviewed that order');
   }
   return { order, vault, data: d };
+}
+
+/**
+ * What a merchant recorded about an order when it opened it as a quote: the
+ * terms a payment pays for, and what only its own `open_order` set (the hold,
+ * the wallet that fronted the rent, the chain time it was opened at).
+ */
+export type QuotedOrder = {
+  buyer: Address;
+  merchant: Address;
+  mint: Address;
+  amount: bigint;
+  requestHash: ReadonlyUint8ArrayLike;
+  holdSecs?: number;
+  payer?: Address;
+  createdAt?: bigint;
+};
+
+/**
+ * Why the order now at a quoted address is not the order the merchant quoted
+ * there, or undefined when it is. The merchant's side of
+ * `verifyOrderForPayment`: an order's address comes from its id alone, and
+ * on the escrow build on devnet either party may close an unpaid order at
+ * any time and anyone may open another at the same address, naming any
+ * merchant without its signature. So before a merchant signs for a payment,
+ * settles one or delivers, it compares the order with its own record.
+ *
+ * `terms` compares what a payment pays for (buyer, merchant, mint, price,
+ * request hash). `opened`, the default, also compares the hold, the rent
+ * payer and the time it was opened, which tell the merchant's own order from
+ * one reopened at its address with the same price; the escrow sets all three
+ * only when it opens an order, so the merchant server uses `opened` before it
+ * signs, confirms or delivers. A field the record does not hold (a quote kept
+ * from an older run) is not compared.
+ */
+export function quotedOrderRefusal(
+  o: Pick<Order, 'buyer' | 'merchant' | 'mint' | 'amount' | 'requestHash' | 'holdSecs' | 'payer' | 'createdAt'>,
+  q: QuotedOrder,
+  compare: 'terms' | 'opened' = 'opened',
+): string | undefined {
+  if (o.buyer !== q.buyer) return `its buyer is ${o.buyer}, not ${q.buyer}`;
+  if (o.merchant !== q.merchant) return `its merchant is ${o.merchant}, not ${q.merchant}`;
+  if (o.mint !== q.mint) return `its mint is ${o.mint}, not ${q.mint}`;
+  if (o.amount !== q.amount) return `its price is ${o.amount} units, not the ${q.amount} quoted`;
+  if (!bytesEqual(o.requestHash, q.requestHash)) return 'its request hash is not the one quoted';
+  if (compare === 'terms') return undefined;
+  if (q.holdSecs !== undefined && o.holdSecs !== q.holdSecs) return `its hold is ${o.holdSecs} s, not the ${q.holdSecs} s quoted`;
+  if (q.payer !== undefined && o.payer !== q.payer) return `its rent was paid by ${o.payer}, not by the merchant's wallet`;
+  if (q.createdAt !== undefined && o.createdAt !== q.createdAt) return `it was opened at ${o.createdAt}, not at ${q.createdAt} when it was quoted`;
+  return undefined;
 }

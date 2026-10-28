@@ -5,7 +5,16 @@
  * paid. A merchant only ever asks the program to look at the vault
  * (`confirm_funded`), and the program decides.
  */
-import { getBase58Decoder, getBase64Encoder, isSolanaError, type Address, type Instruction, type TransactionSigner } from '@solana/kit';
+import {
+  getBase58Decoder,
+  getBase64Encoder,
+  isSolanaError,
+  type Address,
+  type Base64EncodedWireTransaction,
+  type Instruction,
+  type Signature,
+  type TransactionSigner,
+} from '@solana/kit';
 import { fetchMaybeToken } from '@solana-program/token';
 import {
   agentPdaOf,
@@ -75,6 +84,50 @@ export async function send(
   }
 }
 
+/**
+ * Send a transaction that is already signed (a buyer's, co-signed by this
+ * server) and wait for it to land, the way `send` does: plain HTTP, polled,
+ * broadcast again every few seconds until it is confirmed or its blockhash
+ * can no longer be. `landed` says whether an attempt went through anyway.
+ */
+export async function sendSigned(actor: Actor, wire: Base64EncodedWireTransaction, signature: Signature, landed: () => Promise<boolean>): Promise<void> {
+  const broadcast = () => actor.rpc.sendTransaction(wire, { encoding: 'base64', preflightCommitment: 'confirmed' }).send();
+  try {
+    await broadcast();
+  } catch (err) {
+    if (await landed().catch(() => false)) return;
+    throw err;
+  }
+  const started = Date.now();
+  let lastBroadcast = started;
+  for (;;) {
+    await sleep(500);
+    const { value } = await read(() => actor.rpc.getSignatureStatuses([signature]).send());
+    const status = value[0];
+    if (status?.err) throw new TransactionFailed(signature, status.err);
+    if (status && (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized')) return;
+    if (Date.now() - started > 60_000) {
+      if (await landed().catch(() => false)) return;
+      throw new Error(`transaction ${signature} was not confirmed within 60 s`);
+    }
+    if (Date.now() - lastBroadcast > 6000) {
+      lastBroadcast = Date.now();
+      await broadcast().catch(() => undefined);
+    }
+  }
+}
+
+/** A transaction that landed and failed: atomic, so it changed nothing but the fee its fee payer paid. */
+export class TransactionFailed extends Error {
+  constructor(
+    readonly signature: string,
+    readonly err: unknown,
+  ) {
+    super(`transaction ${signature} failed: ${JSON.stringify(err, (_, v) => (typeof v === 'bigint' ? Number(v) : v))}`);
+    this.name = 'TransactionFailed';
+  }
+}
+
 /** Retry a read that failed only because the RPC was busy. */
 export async function read<T>(fn: () => Promise<T>): Promise<T> {
   for (let attempt = 1; ; attempt += 1) {
@@ -115,6 +168,19 @@ export async function liveScore(actor: Actor, wallet: Address) {
 /** Wallets known to have a credit file, so nobody asks twice. */
 const hasProfile = new Set<Address>();
 
+/** Whether a wallet has a Tessera credit file (a wallet known to have one is not read again). */
+export async function hasCreditFile(actor: Actor, wallet: Address): Promise<boolean> {
+  if (hasProfile.has(wallet)) return true;
+  if (!(await readAgent(actor, wallet))) return false;
+  hasProfile.add(wallet);
+  return true;
+}
+
+/** A wallet's SOL, in lamports. */
+export async function solBalance(actor: Actor, wallet: Address): Promise<bigint> {
+  return (await read(() => actor.rpc.getBalance(wallet, { commitment: 'confirmed' }).send())).value;
+}
+
 /**
  * Read until the chain shows what a transaction we just confirmed did. With
  * more than one RPC endpoint behind the client, a read can land on a node
@@ -146,9 +212,7 @@ export async function openOrder(
   const { order, vault } = await orderAddresses(id, config.mint);
   const ixs: Instruction[] = [];
   for (const wallet of [p.buyer, p.merchant.address]) {
-    if (hasProfile.has(wallet)) continue;
-    if (await readAgent(payer, wallet)) hasProfile.add(wallet);
-    else ixs.push(await getEnsureAgentInstructionAsync({ wallet, payer: payer.identity }));
+    if (!(await hasCreditFile(payer, wallet))) ixs.push(await getEnsureAgentInstructionAsync({ wallet, payer: payer.identity }));
   }
   ixs.push(
     await getOpenOrderInstructionAsync({
@@ -178,7 +242,8 @@ const ORDER_OFFSET = { merchant: 72n, payer: 104n, state: 210n } as const;
 /**
  * The orders of one merchant, or one rent payer, optionally in one state.
  * The RPC filters them, so this does not download every order in the program
- * (they are kept on-chain as history, and anyone can open them).
+ * (settled orders stay on-chain as history unless the server runs with
+ * CLOSE_SETTLED_ORDERS=1, and anyone can open them).
  */
 export async function findOrders(actor: Actor, where: { merchant?: Address; payer?: Address; state?: OrderState }): Promise<Decoded<Order>[]> {
   const b58 = (bytes: Uint8Array) => getBase58Decoder().decode(bytes);
@@ -319,9 +384,83 @@ export async function cancelUnpaid(payer: Actor, order: Address, o: Order): Prom
   );
 }
 
+/**
+ * Which `close_order` account list the escrow on this network takes. The
+ * retired version 1 escrow on devnet (TessSeP5…, the 4 October build of
+ * commit c6dbcd7) has a `close_order` with no vault account: its fourth account is the payer. Given
+ * the current list it reads the vault as the payer and refuses with
+ * Unauthorized (error 6000), which no current build can return here, since
+ * the payer is read from the order itself. The first such refusal settles it
+ * for the life of the process.
+ */
+let closeWithoutVault: boolean | undefined;
+
+/** The account list `close_order` has used in this process: 'current', 'without vault' (the devnet build), or undefined before the first close. */
+export const closeOrderAccountList = (): string | undefined =>
+  closeWithoutVault === undefined ? undefined : closeWithoutVault ? 'without vault' : 'current';
+
+const isUnauthorized = (err: unknown) => /custom program error: 0x1770\b|Error Code: Unauthorized\b/.test(errText(err));
+
 /** Return a settled or cancelled order's rent to whoever paid it, once the program allows. Anyone may. */
 export async function closeOrder(actor: Actor, order: Address, o: Order): Promise<string> {
-  return send(actor, [await getCloseOrderInstructionAsync({ order, vault: await findAta(order, o.mint), merchantAgent: await agentPdaOf(o.merchant), payer: o.payer })]);
+  const ix = await getCloseOrderInstructionAsync({ order, vault: await findAta(order, o.mint), merchantAgent: await agentPdaOf(o.merchant), payer: o.payer });
+  // config, order, merchant agent, payer: the list without the vault (the fourth account).
+  const withoutVault: Instruction = { ...ix, accounts: ix.accounts.filter((_, i) => i !== 3) };
+  if (closeWithoutVault) return send(actor, [withoutVault]);
+  try {
+    const sig = await send(actor, [ix]);
+    closeWithoutVault = false;
+    return sig;
+  } catch (err) {
+    if (closeWithoutVault === false || !isUnauthorized(err)) throw err;
+    closeWithoutVault = true;
+    return send(actor, [withoutVault]);
+  }
+}
+
+/**
+ * Settled orders whose rent `actor` fronted and that `close_order` will close
+ * now: Released, Refunded or Resolved, with their review window over (their
+ * complaint window, for an instant order the buyer complained about). Both
+ * escrow builds allow exactly these. Cancelled orders exist only on the
+ * current source and are closed separately, once their payment window has
+ * passed again; a Disputed order is never closed.
+ */
+export async function closableOrders(actor: Actor, cfg: Config, now: bigint): Promise<Decoded<Order>[]> {
+  const payer = actor.identity.address;
+  const settled = await Promise.all([OrderState.Released, OrderState.Refunded, OrderState.Resolved].map((state) => findOrders(actor, { payer, state })));
+  return settled
+    .flat()
+    .filter(({ data: o }) => now > o.settledAt + BigInt(o.complained ? cfg.params.complaintSecs : cfg.params.reviewSecs))
+    .sort((a, b) => Number(a.data.settledAt - b.data.settledAt));
+}
+
+/**
+ * Close up to `max` of `closableOrders`, oldest first, so the rent `actor`
+ * fronted for them comes back to it: one transaction each, with the account
+ * list the escrow on this network takes (`closeOrder`). Returns the orders
+ * closed. The merchant server's crank runs this when CLOSE_SETTLED_ORDERS=1;
+ * anyone holding the payer's key could.
+ */
+export async function closeSettledOrders(
+  actor: Actor,
+  cfg: Config,
+  now: bigint,
+  opts: { max?: number; skip?: (order: string) => boolean; onFail?: (order: string, e: unknown) => void } = {},
+): Promise<Address[]> {
+  const closed: Address[] = [];
+  for (const { address: order, data: o } of await closableOrders(actor, cfg, now)) {
+    if (closed.length >= (opts.max ?? 25)) break;
+    if (opts.skip?.(order)) continue;
+    try {
+      await closeOrder(actor, order, o);
+      closed.push(order);
+    } catch (e) {
+      if (!opts.onFail) throw e;
+      opts.onFail(order, e);
+    }
+  }
+  return closed;
 }
 
 export async function openDispute(buyer: Actor, order: Address, o: Order, disputeHash: Uint8Array): Promise<string> {

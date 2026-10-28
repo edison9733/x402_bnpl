@@ -24,12 +24,14 @@ import {
   encodePaymentRequiredHeader,
   encodePaymentResponseHeader,
 } from '@x402/core/http';
+import type { PaymentPayload } from '@x402/core/types';
 import { bytesEqual, fromUnits, TIER_NAMES, type Decoded, type Order } from '@tessera/sdk';
 import { ADVERSARIES, keyPath, MERCHANTS } from '../../../scripts/cast.js';
 import { chainNow, clientForSigner, forgetEnvKeys, loadKeypair, sleep, tokenHelpers } from '../../../scripts/lib.js';
 import { agentCard, handleRpc } from './a2a.js';
 import {
   closeOrder,
+  closeSettledOrders,
   findOrders,
   getConfig,
   OrderState,
@@ -38,13 +40,15 @@ import {
   release,
   resolveDispute,
   send,
+  solBalance,
   submitReview,
   cancelUnpaid,
   type Actor,
 } from './chain.js';
 import { config } from './config.js';
-import { facilitators } from './facilitator.js';
-import { loadEvidence, MerchantAgent, pruneEvidence, type Behaviour } from './merchant.js';
+import { facilitators, SettlementFailed } from './facilitator.js';
+import { loadEvidence, MerchantAgent, PaymentRefused, pruneEvidence, type Behaviour } from './merchant.js';
+import { markOverdue, poolInfo } from './paylater.js';
 import { hashOf } from './services.js';
 import { dataDir, writeFileDurable } from './store.js';
 
@@ -278,6 +282,20 @@ app.post('/agents/:id/a2a', (req, res, next) => (req.body?.params?.message?.task
 });
 
 // ------------------------------------------------------- plain HTTP 402
+/** The payment in a PAYMENT-SIGNATURE header. One that does not decode, or is not x402 version 2, was never sent: refused. */
+function paymentFrom(header: string): PaymentPayload {
+  let payload: PaymentPayload;
+  try {
+    payload = decodePaymentSignatureHeader(header);
+  } catch {
+    throw new PaymentRefused('the PAYMENT-SIGNATURE header is not a base64-encoded x402 payment payload');
+  }
+  if (payload?.x402Version !== 2 || typeof payload.accepted?.payTo !== 'string') {
+    throw new PaymentRefused(`only x402 version 2 payment payloads are accepted (this one is version ${String(payload?.x402Version)})`);
+  }
+  return payload;
+}
+
 app.get('/agents/:id/x402/:skill', (req, res, next) => (req.header('PAYMENT-SIGNATURE') ? fulfilLimit : quoteLimit)(req, res, next), taking, async (req, res) => {
   const m = merchantOf(req, res);
   if (!m) return;
@@ -297,13 +315,19 @@ app.get('/agents/:id/x402/:skill', (req, res, next) => (req.header('PAYMENT-SIGN
       res.setHeader('PAYMENT-REQUIRED', encodePaymentRequiredHeader(quote.required));
       return void res.status(402).json(quote.required);
     }
-    const payload = decodePaymentSignatureHeader(header);
+    const payload = paymentFrom(header);
     const f = await m.fulfil(payload.accepted.payTo, payload, clientKey(req));
     if (f.receipts[0]) res.setHeader('PAYMENT-RESPONSE', encodePaymentResponseHeader(f.receipts[0]));
     res.json({ result: f.deliverable, escrow: { order: f.order, deliveryHash: f.deliveryHash, state: f.state, instant: f.instant, releaseAt: f.releaseAt } });
   } catch (e) {
-    // Once money has moved, never invite the client to pay again.
-    const paid = Boolean(header);
+    const logs = (e as { context?: { logs?: string[] } }).context?.logs;
+    console.warn(`[x402] ${m.id}/${String(req.params.skill)}: ${publicMessage(e).slice(0, 160)}${logs?.length ? `\n  ${logs.slice(-4).join('\n  ')}` : ''}`);
+    // Once money may have moved, never invite the client to pay again. A
+    // credit purchase refused before this merchant signed anything is the
+    // one case where nothing has: the client may pay another way.
+    const paid = Boolean(header) && !(e instanceof PaymentRefused);
+    // The facilitator's own answer, so an x402 client can read why it failed.
+    if (e instanceof SettlementFailed) res.setHeader('PAYMENT-RESPONSE', encodePaymentResponseHeader(e.response));
     res.status(paid ? 502 : 400).json({
       error: publicMessage(e),
       ...(paid ? { note: 'Do not pay again. If the escrow was funded, the merchant refunds it before the delivery deadline.' } : {}),
@@ -374,6 +398,7 @@ app.post('/api/orders/:order/fulfil', fulfilLimit, async (req, res) => {
 // Devnet only: a little SOL and test USDC so a visitor (or the site's
 // built-in test wallet) can try a purchase without hunting for a faucet.
 const DRIP_USDC = 800_000n;
+const DRIP_LAMPORTS = 20_000_000n;
 const dripped = new Set<string>();
 const dripping = new Set<string>();
 /** When each drip in the last hour was handed out, or has been promised: a slot is taken before the first await. */
@@ -415,11 +440,24 @@ app.post('/api/faucet', faucetLimit, taking, async (req, res) => {
     dripping.add(to);
     slot = Date.now();
     drips.push(slot);
+    // The ops wallet also fronts every quote's rent and pays the fees that
+    // settle orders and buy on credit: the faucet never takes it below the
+    // floor that keeps those going. A drip costs the SOL sent, the new
+    // token account's rent and the fee (0.01 SOL covers the last two).
+    const held = await solBalance(ops, ops.identity.address);
+    const floor = BigInt(config.faucetSolFloorLamports);
+    if (held < floor + DRIP_LAMPORTS + 10_000_000n) {
+      if (slot !== undefined) drips.splice(drips.indexOf(slot), 1);
+      slot = undefined;
+      return void res.status(503).json({
+        error: `the demo faucet is paused: the server's ops wallet holds ${(Number(held) / 1e9).toFixed(4)} SOL and keeps at least ${(Number(floor) / 1e9).toFixed(2)} SOL to front escrow rent for quotes and pay settlement fees. Get devnet SOL at faucet.solana.com and test USDC at faucet.circle.com`,
+      });
+    }
     const cfg = await getConfig(ops);
     const tok = tokenHelpers(ops, cfg.mint);
     await refillFaucet(tok);
     const signature = await send(ops, [
-      getTransferSolInstruction({ source: ops.identity, destination: to, amount: lamports(20_000_000n) }),
+      getTransferSolInstruction({ source: ops.identity, destination: to, amount: lamports(DRIP_LAMPORTS) }),
       await tok.ensureAtaIx(to),
       await tok.transferIx(ops, await tok.ata(to), DRIP_USDC),
     ]);
@@ -461,6 +499,13 @@ function failed(order: string, what: string, e: unknown): void {
 }
 const backedOff = (order: string) => (failures.get(order)?.until ?? 0) > Date.now();
 
+/**
+ * Disputed orders whose arbiter is not this server's key. On devnet's escrow
+ * build only the order's own arbiter may rule and that key is lost, so such
+ * an order stays Disputed for good: it is noted once and not read again.
+ */
+const foreignDisputes = new Set<string>();
+
 /** The orders we paid the rent for that are Funded or Disputed, looked up at most every 10 s. */
 let scanned: { at: number; funded: Decoded<Order>[]; disputed: Decoded<Order>[] } | undefined;
 async function scan(): Promise<NonNullable<typeof scanned>> {
@@ -482,7 +527,7 @@ async function crank(now: bigint): Promise<void> {
   // A dispute is judged as soon as it is seen, not when the hold would have ended.
   for (const { address: order, data: o } of disputed) {
     const m = byWallet.get(o.merchant);
-    if (m && !m.pending.has(order)) m.pending.set(order, 0);
+    if (m && !m.pending.has(order) && !foreignDisputes.has(order)) m.pending.set(order, 0);
   }
 
   for (const m of merchants.values()) {
@@ -532,8 +577,10 @@ async function tendPending(m: MerchantAgent, order: string, now: bigint, reviewS
   }
   if (o && o.state === OrderState.Disputed) {
     if (o.arbiter !== arbiter.identity.address) {
-      // Not ours to judge (the arbiter was changed): leave it to whoever it names, or to the program's fallback.
-      console.warn(`[arbiter] ${order.slice(0, 8)} names another arbiter; not ruling on it`);
+      // Not ours to judge (the arbiter was changed): leave it to whoever it
+      // names, or to the program's fallback, and do not look at it again.
+      if (!foreignDisputes.has(order)) console.warn(`[arbiter] ${order.slice(0, 8)} names another arbiter; not ruling on it, and not reading it again`);
+      foreignDisputes.add(order);
       m.pending.delete(order);
       return;
     }
@@ -591,7 +638,8 @@ async function arbitrate(m: MerchantAgent, order: string, o: Order): Promise<voi
  * An instant order the buyer never rated keeps counting against the
  * merchant's instant limit until its review window ends and someone closes
  * it. `close_order` is permissionless, so this is one more public crank.
- * Orders that were held, or rated, are left in place as history.
+ * This one closes such orders whoever paid their rent; every other settled
+ * order this server paid the rent for is closed by `sweep`, for the rent.
  *
  * Only the instant orders this server knows of are looked at (the ones it
  * delivered, and the ones found when it started), not every order in the
@@ -626,9 +674,13 @@ async function season(): Promise<void> {
 /**
  * Orders we paid the rent for that nobody is looking after: quotes left
  * unpaid whose in-memory record is gone (state lost, or opened by an earlier
- * run), whose rent and anything paid in comes back; and cancelled orders,
- * which the program keeps as tombstones (so the order id cannot be reused)
- * until the payment window has passed again, and are then closed for their rent. The live quotes are the merchants' own.
+ * run), whose rent and anything paid in comes back; cancelled orders, which
+ * the program keeps as tombstones (so the order id cannot be reused) until
+ * the payment window has passed again, and are then closed for their rent;
+ * and settled orders (Released, Refunded, Resolved) once their review window
+ * is over (the complaint window, for an instant order the buyer complained
+ * about), closed for their rent too, up to 25 a pass. The live quotes are the
+ * merchants' own. A Disputed order is never closed.
  */
 async function sweep(): Promise<void> {
   const cfg = await getConfig(ops);
@@ -656,6 +708,10 @@ async function sweep(): Promise<void> {
     }
   }
   if (cancelled || closed) console.log(`[crank] cancelled ${cancelled} unpaid quote(s) past their payment window; closed ${closed} cancelled order(s) for their rent`);
+  const settled = config.closeSettledOrders
+    ? await closeSettledOrders(ops, cfg, now, { max: 25, skip: backedOff, onFail: (order, e) => failed(order, 'close', e) })
+    : [];
+  if (settled.length) console.log(`[crank] closed ${settled.length} settled order(s) past their review window; their rent is back with the ops wallet`);
   // evidence nobody can dispute any more
   const dropped = pruneEvidence(cfg);
   if (dropped) console.log(`[crank] dropped ${dropped} old deliveries from the evidence file`);
@@ -670,6 +726,26 @@ async function tidy(): Promise<void> {
     await sweep().catch((e) => console.warn(`[crank] sweep: ${publicMessage(e).slice(0, 120)}`));
   } finally {
     tidying = false;
+  }
+}
+
+/**
+ * The keeper for the pay-later pool: a loan past its due date and its grace
+ * period is marked in default, which freezes the buyer's line. Anyone may do
+ * it (`mark_default` is permissionless); this server does, with its ops key,
+ * where the pool exists on this network. Each pass is one program-accounts
+ * read of the open loans and at most a handful of transactions.
+ */
+let keeping = false;
+async function keep(): Promise<void> {
+  if (keeping || !ready) return;
+  keeping = true;
+  try {
+    await markOverdue(ops, backedOff, (loan, e) => failed(loan, 'mark default', e));
+  } catch (e) {
+    console.warn(`[keeper] ${publicMessage(e).slice(0, 160)}`);
+  } finally {
+    keeping = false;
   }
 }
 
@@ -747,11 +823,18 @@ async function start(): Promise<void> {
   console.log(`  trust proxy: ${config.trustProxy || 'off'}`);
   console.log(`  facilitators: ${(await facilitators()).map((f) => f.url).join(', ') || 'NONE REACHABLE'}`);
   console.log(`  holds by tier: ${TIER_NAMES.map((t, i) => `${t} ${cfg.params.holdSecs[i]}s`).join(', ')}; fee ${cfg.feeBps / 100}%`);
+  const pool = await poolInfo(ops).catch(() => null);
+  console.log(
+    pool
+      ? `  pay later: pool ${pool.pool} holds ${fromUnits(pool.liquidity)} USDC; quotes offer tessera-paylater, and this server marks overdue loans in default`
+      : '  pay later: no pool on this network; quotes offer exact only',
+  );
   for (const m of merchants.values()) {
     console.log(`  ${m.id.padEnd(8)} ${m.wallet}  ${m.services.map((s) => `${s.sku} ${fromUnits(s.price)}`).join(', ')}`);
   }
   setInterval(() => void tick(), config.crankEveryMs);
   setInterval(() => void tidy(), 90_000);
+  setInterval(() => void keep(), config.keeperEveryMs);
   void tidy();
 }
 

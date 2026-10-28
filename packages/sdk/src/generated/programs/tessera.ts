@@ -134,7 +134,7 @@ import {
 } from "../pdas";
 
 export const TESSERA_PROGRAM_ADDRESS =
-  "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">;
+  "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry" as Address<"tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry">;
 
 export enum TesseraAccount {
   Agent,
@@ -511,7 +511,7 @@ export function identifyTesseraInstruction(
 }
 
 export type ParsedTesseraInstruction<
-  TProgram extends string = "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",
+  TProgram extends string = "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry",
 > =
   | ({
       instructionType: TesseraInstruction.AcceptAuthority;

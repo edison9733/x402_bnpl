@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { useMemo, useState } from 'react';
-import { OrderState, rewards, safeText, score } from '@tessera/sdk';
+import { OrderState, paylater, rewards, safeText, score } from '@tessera/sdk';
 import { Footer } from './Landing';
 import { Nav } from '../components/Nav';
 import { Addr, Breakdown, EASE, Reveal, ScoreGauge, Stars, StateChip, TierBadge } from '../components/ui';
@@ -9,7 +9,9 @@ import registry from '../../../../deployments/registry.json';
 /** Solana Agent Registry (ERC-8004) asset of a wallet, if this project registered one. */
 const REGISTRY = new Map(Object.values(registry.agents).map((e) => [e.wallet, e.asset]));
 const MIRRORED = Object.values(registry.feedback).reduce((n, f) => n.set(f.asset, (n.get(f.asset) ?? 0) + 1), new Map<string, number>());
+import { NETWORK_LABEL } from '../lib/client';
 import { ago, compactUsd, duration, explorerAddress, tierName, usd } from '../lib/format';
+import { usePayLater } from '../lib/paylater';
 import { go, Link } from '../lib/router';
 import { useChain, useProfiles, type Profile } from '../lib/store';
 
@@ -161,6 +163,58 @@ function RoleStats({ title, s }: { title: string; s: Profile['agent']['asBuyer']
   );
 }
 
+/**
+ * A wallet's pay-later standing. From the pool on the chain when there is
+ * one (its rules, the wallet's line and loans); otherwise the limit the
+ * preview rules would give it, labelled as such.
+ */
+function PayLaterLine({ wallet, tier, score: sc }: { wallet: string; tier: number; score: number }) {
+  const pl = usePayLater(wallet);
+  if (pl.status !== 'live' || !pl.pool) {
+    return (
+      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2 rounded-2xl p-4 text-[0.9rem]" style={{ background: '#eef6f0', border: '1px solid #cfe5d6', color: '#14130f' }}>
+        <span>
+          <strong>Pay-later limit:</strong>{' '}
+          {(Number(paylater.limit(paylater.NO_LINE, paylater.PREVIEW_LINE_PARAMS, tier, sc)) / 1e6).toFixed(2)} test USDC
+          {tier === 0 && ' (no credit until it earns a tier)'}
+        </span>
+        <Link to="/pay-later" className="mono link text-[0.72rem]">
+          preview rules · {pl.status === 'none' ? `no pool on ${NETWORK_LABEL}` : `reading the pool on ${NETWORK_LABEL}…`}
+        </Link>
+      </div>
+    );
+  }
+  const line = pl.line ?? paylater.NO_LINE;
+  const limit = paylater.limit(line, pl.pool.params, tier, sc);
+  const owed = paylater.owed(pl.loans);
+  const now = Date.now() / 1000;
+  return (
+    <div className="mt-4 rounded-2xl p-4 text-[0.9rem]" style={{ background: '#eef6f0', border: '1px solid #cfe5d6', color: '#14130f' }}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span>
+          <strong>Pay later:</strong> limit {usd(limit)} · owes {usd(owed.reduce((n, l) => n + paylater.owedOf(l.data), 0n))}
+          {line.outstanding > 0n && ` (${usd(line.outstanding)} counts against the limit)`}
+          {pl.line && ` · ${pl.line.loans} loan${pl.line.loans === 1 ? '' : 's'}, ${pl.line.repaidOnTime} on time, ${pl.line.repaidLate} late, ${pl.line.defaults} default${pl.line.defaults === 1 ? '' : 's'}`}
+          {line.defaults > 0 && ' · frozen'}
+        </span>
+        <span className="mono text-[0.72rem]" style={{ color: '#878371' }}>
+          pool <Addr a={pl.poolAddress!} n={4} /> on {NETWORK_LABEL} · {pl.pool.params.feeBps / 100}% fee · {duration(pl.pool.params.termSecs)} to repay
+        </span>
+      </div>
+      {owed.length > 0 && (
+        <ul className="mono mt-2 grid gap-1 text-[0.76rem]" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          {owed.map((l) => (
+            <li key={l.address}>
+              <a className="link" href={explorerAddress(l.address)} target="_blank" rel="noreferrer">loan {l.address.slice(0, 8)}…</a> · {usd(paylater.owedOf(l.data))} · order {l.data.order.slice(0, 8)}… ·{' '}
+              {l.data.state === paylater.LoanState.Defaulted ? 'in default' : Number(l.data.dueAt) >= now ? `due in ${duration(Math.ceil(Number(l.data.dueAt) - now))}` : `${duration(Math.ceil(now - Number(l.data.dueAt)))} late`} ({new Date(Number(l.data.dueAt) * 1000).toISOString()})
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function AgentProfile({ wallet }: { wallet: string }) {
   const { reviews, pairs, orders, config } = useChain();
   const { byWallet, params } = useProfiles();
@@ -234,6 +288,7 @@ export function AgentProfile({ wallet }: { wallet: string }) {
                 </div>
               ))}
             </div>
+            <PayLaterLine wallet={p.wallet} tier={p.eval.tier} score={p.eval.score} />
             {a.penaltyBps > 0 && (
               <div className="mt-4 rounded-2xl p-4 text-[0.9rem]" style={{ background: '#fdecea', border: '1px solid #f3c4bf', color: '#7a1f1f' }}>
                 <strong>Standing penalty:</strong> {(a.penaltyBps / 100).toFixed(0)}% off the score from a lost dispute or missed delivery. It heals by {(params.penaltyDecayBps / 100).toFixed(2)}% per period, and blocks {tierName(3)} until it is gone.
@@ -280,7 +335,10 @@ export function AgentProfile({ wallet }: { wallet: string }) {
           <div className="card p-6">
             <div className="flex items-baseline justify-between">
               <div className="eyebrow" style={{ color: '#878371' }}>Reviews received</div>
-              <span className="mono text-[0.72rem]" style={{ color: '#878371' }}>{mine.got.length} on-chain</span>
+              <span className="flex items-baseline gap-3">
+                <span className="mono text-[0.72rem]" style={{ color: '#878371' }}>{mine.got.length} on-chain</span>
+                <Link to="/review" className="link text-[0.8rem]">Review an order</Link>
+              </span>
             </div>
             <ul className="mt-3 grid" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {mine.got.slice(0, 12).map((r) => (
@@ -300,7 +358,7 @@ export function AgentProfile({ wallet }: { wallet: string }) {
               {mine.got.length === 0 && <li className="mono py-6 text-[0.84rem]" style={{ color: '#878371' }}>No reviews yet. An unreviewed wallet is treated as 3 stars.</li>}
             </ul>
             <p className="mt-3 text-[0.78rem] leading-relaxed" style={{ color: '#878371' }}>
-              A review's weight is the volume that settled on that order, scaled by the reviewer's own tier and capped per pair. A review of a refunded order weighs nothing, a merchant's review counts once the buyer has reviewed the same order, and the side that lost a dispute gets no weight. Each review earns a share of the fee in the <Link to="/formula" className="link">review-reward airdrop</Link>: the same for any stars, then scaled by whether it proved right.
+              A review's weight is the volume that settled on that order, scaled by the reviewer's own tier and capped per pair. A review of a refunded order weighs nothing, a merchant's review counts once the buyer has reviewed the same order, and the side that lost a dispute gets no weight. Each review earns a share of the fee in the <Link to="/formula" className="link">review-reward rebate</Link>: the same for any stars, then scaled by whether it proved right.
             </p>
           </div>
 

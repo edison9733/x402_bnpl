@@ -4,7 +4,9 @@ What can go wrong, what stops it, and the test that proves it. Then what is stil
 
 Tests: `npm run test:local` runs the real program on a local validator and sends each on-chain attack
 below as a real transaction that must be rejected (395 checks). `npm run test:formula` checks the
-economic claims and the reward rules (44 tests). "Model" means the claim is checked by simulation through the reference
+economic claims, the reward rules and the merchant's check of a pay-later transaction (55 tests).
+`npm run test:paylater` and `npm run test:paylater-402` do the same for the pay-later program
+([Pay later](#pay-later)). "Model" means the claim is checked by simulation through the reference
 model, which the local suite proves equal to the program.
 
 Status: ✅ enforced and tested · 🟡 mitigated, residual risk stated · ⭕ open.
@@ -17,7 +19,7 @@ what was done:
 
 | # | Finding | Severity | Fix | Test |
 |---|---|---|---|---|
-| B13 | Anyone could open an order in a merchant's name without its signature, fund it, and let it expire. Each missed delivery cost the merchant a 10% penalty and its Trusted tier, at almost no cost to the attacker. | Critical | `open_order` requires the merchant's signature. | local: "a stranger opens an order in a merchant's name" → `AccountNotSigner` |
+| B13 | Anyone could open an order in a merchant's name without its signature, fund it, and let it expire. Each missed delivery cost the merchant a 10% penalty and its Trusted tier, at almost no cost to the attacker. | Critical | `open_order` requires the merchant's signature. On devnet since 28 October 2026, on the escrow at `tESs6b4J…`; the retired `TessSeP5…` keeps it open. | local: "a stranger opens an order in a merchant's name" → `AccountNotSigner` |
 | C16 | A merchant could name any Trusted wallet as the buyer and fund the order itself. It earned credit and Diversity at that wallet's full tier weight for 1% in fees, without the wallet ever taking part. | High | A released order becomes evidence for the merchant only when the buyer reviews it. | local: step 12; formula |
 | C17 | The same forged orders let a merchant review-bomb any buyer with fully weighted one-star reviews. | High | A merchant's review of a released order weighs 0 until the buyer has reviewed it. | local: step 12; formula |
 | D6 | The website's delivery endpoint took only the order address, which is public. Someone watching the chain could collect a delivery another wallet paid for; the real buyer got nothing and would then lose the dispute, because the delivery matched its hash. | High | The quote hands its requester a secret claim; the endpoint requires it. | server |
@@ -36,7 +38,7 @@ done:
 
 | # | Finding | Severity | Fix | Test |
 |---|---|---|---|---|
-| B16 | **Order swap.** While a buyer's signed payment was in flight, the merchant cancelled the order and reopened the same order id for its own second wallet. The payment then funded the new order and the merchant took it. | Critical | `cancel_unpaid` leaves the order in a `Cancelled` state until `close_order`, after the unpaid window. The id cannot be reopened, the vault is closed, and `close_order` refuses a cancelled order whose vault was recreated by a late payment until anyone cancels again and refunds it. The buyer's SDK also refuses an order id that has already been used. | local: reopen fails with "already in use"; pay into a cancelled order fails |
+| B16 | **Order swap.** While a buyer's signed payment was in flight, the merchant cancelled the order and reopened the same order id for its own second wallet. The payment then funded the new order and the merchant took it. | Critical | `cancel_unpaid` leaves the order in a `Cancelled` state until `close_order`, after the unpaid window. The id cannot be reopened, the vault is closed, and `close_order` refuses a cancelled order whose vault was recreated by a late payment until anyone cancels again and refunds it. The buyer's SDK also refuses an order id that has already been used. On devnet since 28 October 2026, on the escrow at `tESs6b4J…`; the retired `TessSeP5…` keeps it open. | local: reopen fails with "already in use"; pay into a cancelled order fails |
 | B17 | A payment could be confirmed after the payment window had closed. | Medium | `confirm_funded` fails with `PaymentWindowClosed` after `created_at + unpaid_secs`. | local |
 | B18 | A buyer could ask for a hold of any length and the merchant's server co-signed it. | Medium | `min_hold_secs` is capped at 30 days (`HoldTooLong`); the buyer's SDK and the server both check. | local |
 | B19 | The arbiter could be the buyer or the merchant of the order. | High | Rejected at `open_order` (`ArbiterIsParty`). | local |
@@ -47,11 +49,58 @@ done:
 | D16 | The API relayed any signed transaction, for any program. | Medium | `/v1/tx/submit` relays only Tessera, token, associated-token, compute-budget and system instructions, and at least one Tessera instruction. | doors |
 | D17 | One slow agent card could stall `find_merchants` for every caller (the timeout reset on every byte). | High | One wall-clock deadline per card, a size cap, no redirects, and an overall budget with partial results. | doors |
 | D18 | The merchant server forgot quotes on restart and delivered nothing for orders funded after it, so the merchant took the missed-delivery penalty. | High | Quotes and delivery results are written to disk atomically; funded orders are completed or refunded before the deadline; delivery fails closed if its evidence cannot be saved. | agents smoke test |
-| D19 | The review-reward airdrop could pay the same reviews twice if a later batch failed. | Critical | Each batch is recorded as pending, then paid, before the next one is sent; an exclusive lock; a missing ledger refuses to pay; payouts carry memos so a lost ledger can be rebuilt from the chain. | rewards tests; `demo:rewards` |
+| D19 | The review-reward rebate could pay the same reviews twice if a later batch failed. | Critical | Each batch is recorded as pending, then paid, before the next one is sent; an exclusive lock; a missing ledger refuses to pay; payouts carry memos so a lost ledger can be rebuilt from the chain. | rewards tests; `demo:rewards` |
 
-**Both audits' program fixes are deployed on devnet** (program `TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`).
-They are in the source and pass the local suite. No account layout changed, so every existing account
-kept working through the upgrade.
+**Both audits' program fixes are in the source and pass the local suite, and are on devnet since 28 October 2026.**
+The escrow devnet ran until then (`TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ`) was last deployed on
+4 October 2026 (slot 507449356), before both audits, and its upgrade authority, its config authority
+and its arbiter are version 1 keys that were lost, so it can never be upgraded. On it `open_order`
+does not need the merchant's signature (B13 is open there), `cancel_unpaid` closes an unpaid order
+outright so its id can be reopened (B16), and a dispute can never be resolved. On 28 October 2026 the
+same source was deployed at a new address, `tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry` (slot
+515961506, [transaction](https://explorer.solana.com/tx/34QUoV5GAC7yNY9k1Wz7UFeD7fjygddE5q7M9eJdkPwwDtZb745aiWEQd8zuSQSTWmvaPes4p73NdWs5VZBMxwQW?cluster=devnet)),
+with the deployer's wallet as upgrade authority and a config
+(`CvyxNt9ktt4uUMq83jZHbbqzJdNR9Tvd6YBq1ER7FPmS`) whose arbiter and treasury keys we hold. The first
+478,688 bytes of the program dumped from devnet hash the same as a local build of `eca65b0`, and the
+rest is zeros. The old escrow is retired: its accounts, and the runs on it, stay on devnet as
+history. The tables below describe the source, which is the escrow on devnet now.
+
+## Pay later
+
+The pay-later program ([PAYLATER.md](PAYLATER.md)) lends into the escrow: its `buy_now` pays an
+escrow order's vault from a pool. A review of it against the escrow build that devnet ran until 28
+October 2026 (the 4 October build of `c6dbcd7` at `TessSeP5…`, now retired, whose `open_order` does
+not need the merchant's signature) found:
+
+| # | Finding | Severity | Fix | Test |
+|---|---|---|---|---|
+| P1 | **A loan turned into cash with no merchant involved.** On the retired devnet escrow anyone can open an order in a merchant's name (B13 is open there). A buyer at Building could open one naming any Building merchant, paying the rent itself, have `buy_now` pay the pool's money into it (the program checked that the order named the merchant, not that the merchant agreed), wait out the delivery window and have anyone call `refund`: the escrow sent the pool's USDC to the buyer as cash, the loan stayed owed (up to the buyer's limit, then a default), and the merchant took a missed-delivery penalty for an order it never accepted. | High | `buy_now` requires the order's merchant's signature (`BuyNow.merchant` is a `Signer`), so the pool funds only an order its merchant signed for, on any escrow build. Over x402 the merchant's server adds that signature, with the merchant's own key and only for its own orders, after `checkBuyNowTransaction` has passed, which now requires exactly the fee payer, the buyer and the merchant as signers and only the buyer's signature in what it is handed. **On devnet since 28 October 2026**, when the pay-later program there was upgraded to the build of `1bd11be` (slot 515766612), and in the build of `eca65b0` (slot 515961295) that lends into the new escrow since the same day. | paylater: "without m1's signature" → `AccountNotSigner`; with `ESCROW_SO` (the retired devnet escrow's bytes, before `eca65b0`) the buyer opens the order in m1's name and its `buy_now` for it → `AccountNotSigner`, nothing moves; paylater-402: the `buy_now` that lands carries three signatures, and one that does not ask for the merchant's is refused before signing; formula: `paylater-check.test.ts`; devnet, 28 Oct, on the retired escrow: the `buy_now` of the purchase that confirmed the upgrade to `1bd11be` landed with three signatures, the merchant server's as fee payer, Nova's and Quill's as the order's merchant ([settle tx](https://explorer.solana.com/tx/1K7VsBKVWYHXmMmEdytiUck99inmuuRQuYfDUBAyGuhpzQ7b4vou7CkAT9L73hTBxo7CfURvpVGvLsfAf44b2xG?cluster=devnet)); on the new escrow, the one that confirmed `eca65b0` landed with the same three, Quill's read-only ([settle tx](https://explorer.solana.com/tx/2mZxEzfu5ReApNejhCz7GMEwkkBJc7rafjiG3LUiKPNGx1J3oFhxEty3xdLtFfdrJ8Aevauzoy4NX3xVGZJMnzW8?cluster=devnet)) |
+| P2 | **A merchant reprices the order behind the buyer's signed `buy_now`.** `buy_now` took only a loan id and read the price and request hash from whatever order sat at the named address when it ran, so neither signature committed to a price. On the retired devnet escrow either party may close an unpaid order at any time (`cancel_unpaid` closes it outright there) and anyone may open another at the same address at once (B16 is open there). A merchant handed a buyer's signed `buy_now` over x402 could cancel its quote, reopen the same id for the same buyer at a higher price and send the transaction within its blockhash lifetime: the pool paid the new price, up to the buyer's whole available credit, and the buyer owed it. Every buyer-side check (the advertised price, `--max`, `verifyOrderForPayment`) ran before signing. A dispute there cannot be resolved, so the money would stay locked and the loan owed. | High | `buy_now(loan_id, amount, request_hash)` carries the price and request hash the buyer agreed to, and refuses an order that does not carry exactly those (`PriceMismatch`, `RequestMismatch`). The buyer's clients pass the quoted price and request hash they verified, `buyNowForMerchant` and `buyOrderOnCredit` refuse to build one for an order that no longer carries them, and the merchant's `checkBuyNowTransaction` requires them to equal its quote. Pool, line and loan layouts are unchanged. **On devnet since 28 October 2026** (the build of `1bd11be`, slot 515766612, then that of `eca65b0`, slot 515961295). | paylater: another price or request → `PriceMismatch` / `RequestMismatch` on both escrow builds; with `ESCROW_SO` (the retired devnet escrow's bytes, before `eca65b0`) the merchant cancels and reopens the order at 2 USDC after the buyer signed for 0.002, and the buyer's `buy_now` lands and fails with `PriceMismatch`, nothing moves (on the current escrow the reopen itself fails); paylater-402: a `buy_now` carrying a lower price or another request hash is refused before signing; formula: `paylater-check.test.ts`; devnet, 28 Oct, on the retired escrow: the `buy_now` of the purchase that confirmed the upgrade to `1bd11be` carries the amount 250000 (0.25 USDC) and the request hash after the loan id, 80 bytes of data in all ([settle tx](https://explorer.solana.com/tx/1K7VsBKVWYHXmMmEdytiUck99inmuuRQuYfDUBAyGuhpzQ7b4vou7CkAT9L73hTBxo7CfURvpVGvLsfAf44b2xG?cluster=devnet)); on the new escrow, the one that confirmed `eca65b0` carries the same, 250000 in 80 bytes ([settle tx](https://explorer.solana.com/tx/2mZxEzfu5ReApNejhCz7GMEwkkBJc7rafjiG3LUiKPNGx1J3oFhxEty3xdLtFfdrJ8Aevauzoy4NX3xVGZJMnzW8?cluster=devnet)) |
+| P3 | **The merchant signs for an order it never opened.** The merchant server checked only that the order at its quoted address was awaiting payment, unpaid and inside its window. On the retired devnet escrow the buyer could cancel the quote and reopen the same id in the merchant's name (without its signature), at the escrow's minimum price or with a hold of its choosing, and pay with a `buy_now` for that: the merchant's key signed, the pool paid the small amount, and the merchant delivered a 0.20 USDC service for 0.001 USDC, or waited as long as the buyer liked to be paid. The exact flow underpaid the same way. | Medium | Before it signs for or settles any payment, the server compares the order at the quoted address with its record of the quote (`quotedOrderRefusal`): buyer, merchant, mint, price, request hash, hold, the wallet that paid the rent and when it was opened. It compares the whole record again before it confirms or delivers an order a buyer funded itself, does not confirm one that is not its quote, and refunds at once a funded one that is not (its own refund costs nothing). A quote whose address holds another order is dropped; a buyer that funded such an order itself gets its money back with `cancel_unpaid` or, once the order is confirmed, with the refund anyone may call after the delivery deadline, and the merchant takes no part in it. Runs on every escrow build. | paylater-402 with `ESCROW_SO` (the retired devnet escrow's bytes, before `eca65b0`): the buyer reopens atlas's quote at 0.001 USDC, and the server refuses its `buy_now` before signing; reopened at the quoted price with a day-long hold, refused too; formula: `paylater-check.test.ts` |
+| P4 | **A buyer makes the merchant pay fees for `buy_now`s that fail.** The buyer picks the priority fee (up to 1,000,000 micro-lamports per unit, 0.0004 SOL) and can cancel its order between the merchant's simulation and the landing, so the signed transaction fails on-chain and the merchant pays the fee; the server then answered 502 "do not pay again" though nothing was paid. A forged message listing a signer key twice also passed the signer check and failed later with the same misleading answer. | Low | `MAX_CU_PRICE` is 10,000 micro-lamports per unit (at most 4,000 lamports of priority fee); a `buy_now` that landed and failed is a `PaymentRefused` ("nothing was paid"), and after three in an hour the server offers that wallet no credit for the hour. `checkBuyNowTransaction` refuses a transaction that lists any account twice. | formula: a key listed twice is refused; paylater-402: a priority fee above the cap is refused |
+
+The merchant's signature (P1) and the price binding (P2) change the program, and the program and the
+merchant server must be upgraded together; [PAYLATER.md](PAYLATER.md#upgrading-devnet) gives the order.
+Devnet was upgraded in that order on 28 October 2026 (UTC+8): the merchant server was restarted
+first, then the program was upgraded to the build of `1bd11be` in slot 515766612
+([transaction](https://explorer.solana.com/tx/3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E?cluster=devnet)).
+Nova then bought Quill's 0.25 USDC summary on credit
+([settle tx](https://explorer.solana.com/tx/1K7VsBKVWYHXmMmEdytiUck99inmuuRQuYfDUBAyGuhpzQ7b4vou7CkAT9L73hTBxo7CfURvpVGvLsfAf44b2xG?cluster=devnet))
+and repaid it on time
+([repay tx](https://explorer.solana.com/tx/3oL3qukdUPiM6Tvgd8D8RM8XsUgTHjqMQiuGjZLUHiJEMYKnMr5sk8XKQkwXA6CoMSPoC2XUBAwFoyXguBYNEiJu?cluster=devnet)).
+That ran on the escrow devnet used then, the 4 October build at `TessSeP5…`, which can never be
+upgraded, so its open findings stay open on it: anyone can open an order there in a merchant's name,
+fund it with its own money and, after the deadline, have it refunded for a merchant penalty (B13).
+It is retired. Later the same day the escrow source was deployed at `tESs6b4J…` (see the
+[audit of 10 October](#audit-of-10-october-2026)), and the pay-later program was upgraded to the
+build of `eca65b0`, which differs from `1bd11be` only in the escrow address it compiles in (slot
+515961295, [transaction](https://explorer.solana.com/tx/3YJDEfVq961AwaqKYFwoDRxEfDwJDmLUvXFNHVBjWyGzL9J1U5UrFomjNTLUoxmSG1QN1X1vXunTJBdSwwmp1XgG?cluster=devnet)).
+Nova bought Quill's summary on credit again, on the new escrow
+([settle tx](https://explorer.solana.com/tx/2mZxEzfu5ReApNejhCz7GMEwkkBJc7rafjiG3LUiKPNGx1J3oFhxEty3xdLtFfdrJ8Aevauzoy4NX3xVGZJMnzW8?cluster=devnet)),
+and repaid it on time
+([repay tx](https://explorer.solana.com/tx/4LUwpKcBk6mGvKf1hN6bJ4yZq8Aub292AuPHtyN4RpnMkjcQV9KTqzWGjDXy9U65C6AJtge2ebZPV6PYijf4jQnY?cluster=devnet)).
+On devnet now the pool's money cannot be drawn into an order its merchant did not sign for or a
+repriced one, and on the escrow it lends into neither order can be opened (B13, B16).
 
 ## Principles
 
@@ -65,7 +114,11 @@ kept working through the upgrade.
 4. **Every protection starts at the risky moment.** The hold starts at delivery, not at payment, and a
    dispute freezes it.
 5. **Governance cannot reach in-flight escrow.** Fee, arbiter and hold are snapshotted per order.
-6. **Nothing is locked forever.** Unpaid and settled orders give their rent back.
+6. **Nothing is locked forever.** Unpaid quotes give their rent back: the merchant server's crank
+   cancels and closes them. Settled orders can give theirs back once their review window is over
+   (`close_order`, which anyone may call; the crank does it with `CLOSE_SETTLED_ORDERS=1`, off by
+   default so they stay as history; [PAYLATER.md](PAYLATER.md#limits) lists what is closed when).
+   Credit files, pair accounts and reviews stay.
 
 ## A. Payment integrity
 
@@ -73,7 +126,7 @@ kept working through the upgrade.
 |---|---|---|---|---|
 | A1 | The merchant server quotes an escrow whose buyer is someone else (it refunds itself later). | ✅ | `verifyOrderForPayment` reads the order on-chain and checks buyer, merchant, amount, mint, state and request hash. | local: "quote is for an order opened for a different buyer" |
 | A2 | The quote's `payTo` is the merchant's wallet, or any address that is not this order's escrow. | ✅ | The buyer derives the order address from the order id and requires `payTo` to equal it. | local: "quote names an escrow that is not this order" |
-| A3 | The quote is for a larger amount than advertised. | ✅ | Amount must equal the on-chain order and not exceed the price on the agent card; the x402 client's spend cap is pinned to that exact amount. | local: "quote is for a different amount" |
+| A3 | The quote is for a larger amount than advertised. | ✅ | Amount must equal the on-chain order and not exceed the price on the agent card; the x402 client's spend cap is pinned to that exact amount. On credit the signed `buy_now` carries that amount, and the program refuses an order that asks another (P2; on devnet since the upgrade of 28 October 2026). | local: "quote is for a different amount"; paylater: `PriceMismatch` |
 | A4 | A facilitator redirects or alters the payment. | ✅ | Not possible: the buyer's signature fixes recipient, amount and mint. The worst a facilitator can do is refuse. | by construction |
 | A5 | A facilitator is down or censors. | 🟡 | Every quote offers one option per reachable facilitator; a wallet can also fund the vault directly. | devnet: both quoted on every order |
 | A6 | Someone claims an order was paid when it was not. | ✅ | `confirm_funded` only reads the vault balance. | local: "confirming an order nobody paid" → `VaultUnderfunded` |
@@ -111,7 +164,7 @@ kept working through the upgrade.
 | C3 | **Burst farming** just before a scam. | ✅ | Tenure counts active periods; tiers are gated on them. Full evidence in one day does not reach Building. | formula |
 | C4 | **Aged wallets**: create wallets, wait, then use them. | ✅ | Age counts only up to three periods per active period. | formula |
 | C5 | **Exit scam** on instant settlement: earn Trusted, take orders, deliver nothing. | ✅ | Instant volume buyers have not accepted is capped at fees paid plus a base; a complaint locks that amount for good (C21). A ring of 8 or more wallets does recover its fees plus the base per wallet, so it nets about $25 a wallet after a month or more. | local: "a complaint locks the instant limit"; formula |
-| C6 | **Friendly fraud**: the buyer got the goods and disputes anyway. | ✅ | The merchant committed a delivery hash on-chain before the dispute; the pair's history is on record for the arbiter. Losing costs the buyer 25%, removes Trusted, and ends pair trust for good. | local: "arbiter: buyer was wrong"; devnet |
+| C6 | **Friendly fraud**: the buyer got the goods and disputes anyway. | ✅ | The merchant committed a delivery hash on-chain before the dispute; the pair's history is on record for the arbiter. Losing costs the buyer 25%, removes Trusted, and ends pair trust for good. | local: "arbiter: buyer was wrong"; devnet; on the new escrow, 28 Oct: charlie disputed two valid deliveries from atlas, and the arbiter resolved both for atlas ([resolve tx](https://explorer.solana.com/tx/3DeAoBaQGHWe8djQ7Urr2rjyDXaU7DyEP8XQeinwZPt91F74umXbMLBt8AXS8V1Zb6omjPWvCrUXfCnw2o4tPfYo?cluster=devnet), [resolve tx](https://explorer.solana.com/tx/2NWncCem6Nv8ee6q2aLX2UoSyKCu9qSxwZgsoG8jUCp4kdddfTH4SJUKRT1UiWh8FFhzk5s4EBqMPuwuPey5skjk?cluster=devnet)) |
 | C7 | **Fake praise** from wallets that bought nothing. | ✅ | Only a party to a settled order can review it, once; weight is the volume that settled. | local: `NotAParty`, `already in use` |
 | C8 | **Buy-and-refund** to mint reviews for free. | ✅ | A review of a refunded order weighs 0. | local; formula |
 | C9 | **Review bombing** a competitor with bots. | ✅ | Priced like fake praise: a 1-star counts only after a real, settled purchase, weighted by that volume and the reviewer's tier, capped per pair. A merchant's review counts only once the buyer has reviewed the same order (C17). | formula |
@@ -129,7 +182,7 @@ kept working through the upgrade.
 
 | # | Attack | Status | Defence |
 |---|---|---|---|
-| D1 | Rent-drain: flooding a merchant with quotes it pays rent for. | 🟡 | At most 3 unpaid orders per buyer wallet and 40 per merchant, and 20 order-opening requests per client per minute. The server cancels unpaid quotes after the payment window, including ones from before a restart, and the order rent returns. Residual: each invented buyer address still leaves a credit file and a pair account whose rent does not come back. Behind a tunnel or proxy set `TRUST_PROXY` so the limit sees real clients. |
+| D1 | Rent-drain: flooding a merchant with quotes it pays rent for. | 🟡 | At most 3 unpaid orders per buyer wallet and 40 per merchant, and 20 order-opening requests per client per minute. The server cancels unpaid quotes after the payment window, including ones from before a restart, and the order rent returns. Residual: each invented buyer address still leaves a credit file and a pair account whose rent does not come back; one client may have credit files made for at most 10 new wallets an hour (`MAX_NEW_WALLETS_PER_HOUR`), and the server opens no quote while its ops wallet holds less than 0.03 SOL (`QUOTE_SOL_FLOOR_LAMPORTS`), so a drain stops short of the fees that settle what is open. Behind a tunnel or proxy set `TRUST_PROXY` so the limit sees real clients. |
 | D2 | Prompt injection through a service's output tells a buyer agent to pay someone. | 🟡 | The payment path is code, not prompt: it pays only an on-chain-verified escrow, for the advertised price, once. A budget per day and per merchant is not built. |
 | D3 | A stolen merchant-server key. | 🟡 | It fronts rent and cranks permissionless steps. It cannot move escrow or act as a party. |
 | D4 | A restart loses orders in flight. | ✅ | Quotes and delivery results are kept on disk and reloaded; on start the server also rebuilds its work list from the chain and refunds anything it was paid for but can no longer deliver. A Railway volume at `/app/.data` is required; without it the server refuses new orders. |
@@ -143,11 +196,11 @@ kept working through the upgrade.
 | D13 | A merchant's card or a review carries instructions for the reading agent (prompt injection). | 🟡 | Card and review text is cut short and stripped of control, bidirectional, invisible and Unicode tag characters, and every `find_merchants` reply says that `name`, `service` and review text are data, not instructions; SKILL.md and the MCP server's instructions say the same. An agent that obeys text it reads can still be misled. |
 | D14 | A merchant points its `uri` at an internal address so the API fetches it (SSRF). | ✅ | Cards are fetched with http(s) only, no redirects, one 1.5 s wall-clock deadline and a 64 KB cap, and never from a private, loopback, link-local, carrier-grade or reserved address, including IPv6 forms that embed an IPv4 address, checked on the address the socket connects to. Private cards are allowed only with `TESSERA_ALLOW_PRIVATE_CARDS=1`, never because of `HOST`. Tested in `npm run test:doors`. |
 | D15 | A copycat's card claims another merchant's services or wallet. | ✅ | A card whose Tessera extension names a different wallet is ignored; the row keeps the copycat's own on-chain record. Tested in `npm run test:doors`. |
-| D9 | Draining the demo faucet with invented wallets. | 🟡 | Once per wallet, 3 per client per hour, 20 per hour in total. Devnet only; a real deployment has no faucet. |
+| D9 | Draining the demo faucet with invented wallets. | 🟡 | Once per wallet, 3 per client per hour, 20 per hour in total, and never below 0.1 SOL left in the ops wallet (`FAUCET_SOL_FLOOR_LAMPORTS`), which also fronts quote rent and pays settlement fees: below that the faucet answers 503 and says why. Devnet only; a real deployment has no faucet. |
 
 ## R. Review rewards
 
-The airdrop in [REWARDS.md](REWARDS.md). It is off-chain; the program is unchanged.
+The rebate run in [REWARDS.md](REWARDS.md). It is off-chain; the program is unchanged.
 
 | # | Attack | Status | Defence |
 |---|---|---|---|
@@ -155,7 +208,7 @@ The airdrop in [REWARDS.md](REWARDS.md). It is off-chain; the program is unchang
 | R2 | A merchant pays buyers for 5-star reviews. | ✅ | The base pay ignores the stars, and a 4-5 star review of a wallet that then loses a dispute or misses a delivery is paid nothing; an honest warning is paid 1.5x. Shown on chain in `npm run demo:rewards`. |
 | R3 | Reviewers herd to the consensus instead of rating what they got. | 🟡 | Agreeing pays only 1.2x against 1x, the consensus is weighted by money, and what actually happened next overrides it. |
 | R4 | The operator pays itself, or pays differently from the rules. | 🟡 | Each payout file holds every input; `npm run rewards -- --verify` recomputes it, and the transfers are on chain. The operator can still refuse to pay; an on-chain claim is the next step. |
-| R5 | A review is first seen after its subject already failed, and gets paid for "predicting" it. | ✅ | Failures are counted from the moment the airdrop first saw the review; a review first seen more than `lateSightSecs` after it was written is judged on consensus only. |
+| R5 | A review is first seen after its subject already failed, and gets paid for "predicting" it. | ✅ | Failures are counted from the moment the rebate run first saw the review; a review first seen more than `lateSightSecs` after it was written is judged on consensus only. |
 
 ## What "sybil-resistant" means here, and what it does not
 

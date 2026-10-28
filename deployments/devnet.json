@@ -1,109 +1,154 @@
 {
   "cluster": "devnet",
-  "program": "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",
-  "config": "DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2",
+  "program": "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry",
+  "deployedAt": "2026-10-28T06:18:43.000Z",
+  "lastDeploy": {
+    "slot": "515961506",
+    "time": "2026-10-28T06:18:43.000Z",
+    "build": "eca65b0",
+    "tx": "34QUoV5GAC7yNY9k1Wz7UFeD7fjygddE5q7M9eJdkPwwDtZb745aiWEQd8zuSQSTWmvaPes4p73NdWs5VZBMxwQW",
+    "upgradeAuthority": "EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6",
+    "maxLen": 500000
+  },
+  "config": "CvyxNt9ktt4uUMq83jZHbbqzJdNR9Tvd6YBq1ER7FPmS",
   "mint": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
   "feeBps": 100,
-  "authority": "5i7zzV9hQUCbpg8MXSNJB3QQkL6zscDd8VQKow46vg7E",
-  "arbiter": "3GydKy3acrVxvwyF26oDMwvbxVjrQ5yBDEc1GzUoVKz2",
-  "treasury": "2n9iDG52o2oqqdUEbaGEbjYEtyA4Lk4SZb4bsyJ4XPoi",
-  "server": "BGPhehu5s6WaiLsgvuwT1VfnhiKtcJ4h8CFxKTsc4h7K",
+  "authority": "EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6",
+  "arbiter": "72noGuXbToPzDMC29LRFTit8WxMFiiSPFRygoG597f7a",
+  "treasury": "3st9cGR4duuiUR1TjCmFmyWWFQp4KMpBAfXkKTnLRAxd",
+  "server": "DJ8sWBFJT5oFW2MTyX1Zok5JWt6QPS3Uang3hHXwcM4R",
   "agents": {
     "atlas": {
-      "address": "BZ5MNkHdmvLoyof5ojyvsJuK5b1gGo4esPPTb4DGukoJ",
+      "address": "DzmuSTiwQLnZ4KMtWC3gZ5s68ySstf7UW37Jo4Wm8c2r",
       "role": "merchant",
       "title": "Atlas: Solana network telemetry",
       "behaviour": "honest"
     },
     "quill": {
-      "address": "BhQ7t1MkFc8HtvoJs5Ej4qDff2dacppVB2742zba16Rc",
+      "address": "2hQkyW5yGT4koHL7smK2rye5HzZe489qMdPXmr21aekd",
       "role": "merchant",
       "title": "Quill: text summaries",
       "behaviour": "honest"
     },
     "vera": {
-      "address": "7BVf6Kjou5SKZpsetCmPkD744R4tTEv6TXd2ppEprqjG",
+      "address": "93YALFSrr5dBp1FuZsFRPVeM3w6i3ovrg97PZ9SWVGJk",
       "role": "merchant",
       "title": "Vera: Tessera credit reports",
       "behaviour": "honest"
     },
     "pixel": {
-      "address": "9VaRtBKTed5ghhYJgsuwVbJJWtvf9FRUiFTWtTaL7UMZ",
+      "address": "E6fyFwRFY3fxZRPyLw1n3tsyriCeDcw1C19JCQA4JeJ",
       "role": "merchant",
       "title": "Pixel: generated identicons",
       "behaviour": "honest"
     },
     "scout": {
-      "address": "CWhwN2uPxBBaTjNJax4LUxy4PZeVYJfJqqYYQFZfb25q",
+      "address": "69FgPAiBm7Cyy42aNYUGB2T9Sw2zEzuj863tmkPHsbuz",
       "role": "buyer",
       "title": "Scout: research agent",
       "behaviour": "honest"
     },
     "nova": {
-      "address": "9HHurQTLvG6hVoEcEH9bG9jNVDZCzgxqPPLFbpWsc2QV",
+      "address": "Acy1bCFCSBt8Bhv3vHBExWAoEnp2F6Wi96Mi5CqWt7PW",
       "role": "buyer",
       "title": "Nova: trading agent",
       "behaviour": "honest"
     },
     "orbit": {
-      "address": "FF6JJCM8Xbaj2GEGLFgbU5nNGJRfDSj34WyNQkMKWJvB",
+      "address": "Dcn1N989PYtdVZYiQobMk2i4qDoS2xsFZRtyNSPJdmrU",
       "role": "buyer",
       "title": "Orbit: monitoring agent",
       "behaviour": "honest"
     },
     "lumen": {
-      "address": "CCvbgooNJpPRqvHQ6YGmdKuPN6MkdWozFS5arMgCk5st",
+      "address": "BXtsho1SuZ8ASfDj9f5esrs8AF9HEBmwMe7gY2sF8KfW",
       "role": "buyer",
       "title": "Lumen: content agent",
       "behaviour": "honest"
     },
     "drift": {
-      "address": "98PMdiwp1cnZrEh4txcLLrUvMABQ4bwvLsppprKdwBTi",
+      "address": "B8qmQCeymzNoBVfRg4fMKkFYPa38BeDby9ZGLdn3m6im",
       "role": "buyer",
       "title": "Drift: data agent",
       "behaviour": "honest"
     },
     "echo": {
-      "address": "7bDijWvoFRoLCdPBNM4BvDpi6oDKv3eV6FvbvLYQoc2y",
+      "address": "2UXartbXrSJxJp69yy2MAcoitsYjorBdgPDokcYfKiLW",
       "role": "buyer",
       "title": "Echo: support agent",
       "behaviour": "honest"
     },
     "mallory": {
-      "address": "Be5DnxbJ1WJqKa2fe2qm4ceaV134NEJfQ16srXcmGGaA",
+      "address": "EbTnud5vWHwQP3dyQ7WyX8VSytyq8vXThTnJESoCF3NV",
       "role": "merchant",
       "title": "Mallory: takes orders, never delivers",
       "behaviour": "no-show"
     },
     "charlie": {
-      "address": "FaLXk6LUQHtyik3rhemUtBwmBA9LcyyoigbX8VtspnNn",
+      "address": "HTirwtNmNAmJq3id3EX3VtELmEAkAQTkyd8wrXaUqmTG",
       "role": "buyer",
       "title": "Charlie: disputes what it received",
       "behaviour": "friendly-fraud"
     },
     "washer": {
-      "address": "8APikJq3HgAHNUm6xRDLB6ZqgTiGBBMELZvBC2NWHmGk",
+      "address": "2656oKaw3UBLf18So6w3Kz8Hu713KUX45zgtyyPTEMaw",
       "role": "merchant",
       "title": "Washer: wash-trades with its own wallets",
       "behaviour": "ring-merchant"
     },
     "sock-1": {
-      "address": "n9pzwkxKFty1ZoYWnpCu4UemQtay9KJLbTAFF8KAtxi",
+      "address": "EjB382b4sxdrdGEmMJQNoAxgFmn6XxZU5AhmC1XraNKH",
       "role": "buyer",
       "title": "Sock puppet 1",
       "behaviour": "ring-buyer"
     },
     "sock-2": {
-      "address": "4KodVmV6mcEfugf8JyCztwVZe2ku6nLaJ8ngoJ4QLsP5",
+      "address": "C5tNBPJUEuU6WWc9s8DD3Yas87X9fGA4qKPpWfjuotZN",
       "role": "buyer",
       "title": "Sock puppet 2",
       "behaviour": "ring-buyer"
     },
     "sock-3": {
-      "address": "4nr6eNy2m7frGqsbqxS5nm5CnrFobqksDiozvCnHUiyK",
+      "address": "88Woxx1bva3wMABNYH7EEMKnAKt6ifVofDb6eBHUKTou",
       "role": "buyer",
       "title": "Sock puppet 3",
       "behaviour": "ring-buyer"
     }
+  },
+  "payLater": {
+    "program": "LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D",
+    "authority": "EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6",
+    "pool": "GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq",
+    "vault": "DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV",
+    "deployedAt": "2026-10-27",
+    "lastDeploy": {
+      "slot": "515961295",
+      "time": "2026-10-28T06:17:53.000Z",
+      "build": "eca65b0",
+      "tx": "3YJDEfVq961AwaqKYFwoDRxEfDwJDmLUvXFNHVBjWyGzL9J1U5UrFomjNTLUoxmSG1QN1X1vXunTJBdSwwmp1XgG"
+    },
+    "params": {
+      "tierLimit": [
+        "0",
+        "2000000",
+        "5000000",
+        "10000000"
+      ],
+      "stepBps": 2500,
+      "maxBoostBps": 10000,
+      "termSecs": 600,
+      "graceSecs": 60,
+      "feeBps": 200,
+      "minMerchantTier": 1,
+      "minLoan": "1000"
+    }
+  },
+  "retired": {
+    "note": "The version 1 escrow. Its upgrade key, config authority and arbiter are lost, so it runs the 4 October build of c6dbcd7 for good (B13 and B16 open, disputes unresolvable). Replaced on 28 October 2026; its accounts stay readable as history.",
+    "program": "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",
+    "config": "DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2",
+    "authority": "5i7zzV9hQUCbpg8MXSNJB3QQkL6zscDd8VQKow46vg7E",
+    "arbiter": "3GydKy3acrVxvwyF26oDMwvbxVjrQ5yBDEc1GzUoVKz2",
+    "treasury": "2n9iDG52o2oqqdUEbaGEbjYEtyA4Lk4SZb4bsyJ4XPoi"
   }
 }

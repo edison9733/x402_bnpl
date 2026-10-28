@@ -45,6 +45,32 @@ export const config = {
   maxOpenQuotes: num('MAX_OPEN_QUOTES', 40, 1),
   /** Requests one client may make per minute that open an order on-chain. */
   quotesPerMinute: num('QUOTES_PER_MINUTE', 20, 1),
+  /**
+   * Wallets with no credit file one client may have quoted for in an hour.
+   * Such a quote makes the wallet's credit file, whose rent the ops wallet
+   * pays and never gets back (shared by every merchant of this server).
+   */
+  maxNewWalletsPerHour: num('MAX_NEW_WALLETS_PER_HOUR', 10, 1),
+  /**
+   * Below this much SOL (in lamports) the ops wallet opens no new quotes: what
+   * it has left pays the network fees that settle, release and refund the
+   * orders already open, and the keeper's.
+   */
+  quoteSolFloorLamports: num('QUOTE_SOL_FLOOR_LAMPORTS', 30_000_000, 0),
+  /**
+   * The demo faucet drips only while the ops wallet keeps at least this much
+   * SOL (in lamports) after the drip, so visitors cannot spend what fronts
+   * quote rent and pays settlement fees. 0.1 SOL is the rent of about twenty
+   * open quotes plus thousands of fees.
+   */
+  faucetSolFloorLamports: num('FAUCET_SOL_FLOOR_LAMPORTS', 100_000_000, 0),
+  /**
+   * Close settled orders whose rent the ops wallet fronted once their review
+   * window is over, to get that rent back. Off by default: settled orders are
+   * the on-chain history the website's feed and network view read, and the
+   * links in the README point at them. CLOSE_SETTLED_ORDERS=1 turns it on.
+   */
+  closeSettledOrders: process.env.CLOSE_SETTLED_ORDERS === '1',
   /** Requests of any kind one client may make per minute. */
   requestsPerMinute: num('REQUESTS_PER_MINUTE', 120, 1),
   /**
@@ -61,9 +87,11 @@ export const config = {
    */
   allowEphemeralState: process.env.TESSERA_ALLOW_EPHEMERAL_STATE === '1',
   crankEveryMs: num('CRANK_MS', 4000, 500),
+  /** How often the keeper looks for pay-later loans past their grace period (one program-accounts read each time). */
+  keeperEveryMs: num('KEEPER_MS', 30_000, 1000),
 };
 
 /** The a2a-x402 extension this server implements (standalone flow). */
 export const X402_EXTENSION_URI = 'https://github.com/google-agentic-commerce/a2a-x402/blob/main/spec/v0.2';
 /** Tessera's own extension: escrow terms and the on-chain credit profile behind an agent. */
-export const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/agentic_commerce/blob/main/docs/A2A-EXTENSION.md';
+export const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md';

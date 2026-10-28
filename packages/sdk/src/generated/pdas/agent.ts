@@ -23,7 +23,7 @@ export async function findAgentPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">,
+    programAddress = "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry" as Address<"tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,

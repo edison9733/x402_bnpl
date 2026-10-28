@@ -10,17 +10,21 @@
 import { randomUUID } from 'node:crypto';
 import { address, type Address } from '@solana/kit';
 import { x402Client } from '@x402/core/client';
-import type { PaymentPayload, PaymentRequired, SettleResponse } from '@x402/core/types';
+import type { PaymentPayload, PaymentRequired, PaymentRequirements, SettleResponse } from '@x402/core/types';
 import { ExactSvmScheme } from '@x402/svm/exact/client';
-import { bytesEqual, fromHex, fromUnits, sha256, TIER_NAMES, verifyOrderForPayment, type Order } from '@tessera/sdk';
+import { bytesEqual, fromHex, fromUnits, paylater, sha256, TIER_NAMES, verifyOrderForPayment, type Order } from '@tessera/sdk';
 import { K, type Message, type Task } from './a2a.js';
-import { liveScore, openDispute, OrderState, payDirect, readOrder, readUntil, release, submitReview, type Actor } from './chain.js';
+import { liveScore, openDispute, OrderState, payDirect, read, readOrder, readUntil, release, submitReview, type Actor } from './chain.js';
 import { TESSERA_EXTENSION_URI, X402_EXTENSION_URI } from './config.js';
 import type { EscrowTerms } from './merchant.js';
 import { canonical, hashOf } from './services.js';
 import { sleep } from '../../../scripts/lib.js';
 
-export type PayMode = 'x402' | 'direct';
+/** x402 through a facilitator, a direct transfer into the vault, or the pay-later pool paying the vault (x402, scheme `tessera-paylater`). */
+export type PayMode = 'x402' | 'direct' | 'pay-later';
+
+/** The loan a purchase on credit opened: what the buyer owes the pool and by when. */
+export type LoanTaken = { address: Address; amount: bigint; fee: bigint; owed: bigint; dueAt: number };
 
 export type Purchase = {
   merchant: string;
@@ -39,6 +43,8 @@ export type Purchase = {
   /** Milliseconds, measured by the buyer. */
   timings: { quoteMs: number; verifyMs: number; payMs: number; totalMs: number; merchant?: Record<string, number> };
   failed?: string;
+  /** Mode pay-later: the loan the pool opened for this purchase. */
+  loan?: LoanTaken;
 };
 
 type Card = {
@@ -120,10 +126,15 @@ export class BuyerAgent {
     const terms = (required.extensions?.tessera ?? meta[K.escrow]) as EscrowTerms;
     const quoteMs = Date.now() - t0;
 
-    // 4. Verify the escrow on-chain before signing anything.
+    // 4. Verify the escrow on-chain before signing anything. On credit, the
+    // option is the merchant's tessera-paylater entry, and only if the
+    // merchant says the pool would fund this buyer right now.
     const tVerify = Date.now();
-    const option = required.accepts[0];
-    if (!option) throw new Error('the quote offers no way to pay');
+    const onCredit = this.opts.mode === 'pay-later';
+    const option = onCredit ? required.accepts.find((a) => a.scheme === paylater.X402_SCHEME) : required.accepts[0];
+    if (!option) throw new Error(onCredit ? `${card.name} does not offer pay later` : 'the quote offers no way to pay');
+    const offer = onCredit ? (option.extra as paylater.PayLaterOffer) : undefined;
+    if (offer && !offer.eligible) throw new Error(`not eligible for pay later: ${offer.reason ?? 'the merchant did not say why'}`);
     const amount = BigInt(option.amount);
     if (amount > advertised) throw new Error(`quote of ${amount} is above the advertised price ${advertised}`);
     const expected = {
@@ -166,7 +177,11 @@ export class BuyerAgent {
     // 5. Pay, and hand the proof back on the same task.
     const tPay = Date.now();
     let done: Task;
-    if (this.opts.mode === 'x402') {
+    let loanAddress: Address | undefined;
+    if (offer) {
+      this.log(`${card.name}/${skill}: on credit; limit ${fromUnits(BigInt(offer.buyerLimit))} USDC, owing ${fromUnits(BigInt(offer.buyerOutstanding))}; fee ${fromUnits(BigInt(offer.fee))}, due in ${offer.termSecs}s`);
+      ({ task: done, loan: loanAddress } = await this.payOnCredit(card.url, quoted.id, required, option, verified.order, { amount, requestHash: expected.requestHash }));
+    } else if (this.opts.mode === 'x402') {
       done = await this.payOverX402(card.url, quoted.id, required, verified.order, amount);
     } else {
       const signature = await payDirect(this.actor, verified.order, verified.data, verified.vault);
@@ -185,10 +200,24 @@ export class BuyerAgent {
 
     const doneMeta = done.status.message?.metadata ?? {};
     const receipts = (doneMeta[K.receipts] as SettleResponse[] | undefined) ?? [];
+    // On credit: the loan is on-chain once the merchant has sent the buy_now,
+    // whether or not it then delivered. Say what is owed and by when.
+    const loanTaken = async (tries: number): Promise<LoanTaken | undefined> => {
+      if (!loanAddress) return undefined;
+      const l = await readUntil(() => read(() => paylater.fetchMaybeLoan(this.actor.rpc, loanAddress)), (x) => x.exists, tries);
+      if (!l.exists) return undefined;
+      const loan: LoanTaken = { address: loanAddress, amount: l.data.amount, fee: l.data.fee, owed: paylater.owedOf(l.data), dueAt: Number(l.data.dueAt) };
+      this.log(`${card.name}/${skill}: loan ${loanAddress.slice(0, 8)}: owe ${fromUnits(loan.owed)} USDC (${fromUnits(loan.amount)} + ${fromUnits(loan.fee)} fee) by ${new Date(loan.dueAt * 1000).toISOString()}`);
+      return loan;
+    };
     if (done.status.state !== 'completed') {
       const why = `${doneMeta[K.error] ?? done.status.state}: ${done.status.message?.parts?.[0] && 'text' in done.status.message.parts[0] ? done.status.message.parts[0].text : ''}`;
       this.log(`${card.name}/${skill}: not delivered (${why.slice(0, 100)})`);
-      return { ...base, verified: false, instant: false, releaseAt: 0, receipts, timings: { quoteMs, verifyMs, payMs, totalMs: Date.now() - t0 }, failed: why };
+      // A refused buy_now opened no loan; one the merchant sent and then could
+      // not deliver against did, and the escrow's refund does not close it.
+      const loan = await loanTaken(2);
+      if (loan) this.log(`${card.name}/${skill}: the pool paid the escrow before the merchant failed; a refund goes to this wallet, and the loan is still owed`);
+      return { ...base, verified: false, instant: false, releaseAt: 0, receipts, timings: { quoteMs, verifyMs, payMs, totalMs: Date.now() - t0 }, failed: why, ...(loan ? { loan } : {}) };
     }
 
     // 6. Check the delivery against the hash committed on-chain.
@@ -198,6 +227,9 @@ export class BuyerAgent {
     const onChain = await readUntil(() => readOrder(this.actor, verified.order), (o) => o !== null && o.deliveredAt > 0n, 8);
     const matches = onChain !== null && deliverable !== undefined && bytesEqual(await sha256(canonical(deliverable)), onChain.deliveryHash);
 
+    // 7. On credit: the loan.
+    const loan = await loanTaken(8);
+
     return {
       ...base,
       deliverable,
@@ -206,13 +238,47 @@ export class BuyerAgent {
       releaseAt: Number(onChain?.releaseAt ?? 0),
       receipts,
       timings: { quoteMs, verifyMs, payMs, totalMs: Date.now() - t0, merchant: delivery?.timings },
+      ...(loan ? { loan } : {}),
     };
   }
 
-  /** Sign an x402 payment for exactly the verified escrow and submit it. */
+  /**
+   * Pay later: sign one `buy_now` for exactly the verified order, with the
+   * merchant's wallet (from the quote) as fee payer, and hand it over on the
+   * task. The merchant signs it as fee payer and as the order's merchant
+   * (`buy_now` needs both the buyer's and the merchant's signatures) and
+   * sends it; the pool pays the escrow; this buyer owes the pool the price
+   * plus its fee by the due date.
+   */
+  private async payOnCredit(
+    url: string,
+    taskId: string,
+    required: PaymentRequired,
+    option: PaymentRequirements,
+    order: Address,
+    terms: paylater.BuyNowTerms,
+  ): Promise<{ task: Task; loan: Address }> {
+    // The price and request this buyer verified ride in the buy_now: if the
+    // order at this address is not that one when it runs, it fails.
+    const { transaction, loan } = await paylater.buyNowForMerchant(this.actor.rpc, this.actor.identity, order, address(String(option.extra.feePayer)), terms);
+    const payload: PaymentPayload = { x402Version: 2, resource: required.resource, accepted: option, payload: { transaction } };
+    const task = await this.rpc(url, {
+      message: {
+        kind: 'message',
+        role: 'user',
+        messageId: randomUUID(),
+        taskId,
+        parts: [{ kind: 'text', text: 'Payment attached: buy now, pay later.' }],
+        metadata: { [K.status]: 'payment-submitted', [K.payload]: payload },
+      } satisfies Message,
+    });
+    return { task, loan };
+  }
+
+  /** Sign an x402 payment for exactly the verified escrow and submit it, through the first facilitator whose `exact` option works. */
   private async payOverX402(url: string, taskId: string, required: PaymentRequired, order: Address, amount: bigint): Promise<Task> {
     let lastError = 'no payment option worked';
-    for (const option of required.accepts) {
+    for (const option of required.accepts.filter((a) => a.scheme === 'exact')) {
       const x402 = new x402Client();
       // The SDK ships a per-payment cap. Pin it to this order instead of lifting it.
       x402.setSpendControls({ maxAmountPerPayment: `$${fromUnits(amount, 6, 6)}` });
@@ -239,6 +305,14 @@ export class BuyerAgent {
           metadata: { [K.status]: 'payment-submitted', [K.payload]: payload },
         } satisfies Message,
       });
+      // The facilitator did not settle it and it can no longer land: nothing
+      // was paid, the order still waits, so pay through the next facilitator.
+      const said = task.status.message;
+      if (task.status.state === 'input-required' && said?.metadata?.[K.error] === 'EXPIRED_PAYMENT') {
+        lastError = `EXPIRED_PAYMENT: ${said.parts?.[0] && 'text' in said.parts[0] ? said.parts[0].text : ''}`;
+        this.log(`payment through ${String(option.extra?.feePayer ?? 'the facilitator').slice(0, 8)} was not settled and can no longer land; paying through the next facilitator`);
+        continue;
+      }
       return task;
     }
     throw new Error(lastError);

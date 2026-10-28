@@ -7,10 +7,12 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-tessera = "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ"
+tessera = "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry"
+tessera_paylater = "LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D"
 
 [programs.localnet]
-tessera = "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ"
+tessera = "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry"
+tessera_paylater = "LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D"
 
 [provider]
 # Local, so `anchor test` never upgrades the live program. Deploy to devnet

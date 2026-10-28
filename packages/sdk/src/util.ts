@@ -33,7 +33,7 @@ export function fromHex(hex: string): Uint8Array {
   return out;
 }
 
-type ReadonlyUint8ArrayLike = { readonly length: number; readonly [n: number]: number };
+export type ReadonlyUint8ArrayLike = { readonly length: number; readonly [n: number]: number };
 
 /** sha256 through WebCrypto, so the same code runs in Node and in a browser. */
 export async function sha256(data: Uint8Array | string): Promise<Uint8Array> {
