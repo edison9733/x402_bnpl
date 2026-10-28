@@ -343,7 +343,7 @@ export async function getInitializeInstructionAsync<
   if (!accounts.tesseraConfig.value) {
     accounts.tesseraConfig.value = await getProgramDerivedAddress({
       programAddress:
-        "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">,
+        "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry" as Address<"tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry">,
       seeds: [
         getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
       ],

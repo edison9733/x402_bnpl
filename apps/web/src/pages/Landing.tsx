@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useScroll, useTransform } from 'motion/react';
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { DEVNET_PARAMS, MAINNET_TARGET_PARAMS, paylater } from '@tessera/sdk';
+import { DEVNET_PARAMS, MAINNET_TARGET_PARAMS, paylater, TESSERA_PROGRAM_ADDRESS } from '@tessera/sdk';
 import registry from '../../../../deployments/registry.json';
 import snapshot from '../../../../deployments/snapshot.json';
 import { AttackLab } from '../components/AttackLab';
@@ -18,7 +18,7 @@ import { useChain, useProfiles } from '../lib/store';
 import { recordedAt, session } from '../lib/findDemo';
 
 const REPO = 'https://github.com/edison9733/agentic_commerce';
-const PROGRAM = 'TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ';
+const PROGRAM: string = TESSERA_PROGRAM_ADDRESS;
 
 const mask = { display: 'inline-block', overflow: 'hidden', verticalAlign: 'top', paddingBottom: '0.2em', marginBottom: '-0.12em' } as const;
 

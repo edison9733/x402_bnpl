@@ -1,5 +1,5 @@
 {
-  "address": "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",
+  "address": "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry",
   "metadata": {
     "name": "tessera",
     "version": "0.1.0",
@@ -711,7 +711,7 @@
             "Only the program's upgrade authority may create the singleton, so the",
             "first caller after a deployment cannot take it."
           ],
-          "address": "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ"
+          "address": "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry"
         },
         {
           "name": "program_data"

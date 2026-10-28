@@ -66,7 +66,7 @@ export type InitializeInstruction<
   TAccountArbiter extends string | AccountMeta<string> = string,
   TAccountTreasury extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> =
-    "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",
+    "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry",
   TAccountProgramData extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
@@ -285,7 +285,7 @@ export async function getInitializeInstructionAsync<
   }
   if (!accounts.program.value) {
     accounts.program.value =
-      "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">;
+      "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry" as Address<"tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry">;
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
@@ -480,7 +480,7 @@ export function getInitializeInstruction<
   // Resolve default values.
   if (!accounts.program.value) {
     accounts.program.value =
-      "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">;
+      "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry" as Address<"tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry">;
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =

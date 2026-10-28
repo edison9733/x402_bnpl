@@ -69,7 +69,7 @@ export type BuyNowInstruction<
   TAccountOrder extends string | AccountMeta<string> = string,
   TAccountOrderVault extends string | AccountMeta<string> = string,
   TAccountEscrowProgram extends string | AccountMeta<string> =
-    "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",
+    "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry",
   TAccountTesseraConfig extends string | AccountMeta<string> = string,
   TAccountBuyerAgent extends string | AccountMeta<string> = string,
   TAccountMerchantAgent extends string | AccountMeta<string> = string,
@@ -478,12 +478,12 @@ export async function getBuyNowInstructionAsync<
   }
   if (!accounts.escrowProgram.value) {
     accounts.escrowProgram.value =
-      "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">;
+      "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry" as Address<"tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry">;
   }
   if (!accounts.tesseraConfig.value) {
     accounts.tesseraConfig.value = await getProgramDerivedAddress({
       programAddress:
-        "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">,
+        "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry" as Address<"tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry">,
       seeds: [
         getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
       ],
@@ -492,7 +492,7 @@ export async function getBuyNowInstructionAsync<
   if (!accounts.buyerAgent.value) {
     accounts.buyerAgent.value = await getProgramDerivedAddress({
       programAddress:
-        "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">,
+        "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry" as Address<"tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry">,
       seeds: [
         getBytesEncoder().encode(new Uint8Array([97, 103, 101, 110, 116])),
         getAddressEncoder().encode(
@@ -507,7 +507,7 @@ export async function getBuyNowInstructionAsync<
   if (!accounts.merchantAgent.value) {
     accounts.merchantAgent.value = await getProgramDerivedAddress({
       programAddress:
-        "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">,
+        "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry" as Address<"tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry">,
       seeds: [
         getBytesEncoder().encode(new Uint8Array([97, 103, 101, 110, 116])),
         getAddressEncoder().encode(
@@ -843,7 +843,7 @@ export function getBuyNowInstruction<
   // Resolve default values.
   if (!accounts.escrowProgram.value) {
     accounts.escrowProgram.value =
-      "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ" as Address<"TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ">;
+      "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry" as Address<"tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry">;
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
