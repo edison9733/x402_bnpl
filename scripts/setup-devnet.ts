@@ -178,10 +178,17 @@ for (const c of [...MERCHANTS, ...BUYERS]) {
 }
 
 const file = resolve(REPO_ROOT, 'deployments/devnet.json');
-const before = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as { payLater?: unknown }) : {};
+// Kept from the file as it was: the deploy record (written by hand after a
+// deploy), the retired escrow, and the pay-later block (`npm run setup:paylater`).
+const before = existsSync(file)
+  ? (JSON.parse(readFileSync(file, 'utf8')) as { program?: string; deployedAt?: unknown; lastDeploy?: unknown; payLater?: unknown; retired?: unknown })
+  : {};
+const sameProgram = before.program === TESSERA_PROGRAM_ADDRESS;
 const deployment = {
   cluster: 'devnet',
   program: TESSERA_PROGRAM_ADDRESS,
+  ...(sameProgram && before.deployedAt ? { deployedAt: before.deployedAt } : {}),
+  ...(sameProgram && before.lastDeploy ? { lastDeploy: before.lastDeploy } : {}),
   config,
   mint: live.mint,
   feeBps: live.feeBps,
@@ -191,6 +198,7 @@ const deployment = {
   server: server.identity.address,
   agents: Object.fromEntries(CAST.map((c) => [c.id, { address: agents.get(c.id)!.identity.address, role: c.role, title: c.title, behaviour: c.behaviour }])),
   ...(before.payLater ? { payLater: before.payLater } : {}),
+  ...(before.retired ? { retired: before.retired } : {}),
 };
 mkdirSync(resolve(REPO_ROOT, 'deployments'), { recursive: true });
 writeFileSync(file, JSON.stringify(deployment, null, 2) + '\n');

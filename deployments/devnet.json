@@ -1,12 +1,21 @@
 {
   "cluster": "devnet",
-  "program": "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",
-  "config": "DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2",
+  "program": "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry",
+  "deployedAt": "2026-10-28T06:18:43.000Z",
+  "lastDeploy": {
+    "slot": "515961506",
+    "time": "2026-10-28T06:18:43.000Z",
+    "build": "eca65b0",
+    "tx": "34QUoV5GAC7yNY9k1Wz7UFeD7fjygddE5q7M9eJdkPwwDtZb745aiWEQd8zuSQSTWmvaPes4p73NdWs5VZBMxwQW",
+    "upgradeAuthority": "EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6",
+    "maxLen": 500000
+  },
+  "config": "CvyxNt9ktt4uUMq83jZHbbqzJdNR9Tvd6YBq1ER7FPmS",
   "mint": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
   "feeBps": 100,
-  "authority": "5i7zzV9hQUCbpg8MXSNJB3QQkL6zscDd8VQKow46vg7E",
-  "arbiter": "3GydKy3acrVxvwyF26oDMwvbxVjrQ5yBDEc1GzUoVKz2",
-  "treasury": "2n9iDG52o2oqqdUEbaGEbjYEtyA4Lk4SZb4bsyJ4XPoi",
+  "authority": "EoNCoL8tDGKpiyyycESkheuMPcQNpLJrAXqjQUCQCCY6",
+  "arbiter": "72noGuXbToPzDMC29LRFTit8WxMFiiSPFRygoG597f7a",
+  "treasury": "3st9cGR4duuiUR1TjCmFmyWWFQp4KMpBAfXkKTnLRAxd",
   "server": "DJ8sWBFJT5oFW2MTyX1Zok5JWt6QPS3Uang3hHXwcM4R",
   "agents": {
     "atlas": {
@@ -113,10 +122,10 @@
     "vault": "DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV",
     "deployedAt": "2026-10-27",
     "lastDeploy": {
-      "slot": "515766612",
-      "time": "2026-10-27T17:22:02.000Z",
-      "build": "1bd11be",
-      "tx": "3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E"
+      "slot": "515961295",
+      "time": "2026-10-28T06:17:53.000Z",
+      "build": "eca65b0",
+      "tx": "3YJDEfVq961AwaqKYFwoDRxEfDwJDmLUvXFNHVBjWyGzL9J1U5UrFomjNTLUoxmSG1QN1X1vXunTJBdSwwmp1XgG"
     },
     "params": {
       "tierLimit": [
@@ -133,5 +142,13 @@
       "minMerchantTier": 1,
       "minLoan": "1000"
     }
+  },
+  "retired": {
+    "note": "The version 1 escrow. Its upgrade key, config authority and arbiter are lost, so it runs the 4 October build of c6dbcd7 for good (B13 and B16 open, disputes unresolvable). Replaced on 28 October 2026; its accounts stay readable as history.",
+    "program": "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",
+    "config": "DgwhgcXkhNwpouzppHdF7KNACA14U1JWPccFH5ZGeNE2",
+    "authority": "5i7zzV9hQUCbpg8MXSNJB3QQkL6zscDd8VQKow46vg7E",
+    "arbiter": "3GydKy3acrVxvwyF26oDMwvbxVjrQ5yBDEc1GzUoVKz2",
+    "treasury": "2n9iDG52o2oqqdUEbaGEbjYEtyA4Lk4SZb4bsyJ4XPoi"
   }
 }
