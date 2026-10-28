@@ -19,6 +19,7 @@ import { randomUUID } from 'node:crypto';
 import type { PaymentPayload } from '@x402/core/types';
 import { fromUnits, TESSERA_PROGRAM_ADDRESS, USDC_DECIMALS } from '@tessera/sdk';
 import { config, TESSERA_EXTENSION_URI, X402_EXTENSION_URI } from './config.js';
+import { PaymentExpired } from './facilitator.js';
 import { PaymentRefused, type Fulfilment, type MerchantAgent, type Quote } from './merchant.js';
 
 export type Part = { kind: 'text'; text: string } | { kind: 'data'; data: unknown };
@@ -261,6 +262,13 @@ export async function handleRpc(
     entry.task = completed({ ...entry.task, history: [...(entry.task.history ?? []), message] }, f, name);
   } catch (e) {
     const detail = (e as Error).message;
+    // Nothing was paid and nothing can land any more: the task waits for a payment again.
+    if (e instanceof PaymentExpired && quote) {
+      const again = paymentRequired(entry.task.id, entry.task.contextId, quote, [...(entry.task.history ?? []), message]);
+      const said = again.status.message!;
+      entry.task = { ...again, status: { ...again.status, message: { ...said, parts: [{ kind: 'text', text: detail }], metadata: { ...said.metadata, [K.error]: 'EXPIRED_PAYMENT' } } } };
+      return { result: entry.task };
+    }
     const code = /did not deliver/.test(detail)
       ? 'MERCHANT_NO_SHOW'
       : /not been funded|VaultUnderfunded/.test(detail)

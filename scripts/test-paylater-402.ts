@@ -40,10 +40,11 @@
  *   - the server's keeper marks a loan in default once its grace period has
  *     passed, and the buyer's line is frozen;
  *   - an exact payment the facilitator refuses at verify gets a 400 and no
- *     "do not pay again" note (nothing was sent); one it fails to settle,
- *     whether it says so or answers with an HTTP error, gets a 502, the note
- *     and its answer as PAYMENT-RESPONSE (a pending transfer may still land);
- *     a header that is not a payment, or is x402 version 1, gets a 400.
+ *     "do not pay again" note (nothing was sent); one it reports as not
+ *     settled (whether it says so or answers with an HTTP error) is watched
+ *     until it lands or its blockhash expires: one that never lands gets a
+ *     400 saying nothing was paid, one that lands anyway is delivered; a
+ *     header that is not a payment, or is x402 version 1, gets a 400.
  *
  *   npm run build:program && npm run test:paylater-402
  *
@@ -65,6 +66,7 @@ import {
   getBase64Encoder,
   getTransactionDecoder,
   lamports,
+  partiallySignTransaction,
   partiallySignTransactionMessageWithSigners,
   pipe,
   setTransactionMessageFeePayerSigner,
@@ -231,7 +233,7 @@ const quotedTerms = (r: Required402): paylater.BuyNowTerms => ({
 });
 const decodeReceipt = (h: string | null) => (h ? (JSON.parse(Buffer.from(h, 'base64').toString('utf8')) as { success: boolean; transaction: string; payer?: string }) : null);
 /** What the stub facilitator answers to /verify and /settle (set in the setup, changed in section 8). */
-let stub: { verify: Record<string, unknown>; settle: Record<string, unknown>; settleStatus: number };
+let stub: { verify: Record<string, unknown>; settle: Record<string, unknown>; settleStatus: number; landOnSettle: boolean; landed?: string };
 
 try {
   await waitFor(LOCAL.rpcUrl);
@@ -329,9 +331,11 @@ try {
   // exact entry (with this fee payer) before the pay-later one, and /verify
   // and /settle with whatever section 8 sets in `stub`, to check what the
   // server answers to a refused or failed exact payment. It never sends anything.
-  const facilitatorFeePayer = (await generateKeypairBytes()).signer.address;
+  const facilitatorSigner = (await generateKeypairBytes()).signer;
+  const facilitatorFeePayer = facilitatorSigner.address;
+  await deployer.rpc.requestAirdrop(facilitatorFeePayer, lamports(1_000_000_000n)).send();
   const refuseAll = { isValid: false, invalidReason: 'invalid_exact_svm_payload_transaction', invalidMessage: 'the stub refuses every payment' };
-  stub = { verify: refuseAll, settle: { success: false, errorReason: 'settlement_pending', transaction: '', network: SOLANA_DEVNET }, settleStatus: 200 };
+  stub = { verify: refuseAll, settle: { success: false, errorReason: 'settlement_pending', transaction: '', network: SOLANA_DEVNET }, settleStatus: 200, landOnSettle: false };
   const facilitator = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/supported') {
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -339,8 +343,20 @@ try {
     }
     if (req.method === 'POST' && (req.url === '/verify' || req.url === '/settle')) {
       const settle = req.url === '/settle';
-      req.resume();
-      return void req.on('end', () => {
+      let body = '';
+      req.on('data', (c) => (body += c));
+      return void req.on('end', async () => {
+        // A settlement reported as failed whose transfer lands anyway: the stub
+        // signs as fee payer and sends it, then answers as configured.
+        if (settle && stub.landOnSettle) {
+          try {
+            const wire = (JSON.parse(body) as { paymentPayload: { payload: { transaction: string } } }).paymentPayload.payload.transaction;
+            const tx = await partiallySignTransaction([facilitatorSigner.keyPair], getTransactionDecoder().decode(getBase64Encoder().encode(wire)));
+            stub.landed = await deployer.rpc.sendTransaction(getBase64EncodedWireTransaction(tx), { encoding: 'base64', skipPreflight: true }).send();
+          } catch (e) {
+            stub.landed = `send failed: ${errText(e)}`;
+          }
+        }
         res.writeHead(settle ? stub.settleStatus : 200, { 'content-type': 'application/json' });
         res.end(JSON.stringify(settle ? stub.settle : stub.verify));
       });
@@ -718,22 +734,33 @@ try {
   const paidX = await exactClient.createPaymentPayload({ ...(rX as unknown as PaymentRequired), accepts: [exactX as unknown as PaymentRequirements] });
   const refusedX = await get(`/agents/atlas/x402/telemetry`, header(paidX));
   ok('one the facilitator refuses at verify: 400 with its reason, and no "do not pay again" note, since nothing was sent', refusedX.status === 400 && /rejected by facilitator: invalid_exact_svm_payload_transaction/.test(refusedX.body.error ?? '') && refusedX.body.note === undefined, refusedX.body);
+  // The facilitator says it did not settle, and the transfer never lands: the
+  // merchant watches the vault until the payment's blockhash expires (about a
+  // minute on the local validator), then says nothing was paid.
   stub.verify = { isValid: true, payer: B };
+  const tPending = Date.now();
   const pendingX = await get(`/agents/atlas/x402/telemetry`, header(paidX));
-  const receiptX = decodeReceipt(pendingX.headers.get('PAYMENT-RESPONSE')) as { success?: boolean; errorReason?: string } | null;
-  ok('one the facilitator reports as not settled: 502 and "do not pay again", since a pending transfer may still land', pendingX.status === 502 && /settlement failed: settlement_pending/.test(pendingX.body.error ?? '') && /Do not pay again/.test(pendingX.body.note ?? ''), pendingX.body);
-  eq('its PAYMENT-RESPONSE header is the facilitator\'s answer', [receiptX?.success, receiptX?.errorReason], [false, 'settlement_pending']);
+  ok('one the facilitator leaves pending that never lands: once its blockhash expires, 400 "pay again", no "do not pay again" note', pendingX.status === 400 && /can no longer land/.test(pendingX.body.error ?? '') && pendingX.body.note === undefined, { body: pendingX.body, waitedS: Math.round((Date.now() - tPending) / 1000) });
+  ok('the merchant watched the vault for it first', /watching the vault until the payment lands or its blockhash expires/.test(serverLog) && /blockhash expired and the vault is still short/.test(serverLog));
   stub.settleStatus = 500;
   stub.settle = { success: false, errorReason: 'unexpected_settle_error', transaction: '', network: SOLANA_DEVNET };
   const erroredX = await get(`/agents/atlas/x402/telemetry`, header(paidX));
-  const receiptE = decodeReceipt(erroredX.headers.get('PAYMENT-RESPONSE')) as { success?: boolean; errorReason?: string } | null;
-  ok('one the facilitator answers with an HTTP error carrying a settle response: read the same way', erroredX.status === 502 && /Do not pay again/.test(erroredX.body.note ?? '') && receiptE?.success === false && receiptE.errorReason === 'unexpected_settle_error', { body: erroredX.body, receiptE });
+  ok('one the facilitator answers with an HTTP error carrying a settle response: read the same way (that payment\'s blockhash has expired by now)', erroredX.status === 400 && /unexpected_settle_error\), and it can no longer land/.test(erroredX.body.error ?? '') && erroredX.body.note === undefined, erroredX.body);
+  ok('so far nothing reached the order: it still awaits payment and its vault is empty', (await fetchOrder(rpc, orderX)).data.state === OrderState.AwaitingPayment && (await tok.balance(orderX)) === 0n);
+  // The facilitator says it did not settle, but the transfer lands after all.
+  stub.settleStatus = 200;
+  stub.settle = { success: false, errorReason: 'settlement_pending', transaction: '', network: SOLANA_DEVNET };
+  stub.landOnSettle = true;
+  const paidY = await exactClient.createPaymentPayload({ ...(rX as unknown as PaymentRequired), accepts: [exactX as unknown as PaymentRequirements] });
+  const landedY = await get(`/agents/atlas/x402/telemetry`, header(paidY));
+  stub.landOnSettle = false;
+  ok('one the facilitator reports as failed but that lands anyway: the merchant sees the vault funded, confirms and delivers (200)', landedY.status === 200 && landedY.body.result !== undefined && landedY.body.escrow?.order === orderX && /landed .*after the facilitator reported it failed/.test(serverLog), { body: landedY.body, landed: stub.landed });
+  eq('the order is paid and delivered', (await fetchOrder(rpc, orderX)).data.state === OrderState.Delivered || (await fetchOrder(rpc, orderX)).data.state === OrderState.Released, true);
   stub.verify = refuseAll;
   const notPayment = await get(`/agents/atlas/x402/telemetry`, { 'PAYMENT-SIGNATURE': '%% not a payment %%' });
   ok('a header that is not a payment payload: 400, no note', notPayment.status === 400 && /not a base64-encoded x402 payment payload/.test(notPayment.body.error ?? '') && notPayment.body.note === undefined, notPayment.body);
   const v1 = await get(`/agents/atlas/x402/telemetry`, header({ x402Version: 1, scheme: 'exact', network: 'solana-devnet', payload: {} }));
   ok('an x402 version 1 payload: 400, no note', v1.status === 400 && /only x402 version 2/.test(v1.body.error ?? '') && v1.body.note === undefined, v1.body);
-  ok('none of them reached the order: it still awaits payment and its vault is empty', (await fetchOrder(rpc, orderX)).data.state === OrderState.AwaitingPayment && (await tok.balance(orderX)) === 0n);
 } catch (e) {
   failures += 1;
   console.log(`\n   FAIL stopped on an unexpected error:\n${errText(e).slice(0, 1500)}`);

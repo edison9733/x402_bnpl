@@ -305,6 +305,14 @@ export class BuyerAgent {
           metadata: { [K.status]: 'payment-submitted', [K.payload]: payload },
         } satisfies Message,
       });
+      // The facilitator did not settle it and it can no longer land: nothing
+      // was paid, the order still waits, so pay through the next facilitator.
+      const said = task.status.message;
+      if (task.status.state === 'input-required' && said?.metadata?.[K.error] === 'EXPIRED_PAYMENT') {
+        lastError = `EXPIRED_PAYMENT: ${said.parts?.[0] && 'text' in said.parts[0] ? said.parts[0].text : ''}`;
+        this.log(`payment through ${String(option.extra?.feePayer ?? 'the facilitator').slice(0, 8)} was not settled and can no longer land; paying through the next facilitator`);
+        continue;
+      }
       return task;
     }
     throw new Error(lastError);

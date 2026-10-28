@@ -114,6 +114,18 @@ export class SettlementFailed extends Error {
 }
 
 /**
+ * A payment the facilitator did not settle, whose blockhash has since expired
+ * with the order's vault still short: it can never land, nothing was paid, and
+ * the client may pay again (through another facilitator, say).
+ */
+export class PaymentExpired extends PaymentRefused {
+  constructor(detail: string) {
+    super(detail);
+    this.name = 'PaymentExpired';
+  }
+}
+
+/**
  * Verify, then settle. The payment names one facilitator as fee payer, so it
  * goes to that one; a quote for another facilitator is a fresh quote.
  *

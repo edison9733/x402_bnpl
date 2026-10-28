@@ -3,7 +3,7 @@
  * is funded does the work, commits a hash of it on-chain and hands it over.
  */
 import { readFileSync } from 'node:fs';
-import { address, getCompiledTransactionMessageDecoder, getPublicKeyFromAddress, verifySignature, type Address } from '@solana/kit';
+import { address, getCompiledTransactionMessageDecoder, getPublicKeyFromAddress, verifySignature, type Address, type Blockhash } from '@solana/kit';
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import type { PaymentPayload, PaymentRequired, PaymentRequirements, SettleResponse } from '@x402/core/types';
 import { decodeTransactionFromPayload, getTokenPayerFromTransaction } from '@x402/svm';
@@ -40,11 +40,11 @@ import {
   type Actor,
 } from './chain.js';
 import { config } from './config.js';
-import { facilitators, verifyAndSettle } from './facilitator.js';
+import { facilitators, PaymentExpired, SettlementFailed, verifyAndSettle, type Settled } from './facilitator.js';
 import { payLaterOption, PaymentRefused, settlePayLater } from './paylater.js';
 import { canonical, hashOf, SERVICES, type Service } from './services.js';
 import { appendLineDurable, dataFile, readJsonFile, writeFileDurable } from './store.js';
-import { chainNow } from '../../../scripts/lib.js';
+import { chainNow, sleep } from '../../../scripts/lib.js';
 
 /**
  * A funded order is delivered, or refunded by its merchant (which costs the
@@ -220,6 +220,53 @@ async function paysThisOrder(payment: PaymentPayload, terms: EscrowTerms): Promi
   } catch {
     // an undecodable payment is refused
     return false;
+  }
+}
+
+/** How long to watch a payment the facilitator did not settle: past any blockhash's lifetime (150 slots). */
+const PENDING_WATCH_MS = 150_000;
+
+/**
+ * Settle an exact payment through its facilitator. A settlement it reports as
+ * failed may still land ("settlement_pending" often does), so the vault is
+ * watched until one of two things decides it: the vault is funded (it
+ * landed, and the purchase goes on), or the payment's blockhash has expired
+ * with the vault still short (it never can: PaymentExpired, the client may
+ * pay again). If neither shows within PENDING_WATCH_MS, the failure stands
+ * and the client is told not to pay again.
+ */
+async function settleExact(ops: Actor, payment: PaymentPayload, accepted: PaymentRequirements, terms: EscrowTerms, amount: bigint): Promise<Settled> {
+  try {
+    return await verifyAndSettle(payment, accepted);
+  } catch (e) {
+    if (!(e instanceof SettlementFailed)) throw e;
+    const t0 = Date.now();
+    const blockhash = (() => {
+      try {
+        const tx = decodeTransactionFromPayload(payment.payload as { transaction: string });
+        return getCompiledTransactionMessageDecoder().decode(tx.messageBytes).lifetimeToken as Blockhash;
+      } catch {
+        return undefined;
+      }
+    })();
+    const order = terms.order.slice(0, 8);
+    console.warn(`[fulfil] ${order}: ${e.message}; watching the vault until the payment lands or its blockhash expires`);
+    while (Date.now() - t0 < PENDING_WATCH_MS) {
+      if ((await vaultBalance(ops, terms.vault)) >= amount) {
+        console.log(`[fulfil] ${order}: the payment landed ${Math.round((Date.now() - t0) / 1000)}s after the facilitator reported it failed`);
+        return { response: { ...e.response, success: true, errorReason: undefined, errorMessage: undefined }, facilitator: 'landed late', verifyMs: 0, settleMs: Date.now() - t0 };
+      }
+      const valid = blockhash ? await ops.rpc.isBlockhashValid(blockhash, { commitment: 'confirmed' }).send().then((r) => r.value).catch(() => true) : true;
+      if (!valid) {
+        // A last look a few slots on: it may have landed in the block where the blockhash ran out.
+        await sleep(4000);
+        if ((await vaultBalance(ops, terms.vault)) >= amount) continue;
+        console.warn(`[fulfil] ${order}: the payment's blockhash expired and the vault is still short; it can no longer land`);
+        throw new PaymentExpired(`the facilitator did not settle the payment (${e.response.errorReason ?? 'unknown'}), and it can no longer land: its blockhash has expired and the escrow was not funded. Nothing was paid; pay again.`);
+      }
+      await sleep(2000);
+    }
+    throw e;
   }
 }
 
@@ -628,7 +675,7 @@ export class MerchantAgent {
       // lands the order is already Funded (buy_now calls the escrow's
       // confirm_funded itself). Otherwise the facilitator named in the option
       // settles the transfer, and the order is confirmed below.
-      const settled = onCredit ? await settlePayLater(this.ops, this.signer, payment, quote.terms) : await verifyAndSettle(payment, accepted);
+      const settled = onCredit ? await settlePayLater(this.ops, this.signer, payment, quote.terms) : await settleExact(this.ops, payment, accepted, quote.terms, before.amount);
       paidOnCredit = onCredit;
       receipts.push(settled.response);
       timings.verifyMs = settled.verifyMs;
