@@ -91,7 +91,8 @@ async function purchase(
   const skill = SERVICES[merchant]![0]!.sku;
   const agent = opts.x402 ? new BuyerAgent(b.id, b.actor, { ...b.opts, mode: 'x402' }) : b;
   // Every attempt is a row, failures with their reason, so a success rate can be read from the file.
-  const record = (row: Record<string, unknown>) => appendFileSync(measurements, JSON.stringify({ at: Date.now(), buyer: b.id, merchant, ...row }) + '\n');
+  // `seller` names the merchant; `merchant`, as in the older rows, holds the merchant's own timings.
+  const record = (row: Record<string, unknown>) => appendFileSync(measurements, JSON.stringify({ at: Date.now(), buyer: b.id, seller: merchant, ...row }) + '\n');
   try {
     const p = await agent.buy(agentCardUrl(merchant), skill, inputFor(skill), { minHoldSecs: opts.minHoldSecs });
     if (p.failed) {

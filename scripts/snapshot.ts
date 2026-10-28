@@ -54,13 +54,13 @@ const median = (xs: number[]) => {
   return a.length ? a[Math.floor(a.length / 2)]! : null;
 };
 
-type M = { at?: number; buyer?: string; merchant?: string | Record<string, number>; mode: string; ok?: boolean; failed?: string; instant: boolean; totalMs: number; quoteMs: number; verifyMs: number; payMs: number };
+type M = { at?: number; buyer?: string; seller?: string; merchant?: Record<string, number>; mode: string; ok?: boolean; failed?: string; instant: boolean; totalMs: number; quoteMs: number; verifyMs: number; payMs: number };
 const file = resolve(REPO_ROOT, 'deployments/measurements.jsonl');
 const rowsOnDisk: M[] = existsSync(file) ? readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as M) : [];
 // Rows written before failures were recorded have no `ok`: each of them is a delivered purchase.
 const ms = rowsOnDisk.filter((m) => m.ok !== false);
 const x402 = ms.filter((m) => m.mode === 'x402');
-const timings = (m: M) => (typeof m.merchant === 'object' ? m.merchant : undefined);
+const timings = (m: M) => m.merchant;
 const p95 = (xs: number[]) => {
   const a = xs.filter((x) => Number.isFinite(x)).sort((x, y) => x - y);
   return a.length ? a[Math.min(a.length - 1, Math.ceil(a.length * 0.95) - 1)]! : null;
@@ -68,14 +68,19 @@ const p95 = (xs: number[]) => {
 
 /**
  * Reliability on the escrow deployed now: honest buyers buying from honest
- * merchants (the cast's attackers fail on purpose), every attempt since the
- * deploy recorded in deployments/devnet.json.
+ * merchants (the cast's attackers fail on purpose), counting only rows that
+ * record failures too (those with `ok`), since the deploy recorded in
+ * deployments/devnet.json. A delivered row without `seller` is from an honest
+ * merchant: the no-show never delivers, and the wash ring sells only to itself.
  */
 const deployment = JSON.parse(readFileSync(resolve(REPO_ROOT, 'deployments/devnet.json'), 'utf8')) as { deployedAt?: string };
-const sinceMs = deployment.deployedAt ? Date.parse(deployment.deployedAt) : 0;
+const deployedMs = deployment.deployedAt ? Date.parse(deployment.deployedAt) : 0;
 const honestBuyers = new Set(BUYERS.map((b) => b.id));
 const honestMerchants = new Set(MERCHANTS.map((m) => m.id));
-const attempts = rowsOnDisk.filter((m) => (m.at ?? 0) >= sinceMs && honestBuyers.has(m.buyer ?? '') && typeof m.merchant === 'string' && honestMerchants.has(m.merchant));
+const attempts = rowsOnDisk.filter(
+  (m) => m.ok !== undefined && (m.at ?? 0) >= deployedMs && honestBuyers.has(m.buyer ?? '') && (m.seller ? honestMerchants.has(m.seller) : m.ok),
+);
+const sinceMs = attempts.length ? Math.min(...attempts.map((m) => m.at!)) : null;
 const byMode = (mode: string) => {
   const a = attempts.filter((m) => m.mode === mode);
   const ok = a.filter((m) => m.ok !== false);
@@ -83,7 +88,8 @@ const byMode = (mode: string) => {
 };
 const failureReasons = Object.entries(
   attempts.filter((m) => m.ok === false).reduce<Record<string, number>>((acc, m) => {
-    const why = (m.failed ?? 'unknown').replace(/\s+/g, ' ').slice(0, 80);
+    // One line per cause: drop the amounts and the decode hint that vary between attempts.
+    const why = (m.failed ?? 'unknown').replace(/\s+/g, ' ').replace(/\s*Decode this error.*$/, '').replace(/\(\d+(\.\d+)?\)/g, '(…)').replace(/[;:\s]+$/, '').slice(0, 90);
     acc[why] = (acc[why] ?? 0) + 1;
     return acc;
   }, {}),
@@ -113,7 +119,8 @@ const snapshot = {
     buyerEndToEndMsMedianDirect: median(ms.filter((m) => m.mode === 'direct').map((m) => m.totalMs)),
   },
   reliabilitySinceDeploy: {
-    since: deployment.deployedAt ?? null,
+    escrowDeployedAt: deployment.deployedAt ?? null,
+    since: sinceMs === null ? null : new Date(sinceMs).toISOString(),
     attempts: attempts.length,
     delivered: attempts.filter((m) => m.ok !== false).length,
     x402: byMode('x402'),
@@ -139,7 +146,7 @@ const md = [
   `| Purchases timed | ${s.measured.purchases}, of which ${s.measured.viaFacilitator} paid through an x402 facilitator |`,
   `| Facilitator verify / settle, median | ${s.measured.facilitatorVerifyMsMedian} ms / ${s.measured.facilitatorSettleMsMedian} ms |`,
   `| Whole purchase as the buyer sees it, median | ${((s.measured.buyerEndToEndMsMedianViaFacilitator ?? 0) / 1000).toFixed(1)} s via facilitator, ${((s.measured.buyerEndToEndMsMedianDirect ?? 0) / 1000).toFixed(1)} s direct |`,
-  `| On the escrow deployed ${s.reliabilitySinceDeploy.since?.slice(0, 10) ?? '(no deploy date)'}: honest buyers from honest merchants | ${s.reliabilitySinceDeploy.delivered} of ${s.reliabilitySinceDeploy.attempts} delivered; via facilitator ${s.reliabilitySinceDeploy.x402.delivered}/${s.reliabilitySinceDeploy.x402.attempts}, direct ${s.reliabilitySinceDeploy.direct.delivered}/${s.reliabilitySinceDeploy.direct.attempts}, on credit ${s.reliabilitySinceDeploy.payLater.delivered}/${s.reliabilitySinceDeploy.payLater.attempts} |`,
+  `| Every attempt recorded since ${s.reliabilitySinceDeploy.since?.replace('T', ' ').slice(0, 16) ?? '(none yet)'} UTC, on the escrow deployed ${s.reliabilitySinceDeploy.escrowDeployedAt?.slice(0, 10) ?? '(no deploy date)'}: honest buyers from honest merchants | ${s.reliabilitySinceDeploy.delivered} of ${s.reliabilitySinceDeploy.attempts} delivered; via facilitator ${s.reliabilitySinceDeploy.x402.delivered}/${s.reliabilitySinceDeploy.x402.attempts}, direct ${s.reliabilitySinceDeploy.direct.delivered}/${s.reliabilitySinceDeploy.direct.attempts}, on credit ${s.reliabilitySinceDeploy.payLater.delivered}/${s.reliabilitySinceDeploy.payLater.attempts} |`,
   `| Whole purchase, median / p95, on that escrow | via facilitator ${secs(s.reliabilitySinceDeploy.x402.totalMsMedian)} / ${secs(s.reliabilitySinceDeploy.x402.totalMsP95)}, direct ${secs(s.reliabilitySinceDeploy.direct.totalMsMedian)} / ${secs(s.reliabilitySinceDeploy.direct.totalMsP95)} |`,
   `| Why the others failed | ${s.reliabilitySinceDeploy.failures.map((f) => `${f.n} × ${f.reason}`).join('; ') || 'none'} |`,
   '',

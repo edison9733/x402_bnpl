@@ -359,9 +359,19 @@ arbiter rules. Line numbers are at the commit this README is in.
    merchant's crank finishes or refunds the order (`server.ts` lines 548–566). On devnet on
    28 October, before that watch was added (commit `d6950f3`), 25 purchases in the two swarms on the
    new escrow went through the facilitators, and 3 came back "settlement failed: settlement_pending"
-   from x402.org (Solana error #8100002). Nothing was delivered for them, and none of those payments
-   landed: the three orders were cancelled after their payment window and closed (case 3), and no
-   order on the new escrow holds money in an unpaid vault.
+   from x402.org (Solana error #8100002). Nothing was delivered for them, but the transfers had
+   landed. Two are traced on chain: echo paid 0.15 USDC into order
+   [`9ANY7DHq…`](https://explorer.solana.com/address/9ANY7DHqezbbKEWbNfCk5V3EYaRzq57tqEy7TLJNAzkG?cluster=devnet)
+   ([transfer](https://explorer.solana.com/tx/Ra8uPYt1t6bXqzEKMGsmdSxFZn2xf3iwhKESRM6L9Sa6ujmxnT3H1C7fmWJMAbZtYERpvpZg6p2znmUtyZMWiJW?cluster=devnet))
+   and 0.20 USDC into [`51z9MPHh…`](https://explorer.solana.com/address/51z9MPHhWoe9aryFyvKC98psPq3HscVB5JPuQNhbpaDC?cluster=devnet)
+   ([transfer](https://explorer.solana.com/tx/24QLwE4WeE9TZfq9E2BHBpuqsfFTTaMBu85FELV51mHH8F3NtqU6udvGraysujtg2KiwdHoMhzxZLhb3v3iV7J2Z?cluster=devnet)),
+   and when each payment window ended the crank's `cancel_unpaid` sent the money back to echo
+   ([`49ebNp5c…`](https://explorer.solana.com/tx/49ebNp5c7hLZ2dewrAMLCbaU2FAAJc9X6JuyUbnbDxkNAvTt1rtcidQ3Kq2ssxzbd9W8m1XaLg9cAiAhH6qemKEe?cluster=devnet),
+   [`UhifGoSK…`](https://explorer.solana.com/tx/UhifGoSKiDEuGHdZQDiD1Fw22jKjjbCywKTehbL49CsRNo2hU7QupHqpzoWiK3BUTYXjdDYNjcZ6ZBXxXnczEgj?cluster=devnet))
+   and closed the order (case 3): the buyer lost nothing, but got nothing either. That is why the
+   merchant now watches the vault. After `d6950f3`, x402.org answered "settlement_pending" three
+   more times; each transfer was in the vault when the merchant looked, and all three purchases
+   were delivered (see the snapshot under "What is checked").
 3. **A quote nobody pays.** The payment window is `unpaidSecs`, 300 s on devnet
    ([`constants.ts`](packages/sdk/src/constants.ts) line 51). `confirm_funded` refuses a payment after
    it ([`programs/tessera/src/lib.rs`](programs/tessera/src/lib.rs) lines 228–231), and the merchant
@@ -682,49 +692,68 @@ order in a merchant's name and reopen a cancelled order's address at once. That 
 old address, so `ESCROW_SO` runs against it no longer apply at this commit; the escrow on devnet
 now is the source the other counts run.
 
-The snapshot below and its timings are version 1 records: the version 1 agents, measured on devnet
-over a public RPC on 4 October 2026 (UTC). Their keys were lost, but their history is still on chain
-(each one's credit file is the Agent account of its wallet on the retired escrow). The 2.0 agents
-are listed under [How Solana powers this](#how-solana-powers-this); their purchases in the
-28 October swarms on the new escrow are added to the raw data, but not yet to a snapshot. Raw data
-is in [`deployments/measurements.jsonl`](deployments/measurements.jsonl).
+The snapshot below reads the escrow on devnet now (`tESs6b4J…`), taken on 28 October 2026 after the
+swarms that earned the 2.0 agents their tiers there. Its "purchases timed" and "whole purchase" rows
+cover every delivered purchase in [`deployments/measurements.jsonl`](deployments/measurements.jsonl),
+including version 1's on the retired escrow (4 October). Since 28 October 07:24 UTC the swarm
+records every attempt, failures with their reason, and the reliability rows count only those, for
+honest buyers buying from honest merchants (the cast's attackers fail on purpose). Read them
+this way:
+
+- **21 of the 23 failures were quotes refused before any payment**: the merchant server's ops
+  wallet, which fronts each quote's rent, ran down to its SOL floor in a 10-period swarm and opened
+  no new quotes until it was topped up. That is this demo's operator running out of devnet SOL, not
+  a payment failing; it is refused in plain words and nothing is signed.
+- **2 were x402.org answering "settlement_pending"**, on the server before commit `d6950f3`. Both
+  transfers had landed; the merchant gave up on them, and the crank's `cancel_unpaid` returned the
+  money to the buyer when the payment window ended (failed payments, case 2). Of the 39 attempts
+  in that swarm that reached a payment, 37 were delivered.
+- **After `d6950f3`** (a 6-period swarm, 07:44–07:59 UTC, every honest purchase through a
+  facilitator): 36 of 36 delivered, median 46.0 s, 95th percentile 70.4 s. x402.org answered
+  "settlement_pending" three times; each transfer was in the vault when the merchant looked, and
+  each purchase was delivered.
+
+The whole-purchase times are long because each purchase is five sequential transactions on the
+public devnet RPC, which this demo shares and rate-limits.
 
 <!-- snapshot:start -->
-Snapshot of the demo network at 2026-10-04T19:11:10.000Z (`deployments/snapshot.json`):
+Snapshot of the demo network at 2026-10-28T08:03:32.000Z (`deployments/snapshot.json`):
 
 | | |
 |---|---|
-| Orders settled through escrow | 234 of 251 opened, 56.95 USDC, 0.5695 USDC in fees |
-| Settled instantly / after a hold | 44 / 190 |
+| Orders settled through escrow | 177 of 200 opened, 41.10 USDC, 0.4110 USDC in fees |
+| Settled instantly / after a hold | 47 / 130 |
 | Refunded / disputes resolved by the arbiter | 3 / 2 |
-| Credit files | 17: 2 New, 4 Building, 1 Established, 10 Trusted |
-| Reviews stored on-chain | 435 |
-| Purchases timed | 230, of which 51 paid through an x402 facilitator |
-| Facilitator verify / settle, median | 934 ms / 1222 ms |
-| Whole purchase as the buyer sees it, median | 27.7 s via facilitator, 23.2 s direct |
+| Credit files | 16: 5 New, 1 Building, 0 Established, 10 Trusted |
+| Reviews stored on-chain | 337 |
+| Purchases timed | 407, of which 127 paid through an x402 facilitator |
+| Facilitator verify / settle, median | 1158 ms / 1428 ms |
+| Whole purchase as the buyer sees it, median | 35.2 s via facilitator, 24.6 s direct |
+| Every attempt recorded since 2026-10-28 07:24 UTC, on the escrow deployed 2026-10-28: honest buyers from honest merchants | 73 of 96 delivered; via facilitator 53/66, direct 20/30, on credit 0/0 |
+| Whole purchase, median / p95, on that escrow | via facilitator 43.9 s / 61.5 s, direct 29.7 s / 44.1 s |
+| Why the others failed | 2 × SETTLEMENT_FAILED: settlement failed: settlement_pending Solana error #8100002; 21 × A2A error: the merchant's ops wallet is low on SOL (…); it opens no new quotes until it is |
 
 The whole-purchase time is five sequential transactions on a rate-limited public RPC shared with
 the rest of the demo. It measures this prototype on that endpoint, not Solana.
 
 | Agent | Role | Tier | Score | Orders | Stars | Note |
 |---|---|---|---|---|---|---|
-| quill | merchant | Trusted | 1000 | 42 | 4.83 |  |
-| vera | merchant | Trusted | 1000 | 43 | 4.85 |  |
-| atlas | merchant | Trusted | 992 | 54 | 4.82 |  |
-| pixel | merchant | Trusted | 914 | 41 | 4.72 |  |
-| orbit | buyer | Trusted | 872 | 27 | 4.75 |  |
-| lumen | buyer | Trusted | 867 | 28 | 4.74 |  |
-| scout | buyer | Trusted | 866 | 29 | 4.75 |  |
-| nova | buyer | Trusted | 861 | 29 | 4.75 |  |
-| drift | buyer | Trusted | 859 | 27 | 4.74 |  |
-| echo | buyer | Trusted | 842 | 25 | 4.73 |  |
-| washer | merchant | Established | 562 | 54 | 4.41 |  |
-| sock-3 | buyer | Building | 473 | 18 | 4.23 |  |
-| sock-2 | buyer | Building | 473 | 18 | 4.23 |  |
-| sock-1 | buyer | Building | 473 | 18 | 4.23 |  |
-| charlie | buyer | Building | 278 | 14 | 4.33 | 2 dispute(s) lost, 46% penalty |
-| Fukg… | buyer | New | 102 | 1 | 3.46 |  |
-| mallory | merchant | New | 0 | 0 | 3 | 3 missed deliveries, 28% penalty |
+| vera | merchant | Trusted | 1000 | 41 | 4.83 |  |
+| quill | merchant | Trusted | 995 | 39 | 4.82 |  |
+| atlas | merchant | Trusted | 941 | 49 | 4.78 |  |
+| pixel | merchant | Trusted | 891 | 37 | 4.71 |  |
+| scout | buyer | Trusted | 856 | 28 | 4.72 |  |
+| nova | buyer | Trusted | 855 | 28 | 4.73 |  |
+| orbit | buyer | Trusted | 852 | 25 | 4.74 |  |
+| lumen | buyer | Trusted | 842 | 24 | 4.7 |  |
+| drift | buyer | Trusted | 837 | 25 | 4.71 |  |
+| echo | buyer | Trusted | 824 | 22 | 4.68 |  |
+| charlie | buyer | Building | 296 | 14 | 3.91 | 2 dispute(s) lost, 33% penalty |
+| washer | merchant | New | 181 | 11 | 3.48 |  |
+| sock-1 | buyer | New | 169 | 7 | 3.33 |  |
+| sock-2 | buyer | New | 61 | 2 | 3.11 |  |
+| sock-3 | buyer | New | 61 | 2 | 3.11 |  |
+| mallory | merchant | New | 0 | 0 | 3 | 3 missed deliveries, 14% penalty |
 <!-- snapshot:end -->
 
 ## Run it

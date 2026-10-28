@@ -148,7 +148,13 @@ Only work done from now to 8 November is judged.
   two swarms on the new escrow on 28 Oct (their purchase timings are in
   [deployments/measurements.jsonl](../deployments/measurements.jsonl)): 25 purchases went through the
   x402 facilitators and 3 came back `settlement_pending` from x402.org; nothing was delivered for those
-  three and none of those payments landed. Apart from the adversaries' cases below, direct purchases had
+  three, although the transfers had landed (the two traced were returned to the buyer by the crank's
+  `cancel_unpaid`; README, failed payments, case 2). Commit `d6950f3` makes the merchant watch the
+  vault after such an answer. **Measured since then** (every attempt recorded, honest buyers and
+  merchants, `npm run snapshot`): on the server before `d6950f3`, 37 of the 39 attempts that reached a
+  payment were delivered (21 more quotes were refused while the ops wallet sat below its SOL floor); on
+  `d6950f3`, 36 of 36 through a facilitator were delivered, median 46.0 s, p95 70.4 s, including three
+  `settlement_pending` answers whose transfers had landed. Apart from the adversaries' cases below, direct purchases had
   no failures. The 10-period swarm counted
   22 failures: 3 Mallory no-shows (by design, each refunded), 2 of the `settlement_pending` ones, 11
   wash-ring payments that failed simulation once the sock puppets ran out of USDC, and 6 wash-ring quotes
