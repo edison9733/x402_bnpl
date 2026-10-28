@@ -158,7 +158,7 @@ function X402Slide() {
 }
 
 export const DEVNET: [string, string, string, boolean][] = [
-  ['Escrow program', 'TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ', 'version 1, unchanged', true],
+  ['Escrow program', 'tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry', 'deployed 28 Oct, with the audit fixes', true],
   ['Pay-later program', 'LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D', 'new in 2.0 · upgraded 28 Oct', true],
   ['Pool', 'GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq', 'funded with 8 devnet USDC', true],
   ['Pool vault', 'DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV', "the pool's USDC", false],
@@ -188,7 +188,7 @@ export function DevnetSlide({ pad = 96 }: { pad?: number }) {
           Pool rules: limits <span style={{ color: white }}>0 / 2 / 5 / 10 USDC</span> by tier · fee <span style={{ color: white }}>2%</span> · term <span style={{ color: white }}>600 s</span> + 60 s grace · merchants at Building or above
         </span>
       </Rise>
-      <Source>Read on chain on 28 Oct 2026 (getAccountInfo). explorer.solana.com/address/&lt;address&gt;?cluster=devnet</Source>
+      <Source>Read on chain on 28 Oct 2026 (getAccountInfo). explorer.solana.com/address/&lt;address&gt;?cluster=devnet. The version 1 escrow, TessSeP5…1CQ, lost its keys and is retired; its accounts stay as history.</Source>
     </Frame>
   );
 }
@@ -200,7 +200,7 @@ function LimitsSlide() {
     ['Unaudited.', 'Both programs have had internal reviews only.'],
     ['A refund goes to the buyer, and the loan stays owed.', 'The buyer repays out of the refund, or defaults.'],
     ['A default freezes the line, not the score.', 'The escrow program does not know about loans.'],
-    ["Devnet's escrow is an older build.", "It is the 4 October build and its keys are lost, so the audit fixes run only on a local validator."],
+    ['One arbiter key.', 'A dispute on devnet is decided by one key, which we hold.'],
   ];
   return (
     <Frame>
@@ -379,7 +379,7 @@ export const PITCH: Slide[] = [
             </Rise>
           ))}
         </div>
-        <Source>A real order from this project on devnet. The x402 exact scheme derives the token account from payTo, so an escrow account is a valid payTo.</Source>
+        <Source>A real order from this project on devnet, on the version 1 escrow. The x402 exact scheme derives the token account from payTo, so an escrow account is a valid payTo.</Source>
       </Frame>
     ),
   },
@@ -404,13 +404,13 @@ export const PITCH: Slide[] = [
   {
     id: 'devnet',
     seconds: 9,
-    say: 'All of it is live on Solana devnet: the escrow program from version 1, unchanged, and the new pay-later program next to it, with a pool funded with devnet USDC. Anyone can read these accounts.',
+    say: 'All of it is live on Solana devnet: the escrow program, deployed on 28 October at a new address with the audit fixes, and the new pay-later program next to it, with a pool funded with devnet USDC. Anyone can read these accounts.',
     render: () => <DevnetSlide />,
   },
   {
     id: 'limits',
     seconds: 14,
-    say: 'And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults. And the escrow on devnet is its 4 October build, whose keys are lost, so the audit fixes run only on a local validator.',
+    say: 'And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults. And a dispute on devnet is decided by one arbiter key, which we hold.',
     render: () => <LimitsSlide />,
   },
   {

@@ -67,7 +67,7 @@
 }</pre>
   </div>
   <div class="row" style="gap: 44px; margin-top: 44px; font-size: 25px; color: #f1eee2;"><span>A2A to ask</span><span>x402 to pay</span><span>a facilitator settles</span><span>a Solana program holds</span></div>
-  <p class="source">A real order from this project on devnet. The x402 <span class="mono">exact</span> scheme derives the token account from payTo, so an escrow account is a valid payTo.</p>
+  <p class="source">A real order from this project on devnet, on the version 1 escrow. The x402 <span class="mono">exact</span> scheme derives the token account from payTo, so an escrow account is a valid payTo.</p>
 </section>
 
 <section data-document-role="page" data-label="Reviews that pay" data-speaker-notes="Only a real buyer or seller can review, with the receipt on-chain. Reviewers get paid, and paid more when their warning proves right.">
@@ -130,21 +130,21 @@
   <p class="source">Standard x402 clients are unaffected: the exact entries come first and pay as before. Shape from apps/agents/src/paylater.ts; buyerLimit is 2 USDC × 301 ÷ 1000, a Building buyer at score 301 on the devnet pool. Tested over HTTP, the CLI and A2A: npm run test:paylater-402.</p>
 </section>
 
-<section data-document-role="page" data-label="Live on Solana devnet" data-speaker-notes="All of it is live on Solana devnet: the escrow program from version 1, unchanged, and the new pay-later program next to it, with a pool funded with devnet USDC. Anyone can read these accounts.">
+<section data-document-role="page" data-label="Live on Solana devnet" data-speaker-notes="All of it is live on Solana devnet: the escrow program, deployed on 28 October at a new address with the audit fixes, and the new pay-later program next to it, with a pool funded with devnet USDC. Anyone can read these accounts.">
   <p class="kicker">Live on Solana devnet</p>
   <h1 style="font-size: 84px; max-width: 22ch;">Two programs and a pool, <em>on devnet.</em></h1>
   <div class="col" style="gap: 0; margin-top: 44px;">
-    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Escrow program</span><span class="mono mint" style="font-size: 23px; width: 760px;">TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ</span><span class="grey" style="font-size: 22px;">version 1, unchanged</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Escrow program</span><span class="mono mint" style="font-size: 23px; width: 760px;">tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry</span><span class="grey" style="font-size: 22px;">deployed 28 Oct, with the audit fixes</span></div>
     <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pay-later program</span><span class="mono mint" style="font-size: 23px; width: 760px;">LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D</span><span class="grey" style="font-size: 22px;">new in 2.0 · upgraded 28 Oct</span></div>
     <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pool</span><span class="mono mint" style="font-size: 23px; width: 760px;">GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq</span><span class="grey" style="font-size: 22px;">funded with 8 devnet USDC</span></div>
     <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pool vault</span><span class="mono" style="font-size: 23px; width: 760px;">DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV</span><span class="grey" style="font-size: 22px;">the pool&#x27;s USDC</span></div>
     <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; border-bottom: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">USDC (devnet)</span><span class="mono" style="font-size: 23px; width: 760px;">4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU</span><span class="grey" style="font-size: 22px;">Circle&#x27;s devnet mint</span></div>
   </div>
   <p class="mono" style="font-size: 22px; margin: 36px 0 0;">Pool rules: limits <span class="white">0 / 2 / 5 / 10 USDC</span> by tier · fee <span class="white">2%</span> · term <span class="white">600 s</span> + 60 s grace · merchants at Building or above</p>
-  <p class="source">Read on chain on 28 Oct 2026 (getAccountInfo). Open any of them at explorer.solana.com/address/&lt;address&gt;?cluster=devnet. Time is compressed on devnet, so a whole loan can be watched in about ten minutes.</p>
+  <p class="source">Read on chain on 28 Oct 2026 (getAccountInfo). Open any of them at explorer.solana.com/address/&lt;address&gt;?cluster=devnet. Time is compressed on devnet, so a whole loan can be watched in about ten minutes. The version 1 escrow, TessSeP5…1CQ, lost its keys and is retired; its accounts stay as history.</p>
 </section>
 
-<section data-document-role="page" data-label="Honest limits" data-speaker-notes="And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults. And the escrow on devnet is its 4 October build, whose keys are lost, so the audit fixes run only on a local validator.">
+<section data-document-role="page" data-label="Honest limits" data-speaker-notes="And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults. And a dispute on devnet is decided by one arbiter key, which we hold.">
   <p class="kicker">Honest limits</p>
   <h1 style="font-size: 84px; max-width: 20ch;">What it is not, <em>yet.</em></h1>
   <div class="col" style="gap: 0; margin-top: 44px; max-width: 1500px;">
@@ -153,7 +153,7 @@
     <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">Unaudited.</span> Both programs have had internal reviews only.</span></div>
     <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A refund goes to the buyer, and the loan stays owed.</span> The buyer repays out of the refund, or defaults.</span></div>
     <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A default freezes the line, not the score.</span> The escrow program does not know about loans.</span></div>
-    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; border-bottom: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">Devnet's escrow is an older build.</span> It is the 4 October build and its keys are lost, so the audit fixes run only on a local validator.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; border-bottom: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">One arbiter key.</span> A dispute on devnet is decided by one key, which we hold.</span></div>
   </div>
   <p class="source">docs/PAYLATER.md, &quot;Limits&quot;, and README, &quot;What is real and what is not&quot;.</p>
 </section>

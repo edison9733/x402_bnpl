@@ -659,9 +659,10 @@ export class MerchantAgent {
         throw new Error('payment does not match: this order is already paid or closed');
       }
       // The order at the quoted address must be the one this merchant opened.
-      // On the escrow build on devnet the buyer may cancel the quote and open
-      // another order at the same address, in this merchant's name, at any
-      // price and hold: this merchant signs for, and delivers, only its own.
+      // On an escrow build without the B13 and B16 fixes (the retired version 1
+      // escrow on devnet is one) the buyer may cancel the quote and open another
+      // order at the same address, in this merchant's name, at any price and
+      // hold: this merchant signs for, and delivers, only its own.
       const swapped = quotedOrderRefusal(before, this.quoted(quote));
       if (swapped) {
         throw new PaymentRefused(`payment does not match: the order at ${order} is not the one this merchant quoted (${swapped}); ask for a new quote`);

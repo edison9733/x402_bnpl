@@ -152,7 +152,7 @@ export const UPDATE: Slide[] = [
   {
     id: 'devnet',
     seconds: 9,
-    say: 'It runs on Solana devnet: the version 1 escrow, unchanged, the new pay-later program, and a pool funded with devnet USDC.',
+    say: 'It runs on Solana devnet: the escrow from this repository at a new address with an upgrade key we hold, the new pay-later program, and a pool funded with devnet USDC.',
     render: () => <DevnetSlide pad={88} />,
   },
   {

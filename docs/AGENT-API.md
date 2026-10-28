@@ -17,7 +17,7 @@ the same statuses, whichever an agent speaks.
 npm install
 npm run api        # the core, against devnet; TESSERA_RPC_URLS=<url,url> for another RPC
 npm run mcp        # MCP on http://127.0.0.1:4040/mcp; TESSERA_API_URL if the API is elsewhere
-npm run tessera -- check BZ5MNkHdmvLoyof5ojyvsJuK5b1gGo4esPPTb4DGukoJ 0.20
+npm run tessera -- check DzmuSTiwQLnZ4KMtWC3gZ5s68ySstf7UW37Jo4Wm8c2r 0.20
 ```
 
 Connect an MCP client:
@@ -70,12 +70,13 @@ payer and as the merchant (one signature when they are the same wallet) and send
 send a `buy_now` on its own: `tessera buy-later --order <order> --keypair PATH --merchant-keypair
 PATH` does, and so needs the merchant's key too, which only a local world where you hold both has
 (`npm run paylater:local`). **Both rules are on devnet since 28 October 2026 (UTC+8)**, when the
-pay-later program there was upgraded to the build of `1bd11be`
-([transaction](https://explorer.solana.com/tx/3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E?cluster=devnet)).
-The purchase on credit that confirmed it, Nova buying Quill's 0.25 USDC summary, is a `buy_now` that
-carries the price and request hash, in a transaction with three signatures: the merchant server's
-as fee payer, Nova's and Quill's
-([settle tx](https://explorer.solana.com/tx/1K7VsBKVWYHXmMmEdytiUck99inmuuRQuYfDUBAyGuhpzQ7b4vou7CkAT9L73hTBxo7CfURvpVGvLsfAf44b2xG?cluster=devnet);
+pay-later program there was upgraded to the build of `1bd11be`. It now runs the same code built at
+`eca65b0`, which names the escrow at `tESs6b4J…`
+([transaction](https://explorer.solana.com/tx/3YJDEfVq961AwaqKYFwoDRxEfDwJDmLUvXFNHVBjWyGzL9J1U5UrFomjNTLUoxmSG1QN1X1vXunTJBdSwwmp1XgG?cluster=devnet)).
+The purchase on credit that confirmed it on that escrow, Nova buying Quill's 0.25 USDC summary, is a
+`buy_now` that carries the price and request hash, in a transaction with three signatures: the
+merchant server's as fee payer, Nova's and Quill's
+([settle tx](https://explorer.solana.com/tx/2mZxEzfu5ReApNejhCz7GMEwkkBJc7rafjiG3LUiKPNGx1J3oFhxEty3xdLtFfdrJ8Aevauzoy4NX3xVGZJMnzW8?cluster=devnet);
 [SECURITY.md](SECURITY.md#pay-later) P1, P2).
 
 ## How `find_merchants` ranks

@@ -185,28 +185,28 @@ function PayLaterFlowScene() {
   );
 }
 
-/** A real run on devnet on the upgraded program, 28 October 2026 (UTC+8), copied from the terminal (long lines shortened with …). */
+/** A real run on devnet, on the new escrow (tESs6b4J…) and the pay-later build that names it, 28 October 2026 (UTC+8), copied from the terminal (long lines shortened with …). */
 const PAYLATER_TERMINAL = [
   ['$', 'npm run buy -- --buyer nova --merchant quill --pay-later'],
-  ['', '[nova] Quill/summary: 0.25 USDC into escrow 8VAF9ZWQ, hold 45s (merchant Building, me Building, pair trusted)'],
-  ['', '[nova] Quill/summary: on credit; limit 0.74825 USDC, owing 0.00; fee 0.005, due in 600s'],
-  ['ok', 'settle tx  explorer.solana.com/tx/1K7VsBKV…4b2xG   # signed by the server, Nova and Quill; ConfirmFunded inside'],
-  ['', 'loan       9sS9yBDG…  owe 0.255 USDC (0.25 + 0.005 pool fee) by 17:33:28 UTC'],
+  ['', '[nova] Quill/summary: 0.25 USDC into escrow Fi68yAxK, hold 10s (merchant Established, me Building, pair trusted)'],
+  ['', '[nova] Quill/summary: on credit; limit 1.026626 USDC, owing 0.00; fee 0.005, due in 600s'],
+  ['ok', 'settle tx  explorer.solana.com/tx/2mZxEzfu…MnzW8   # signed by the server, Nova and Quill; ConfirmFunded inside'],
+  ['', 'loan       35R7bZzw…  owe 0.255 USDC (0.25 + 0.005 pool fee) by 07:22:32 UTC'],
   ['', 'hash check matches the hash committed on-chain'],
   ['ok', 'final      Released'],
   ['$', 'npm run tessera -- repay --all --keypair .keys/agents/nova.json --send'],
   ['', 'REPAY ALL  0.255 USDC in one transaction; each loan is closed and its rent comes back to you'],
-  ['ok', 'confirmed: 3oL3qukd…YNEiJu'],
+  ['ok', 'confirmed: 4LUwpKcB…f4jQnY'],
   ['$', 'npm run tessera -- credit Acy1…t7PW'],
-  ['', 'limit 0.819611 USDC · owes 0.00 USDC · record: 2 loans, 2 on time · limit boost +5.62%'],
-  ['$', 'npm run buy -- --buyer scout --merchant atlas --pay-later'],
-  ['no', 'NOT BOUGHT not eligible for pay later: the buyer has no credit yet (New, score 242)'],
+  ['', 'Established 527 · limit 2.865299 USDC · owes 0.00 USDC · record: 3 loans, 3 on time · limit boost +8.74%'],
+  ['$', 'npm run buy -- --buyer charlie --merchant atlas --pay-later'],
+  ['no', 'NOT BOUGHT not eligible for pay later: the buyer has no credit yet (New, score 40)'],
 ] as const;
 
 function PayLaterCommandsScene() {
   return (
     <Frame pad={84}>
-      <Kicker>Pay later over x402 · a real run on devnet, 28 Oct 2026</Kicker>
+      <Kicker>Pay later over x402 · a real run on devnet, on the new escrow tESs6b4J…, 28 Oct 2026</Kicker>
       <div style={{ marginTop: 26, borderRadius: 22, background: '#050605', border: '1px solid #272b21', padding: '26px 32px', flex: 1 }}>
         {PAYLATER_TERMINAL.map(([tag, line], k) => (
           <motion.div key={k} className="mono" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.5 + k * 1.1 }} style={{ fontSize: 18.5, lineHeight: 1.72, color: tag === 'ok' ? mint : tag === 'no' ? '#ec835a' : tag === '$' ? white : '#c9c6b6', whiteSpace: 'pre', overflow: 'hidden', marginTop: tag === '$' && k > 0 ? 10 : 0 }}>
@@ -216,7 +216,7 @@ function PayLaterCommandsScene() {
         ))}
       </div>
       <div className="mono" style={{ fontSize: 14, color: '#5d5c52', marginTop: 12 }}>
-        The limit follows the score: 0.74825 USDC in Nova's 402, 0.819611 after its second on-time repayment (score 388, boost +5.62% after loans of 0.20 and 0.25). Times in UTC (28 Oct in UTC+8). Lines shortened with …; links in the README.
+        The limit follows the score: 1.026626 USDC in Nova's 402, as a Building buyer; 2.865299 after this repayment, at Established 527 with three loans repaid on time (boost +8.74%). Charlie, which disputes what it receives, is New. Times in UTC (28 Oct in UTC+8). Lines shortened with ….
       </div>
     </Frame>
   );
@@ -226,7 +226,7 @@ function FailedScene() {
   const cases: [string, string, boolean][] = [
     ['The 402 asks too much', "Above the buyer's ceiling, it signs nothing. It also reads the order from the chain and pays only its own, for that amount.", false],
     ['Paid, never delivered', "After the deadline anyone may refund: the buyer gets it all, and the merchant's score loses 10%.", false],
-    ['The facilitator fails', 'Verify or settle fails: no delivery, and the HTTP 502 says "Do not pay again". Money that did land is finished or refunded by the crank.', false],
+    ['The facilitator fails', 'Refused at verify: HTTP 400, nothing sent. A failed settlement is watched until it lands (the purchase goes on) or cannot (400, pay again). Still unknown after 150 s: 502, "Do not pay again", and the crank finishes or refunds anything that lands.', false],
     ['A forged pay-later header', 'Checked before the merchant signs, and simulated before anything is sent: HTTP 400, nothing sent, and the buyer may pay another way.', true],
     ['Nobody pays the quote', 'confirm_funded refuses money after the 300 s window, and cancel_unpaid sends anything in the vault back to the buyer.', false],
     ['A loan not repaid', "After the grace period anyone marks it in default; the server's keeper does, every 30 s. The line freezes, and the next 402 says so.", true],
@@ -280,7 +280,7 @@ export const DEMO: Slide[] = [
     say: 'One Anchor program, five kinds of account. Config holds the rules. Each wallet has an Agent account, its credit file. Each buyer and merchant pair has a Pair account. Each purchase is an Order, which owns the vault. Each rating is a Review, stored on-chain in full.',
     render: () => (
       <Frame pad={72}>
-        <Kicker>The program · TessSeP5…1CQ · Anchor 1.1 · 17 instructions</Kicker>
+        <Kicker>The program · tESs6b4J…6ry · Anchor 1.1 · 17 instructions</Kicker>
         <Big size={64} color={white}>Five accounts. <em>Everything else is derived.</em></Big>
         <svg viewBox="0 0 1456 560" width="100%" style={{ marginTop: 26 }}>
           {box(40, 40, 400, 'Config', '["config"] · every rule, on-chain', 0.3)}
@@ -344,7 +344,7 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
     say: 'Here one agent buys from another. It reads the merchant’s A2A card, gets a 402, checks the escrow on-chain, and pays through the facilitator. The merchant delivers and commits a hash, and the buyer checks it. Two unknown wallets, so the money was held.',
     render: () => (
       <Frame pad={84}>
-        <Kicker>Agent to agent, over A2A and x402 · captured from devnet</Kicker>
+        <Kicker>Agent to agent, over A2A and x402 · captured from devnet, on the version 1 escrow</Kicker>
         <div style={{ marginTop: 30, borderRadius: 22, background: '#050605', border: '1px solid #272b21', padding: '30px 34px', flex: 1 }}>
           {TERMINAL.map(([tag, line], k) => (
             <motion.div key={k} className="mono" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.6 + k * 1.7 }} style={{ fontSize: 21.5, lineHeight: 2.05, color: tag === 'ok' ? mint : tag === '$' ? white : '#c9c6b6', whiteSpace: 'nowrap', overflow: 'hidden' }}>
@@ -365,13 +365,13 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
   {
     id: 'paylater-commands',
     seconds: 27,
-    say: 'This is a real run on devnet, on the upgraded program. Nova, a Building buyer, buys a summary on credit. One transaction, signed by Nova and by Quill, the merchant: the pool pays the escrow, and the escrow confirms it. Nova owes twenty-five and a half cents, due in ten minutes. The summary arrives, its hash matches, and the money is released. Nova repays in one transaction, and its limit goes up. Scout is new, so it is refused and signs nothing.',
+    say: 'This is a real run on devnet, on the new escrow and the pay-later build that names it. Nova, a Building buyer, buys a summary on credit. One transaction, signed by Nova and by Quill, the merchant: the pool pays the escrow, and the escrow confirms it. Nova owes twenty-five and a half cents, due in ten minutes. The summary arrives, its hash matches, and the money is released. Nova repays in one transaction, is now Established, and its limit goes up. Charlie is new, so it is refused and signs nothing.',
     render: () => <PayLaterCommandsScene />,
   },
   {
     id: 'failed',
     seconds: 24,
-    say: 'When a payment fails: if the 402 asks more than the buyer allows, it signs nothing. If the facilitator fails, nothing is delivered and the buyer is told not to pay again. An unpaid quote expires and its vault goes back. A merchant that never delivers is refunded. New in 2.0: a forged pay-later header is refused before the merchant signs, and an unpaid loan is marked in default, which freezes the line.',
+    say: 'When a payment fails: if the 402 asks more than the buyer allows, it signs nothing. If the facilitator refuses a payment, nothing was sent. If a settlement fails, the merchant watches the vault until the payment lands or can no longer land, and only while that is unknown is the buyer told not to pay again. An unpaid quote expires and its vault goes back. A merchant that never delivers is refunded. New in 2.0: a forged pay-later header is refused before the merchant signs, and an unpaid loan is marked in default, which freezes the line.',
     render: () => <FailedScene />,
   },
   {
@@ -408,7 +408,7 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 44, marginTop: 34 }}>
           <div>
             {[
-              ['Programs', 'Anchor 1.1.2 · escrow (472 KB) + pay-later · devnet'],
+              ['Programs', 'Anchor 1.1.2 · escrow (479 KB) + pay-later · devnet'],
               ['Clients', '@solana/kit 8 · Codama-generated'],
               ['Payments', 'x402 v2 exact, two facilitators · tessera-paylater, settled by the merchant'],
               ['Agents', 'A2A JSON-RPC · a2a-x402 extension v0.2'],
@@ -428,8 +428,8 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
             {[
               'Devnet only, with test USDC; the demo traffic is our own agents',
               'Time is compressed: a period is a minute, a loan term 600 s',
-              "Single keys: the upgrade authorities and the pool's authority",
-              "Devnet runs the escrow's 4 October build, keys lost: the audit fixes run only locally, and a dispute there stays locked",
+              "Single keys: the upgrade authorities, the arbiter and the pool's authority",
+              'The version 1 escrow, TessSeP5…, lost its keys and is retired; its accounts stay on devnet as history',
               'An escrow refund goes to the buyer; the loan stays owed',
               'Unaudited; the A2A endpoint is hand-rolled, not yet run against the official test kit',
             ].map((t, i) => (

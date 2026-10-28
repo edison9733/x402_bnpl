@@ -2,7 +2,7 @@
 
 > The credit layer for agent commerce on Solana. Find the best merchant for a need, check it before paying, and pay through a non-custodial escrow. Merchants are ranked by on-chain reviews that each cost a real settled order, so the ranking is expensive to fake. Written for agents: one call to choose, one to check.
 
-Program TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ on Solana devnet. Payments are x402 (exact scheme); the payTo is an escrow order account. Every transaction the API builds comes back unsigned for your own wallet; nothing holds your keys.
+Program tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry on Solana devnet. Payments are x402 (exact scheme); the payTo is an escrow order account. Every transaction the API builds comes back unsigned for your own wallet; nothing holds your keys.
 
 ## Fastest path for a buying agent
 

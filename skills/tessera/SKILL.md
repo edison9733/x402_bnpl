@@ -137,7 +137,7 @@ curl -s 'localhost:4030/v1/merchants?need=text%20summary&buyer=<your wallet>&sor
 
 ```bash
 curl -s localhost:4030/v1/check -H 'content-type: application/json' \
-  -d '{"merchant":"BZ5MNkHdmvLoyof5ojyvsJuK5b1gGo4esPPTb4DGukoJ","buyer":"<your wallet>","amount":"0.20"}'
+  -d '{"merchant":"DzmuSTiwQLnZ4KMtWC3gZ5s68ySstf7UW37Jo4Wm8c2r","buyer":"<your wallet>","amount":"0.20"}'
 ```
 
 ```json
@@ -149,7 +149,7 @@ curl -s localhost:4030/v1/check -H 'content-type: application/json' \
 
 ```bash
 npm run tessera -- find text summary --sort fastest --buyer <address>
-npm run tessera -- check BZ5MNkHdmvLoyof5ojyvsJuK5b1gGo4esPPTb4DGukoJ 0.20 --buyer <address>
+npm run tessera -- check DzmuSTiwQLnZ4KMtWC3gZ5s68ySstf7UW37Jo4Wm8c2r 0.20 --buyer <address>
 npm run tessera -- open buyer --merchant <wallet> --amount 0.20 --order <payTo> --keypair ~/my.json --send
 npm run tessera -- report <order> --outcome satisfied --keypair ~/my.json --send
 ```

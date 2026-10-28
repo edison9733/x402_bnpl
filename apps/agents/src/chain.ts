@@ -386,8 +386,8 @@ export async function cancelUnpaid(payer: Actor, order: Address, o: Order): Prom
 
 /**
  * Which `close_order` account list the escrow on this network takes. The
- * escrow on devnet is the 4 October build (commit c6dbcd7), whose
- * `close_order` has no vault account: its fourth account is the payer. Given
+ * retired version 1 escrow on devnet (TessSeP5…, the 4 October build of
+ * commit c6dbcd7) has a `close_order` with no vault account: its fourth account is the payer. Given
  * the current list it reads the vault as the payer and refuses with
  * Unauthorized (error 6000), which no current build can return here, since
  * the payer is read from the order itself. The first such refusal settles it

@@ -83,7 +83,7 @@ section.active .line { animation: draw 1.2s ease both; animation-delay: 1.3s; }
 </section>
 
 <section data-document-role="page" data-label="Five accounts" data-speaker-notes="One Anchor program, five kinds of account. Config holds the rules. Each wallet has an Agent account, its credit file. Each buyer and merchant pair has a Pair account. Each purchase is an Order, which owns the vault. Each rating is a Review, stored on-chain in full.">
-  <p class="kicker">The program · TessSeP5…1CQ · Anchor 1.1 · 17 instructions</p>
+  <p class="kicker">The program · tESs6b4J…6ry · Anchor 1.1 · 17 instructions</p>
   <h1 style="font-size: 64px;">Five accounts. <em>Everything else is derived.</em></h1>
   <div style="position: relative; width: 1700px; height: 560px; margin-top: 40px;">
     <div class="line" style="left: 470px; top: 245px; width: 90px; height: 2px;"></div>
@@ -127,7 +127,7 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
 </section>
 
 <section data-document-role="page" data-label="Agent to agent" data-speaker-notes="Here one agent buys from another. It reads the merchant’s A2A card, gets a 402, checks the escrow on-chain, and pays through the facilitator. The merchant delivers and commits a hash, and the buyer checks it. Two unknown wallets, so the money was held." style="--gap: 420ms;">
-  <p class="kicker">Agent to agent, over A2A and x402 · captured from devnet</p>
+  <p class="kicker">Agent to agent, over A2A and x402 · captured from devnet, on the version 1 escrow</p>
   <div class="term" style="padding: 30px 34px; font-size: 21.5px;">
     <div class="white" style="line-height: 2.05;">$ npm run buy -- --buyer scout --merchant atlas --mode x402</div>
     <div style="line-height: 2.05;">  [scout] Atlas/telemetry: 0.20 USDC into escrow JE6F5J7i, hold 120s (merchant New, me New)</div>
@@ -167,34 +167,34 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
   <p class="source">The escrow program is unchanged: buy_now calls its permissionless confirm_funded by CPI. Without that call, a buyer could cancel_unpaid the order and take the pool&#x27;s money as a refund. Tested by npm run test:paylater and npm run test:paylater-402.</p>
 </section>
 
-<section data-document-role="page" data-label="Pay later, a real devnet run" data-speaker-notes="This is a real run on devnet, on the upgraded program. Nova, a Building buyer, buys a summary on credit. One transaction, signed by Nova and by Quill, the merchant: the pool pays the escrow, and the escrow confirms it. Nova owes twenty-five and a half cents, due in ten minutes. The summary arrives, its hash matches, and the money is released. Nova repays in one transaction, and its limit goes up. Scout is new, so it is refused and signs nothing." style="--gap: 120ms;">
-  <p class="kicker">Pay later over x402 · a real run on devnet, 28 Oct 2026</p>
+<section data-document-role="page" data-label="Pay later, a real devnet run" data-speaker-notes="This is a real run on devnet, on the new escrow and the pay-later build that names it. Nova, a Building buyer, buys a summary on credit. One transaction, signed by Nova and by Quill, the merchant: the pool pays the escrow, and the escrow confirms it. Nova owes twenty-five and a half cents, due in ten minutes. The summary arrives, its hash matches, and the money is released. Nova repays in one transaction, is now Established, and its limit goes up. Charlie is new, so it is refused and signs nothing." style="--gap: 120ms;">
+  <p class="kicker">Pay later over x402 · a real run on devnet, on the new escrow tESs6b4J…, 28 Oct 2026</p>
   <div class="term" style="padding: 28px 34px; font-size: 19px; line-height: 1.7;">
     <div class="white">$ npm run buy -- --buyer nova --merchant quill --pay-later</div>
-    <div>  [nova] Quill/summary: 0.25 USDC into escrow 8VAF9ZWQ, hold 45s (merchant Building, me Building, pair trusted)</div>
-    <div>  [nova] Quill/summary: on credit; limit 0.74825 USDC, owing 0.00; fee 0.005, due in 600s</div>
-    <div class="mint">  settle tx  explorer.solana.com/tx/1K7VsBKV…4b2xG   # signed by the server, Nova and Quill; ConfirmFunded inside</div>
-    <div>  loan       9sS9yBDG…  owe 0.255 USDC (0.25 + 0.005 pool fee) by 17:33:28 UTC</div>
+    <div>  [nova] Quill/summary: 0.25 USDC into escrow Fi68yAxK, hold 10s (merchant Established, me Building, pair trusted)</div>
+    <div>  [nova] Quill/summary: on credit; limit 1.026626 USDC, owing 0.00; fee 0.005, due in 600s</div>
+    <div class="mint">  settle tx  explorer.solana.com/tx/2mZxEzfu…MnzW8   # signed by the server, Nova and Quill; ConfirmFunded inside</div>
+    <div>  loan       35R7bZzw…  owe 0.255 USDC (0.25 + 0.005 pool fee) by 07:22:32 UTC</div>
     <div>  hash check matches the hash committed on-chain</div>
     <div class="mint">  final      Released</div>
     <div class="white" style="margin-top: 10px;">$ npm run tessera -- repay --all --keypair .keys/agents/nova.json --send</div>
     <div>  REPAY ALL  0.255 USDC in one transaction; each loan is closed and its rent comes back to you</div>
-    <div class="mint">  confirmed: 3oL3qukd…YNEiJu</div>
+    <div class="mint">  confirmed: 4LUwpKcB…f4jQnY</div>
     <div class="white" style="margin-top: 10px;">$ npm run tessera -- credit Acy1…t7PW</div>
-    <div>  limit 0.819611 USDC · owes 0.00 USDC · record: 2 loans, 2 on time · limit boost +5.62%</div>
-    <div class="white" style="margin-top: 10px;">$ npm run buy -- --buyer scout --merchant atlas --pay-later</div>
-    <div class="warn">  NOT BOUGHT not eligible for pay later: the buyer has no credit yet (New, score 242)</div>
+    <div>  Established 527 · limit 2.865299 USDC · owes 0.00 USDC · record: 3 loans, 3 on time · limit boost +8.74%</div>
+    <div class="white" style="margin-top: 10px;">$ npm run buy -- --buyer charlie --merchant atlas --pay-later</div>
+    <div class="warn">  NOT BOUGHT not eligible for pay later: the buyer has no credit yet (New, score 40)</div>
   </div>
-  <p class="source">The limit follows the score: 0.74825 USDC in Nova&#x27;s 402, 0.819611 after its second on-time repayment (score 388, boost +5.62% after loans of 0.20 and 0.25). Times in UTC (28 Oct in UTC+8). Lines shortened with …; links in the README.</p>
+  <p class="source">The limit follows the score: 1.026626 USDC in Nova&#x27;s 402, as a Building buyer; 2.865299 after this repayment, at Established 527 with three loans repaid on time (boost +8.74%). Charlie, which disputes what it receives, is New. Times in UTC (28 Oct in UTC+8). Lines shortened with ….</p>
 </section>
 
-<section data-document-role="page" data-label="Failed payments" data-speaker-notes="What happens when a payment fails. If the 402 asks more than the buyer allows, it signs nothing. If the facilitator fails, nothing is delivered and the buyer is told not to pay again. A quote nobody pays expires, and anything in its vault goes back. A merchant that never delivers is refunded against. New in 2.0: a forged pay-later header is refused before the merchant signs anything, and a loan not repaid is marked in default by the keeper, which freezes the line. In every case the money either never moves or goes back to the buyer.">
+<section data-document-role="page" data-label="Failed payments" data-speaker-notes="What happens when a payment fails. If the 402 asks more than the buyer allows, it signs nothing. If the facilitator refuses a payment, nothing was sent. If a settlement fails, the merchant watches the vault until the payment lands or can no longer land, and only while that is unknown is the buyer told not to pay again. A quote nobody pays expires, and anything in its vault goes back. A merchant that never delivers is refunded against. New in 2.0: a forged pay-later header is refused before the merchant signs anything, and a loan not repaid is marked in default by the keeper, which freezes the line. In every case the money either never moves or goes back to the buyer.">
   <p class="kicker">Failed payments · README, &quot;Failed payments&quot;</p>
   <h1 style="font-size: 64px;">No money left stuck: <em>it never moves, or it goes back.</em></h1>
   <div class="row" style="gap: 26px; margin-top: 36px; align-items: flex-start;">
     <div class="col" style="flex: 1; gap: 14px;">
       <div class="card"><h3>The 402 asks too much</h3><p>Above the buyer&#x27;s ceiling, it signs nothing. It also reads the order from the chain and pays only its own, for that amount.</p></div>
-      <div class="card"><h3>The facilitator fails</h3><p>Verify or settle fails: no delivery, and the HTTP 502 says &quot;Do not pay again&quot;. Money that did land is finished or refunded by the crank.</p></div>
+      <div class="card"><h3>The facilitator fails</h3><p>Refused at verify: HTTP 400, nothing sent. A failed settlement is watched until it lands (the purchase goes on) or cannot (400, pay again). Still unknown after 150 s: 502, &quot;Do not pay again&quot;, and the crank finishes or refunds anything that lands.</p></div>
       <div class="card"><h3>Nobody pays the quote</h3><p>confirm_funded refuses money after the 300 s window, and cancel_unpaid sends anything in the vault back to the buyer.</p></div>
     </div>
     <div class="col" style="flex: 1; gap: 14px;">
@@ -249,7 +249,7 @@ let evidence = (450 * history + 300 * tenure
     </div>
     <div class="col" style="flex: 1; gap: 26px;">
       <div><div class="display white" style="font-size: 100px;"><span data-count="395">395</span><span class="grey" style="font-size: 46px;"> / 395</span></div><p style="font-size: 23px; margin: 8px 0 0;">checks against the real program, each account compared with a reference model</p></div>
-      <div><div class="display white" style="font-size: 100px;"><span data-count="44">44</span><span class="grey" style="font-size: 46px;"> / 44</span></div><p style="font-size: 23px; margin: 8px 0 0;">formula tests: every guarantee we state is one</p></div>
+      <div><div class="display white" style="font-size: 100px;"><span data-count="55">55</span><span class="grey" style="font-size: 46px;"> / 55</span></div><p style="font-size: 23px; margin: 8px 0 0;">formula tests: every guarantee we state is one</p></div>
     </div>
   </div>
   <p class="source">programs/tessera/src/score.rs · packages/sdk/src/score.ts · npm run test:local · npm run test:formula</p>
@@ -277,7 +277,7 @@ let evidence = (450 * history + 300 * tenure
   <p class="kicker">Stack, and what is not done</p>
   <div class="row" style="gap: 60px; margin-top: 34px;">
     <div class="col" style="flex: 1; gap: 0;">
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Programs</span><span class="mono" style="font-size: 20px;">Anchor 1.1.2 · escrow (472 KB) + pay-later · devnet</span></div>
+      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Programs</span><span class="mono" style="font-size: 20px;">Anchor 1.1.2 · escrow (479 KB) + pay-later · devnet</span></div>
       <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Clients</span><span class="mono" style="font-size: 20px;">@solana/kit 8 · Codama-generated</span></div>
       <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Payments</span><span class="mono" style="font-size: 20px;">x402 v2 exact, two facilitators · tessera-paylater, settled by the merchant</span></div>
       <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Agents</span><span class="mono" style="font-size: 20px;">A2A JSON-RPC · a2a-x402 extension v0.2</span></div>
@@ -288,8 +288,8 @@ let evidence = (450 * history + 300 * tenure
     <div class="col" style="flex: 1; gap: 0;">
       <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Devnet only, with test USDC; the demo traffic is our own agents</span></div>
       <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Time is compressed: a period is a minute, a loan term 600 s</span></div>
-      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Single keys: the upgrade authorities and the pool&#x27;s authority</span></div>
-      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Devnet runs the escrow&#x27;s 4 October build, keys lost: the audit fixes run only locally, and a dispute there stays locked</span></div>
+      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Single keys: the upgrade authorities, the arbiter and the pool&#x27;s authority</span></div>
+      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>The version 1 escrow, TessSeP5…, lost its keys and is retired; its accounts stay on devnet as history</span></div>
       <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>An escrow refund goes to the buyer; the loan stays owed</span></div>
       <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Unaudited; the A2A endpoint is hand-rolled, not yet run against the official test kit</span></div>
     </div>

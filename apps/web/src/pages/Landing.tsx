@@ -12,7 +12,7 @@ import { Playground } from '../components/Playground';
 import { ReviewRewards } from '../components/ReviewRewards';
 import { Counter, EASE, Logo, Reveal, TierBadge, Words } from '../components/ui';
 import { NETWORK_LABEL } from '../lib/client';
-import { compactUsd, duration, explorerAddress, TIER_DARK, tierName } from '../lib/format';
+import { compactUsd, duration, explorerAddress, short, TIER_DARK, tierName } from '../lib/format';
 import { Link, usePath } from '../lib/router';
 import { useChain, useProfiles } from '../lib/store';
 import { recordedAt, session } from '../lib/findDemo';
@@ -87,7 +87,7 @@ function Hero() {
           style={{ borderColor: '#ded7c2', background: 'rgba(255,255,255,0.6)' }}
         >
           <span style={{ width: 7, height: 7, borderRadius: 7, background: '#2f8f66', boxShadow: '0 0 0 4px rgba(47,143,102,0.18)' }} />
-          Live on {NETWORK_LABEL} · program TessSe…1CQ
+          Live on {NETWORK_LABEL} · program {short(PROGRAM)}
         </motion.a>
 
         <HeroTitle />

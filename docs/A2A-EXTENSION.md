@@ -18,7 +18,7 @@ the agent. It adds metadata; it does not change the x402 extension's flow or mes
         "uri": "https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md",
         "required": false,
         "params": {
-          "program": "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",
+          "program": "tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry",
           "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
           "wallet": "<the merchant's wallet>",
           "prices": { "<skill id>": "<amount in token units>" },
@@ -87,11 +87,12 @@ The a2a-x402 standalone flow, with three additions.
    buyer's signature is on it: `buy_now` requires the order's merchant's signature as well as the
    buyer's, so the pool only pays orders their merchant agreed to, and the merchant adds it. (Both
    rules are on devnet since the pay-later program there was upgraded to the build of `1bd11be` on
-   28 October 2026, UTC+8
-   ([transaction](https://explorer.solana.com/tx/3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E?cluster=devnet)).
-   The payment that confirmed it, a transaction with three signatures whose `buy_now` carries 80
-   bytes of data (discriminator, loan id, amount 250000, request hash), is
-   [this settle transaction](https://explorer.solana.com/tx/1K7VsBKVWYHXmMmEdytiUck99inmuuRQuYfDUBAyGuhpzQ7b4vou7CkAT9L73hTBxo7CfURvpVGvLsfAf44b2xG?cluster=devnet).) The merchant is its own
+   28 October 2026, UTC+8. It now runs the same code built at `eca65b0`, which names the escrow at
+   `tESs6b4J…`
+   ([transaction](https://explorer.solana.com/tx/3YJDEfVq961AwaqKYFwoDRxEfDwJDmLUvXFNHVBjWyGzL9J1U5UrFomjNTLUoxmSG1QN1X1vXunTJBdSwwmp1XgG?cluster=devnet)).
+   The payment that confirmed it on that escrow, a transaction with three signatures whose
+   `buy_now` carries 80 bytes of data (discriminator, loan id, amount 250000, request hash), is
+   [this settle transaction](https://explorer.solana.com/tx/2mZxEzfu5ReApNejhCz7GMEwkkBJc7rafjiG3LUiKPNGx1J3oFhxEty3xdLtFfdrJ8Aevauzoy4NX3xVGZJMnzW8?cluster=devnet).) The merchant is its own
    facilitator: it reads the order at the quoted address and refuses one that is not the order it
    opened (price, request hash, hold, rent payer, time opened), decodes the transaction, checks the
    signers, the program, the instruction, that the `buy_now` carries the quoted price and request
