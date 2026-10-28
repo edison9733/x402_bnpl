@@ -38,7 +38,12 @@
  *   - the demo faucet will not take the ops wallet, which fronts quote rent
  *     and pays settlement fees, below its floor, and says so;
  *   - the server's keeper marks a loan in default once its grace period has
- *     passed, and the buyer's line is frozen.
+ *     passed, and the buyer's line is frozen;
+ *   - an exact payment the facilitator refuses at verify gets a 400 and no
+ *     "do not pay again" note (nothing was sent); one it fails to settle,
+ *     whether it says so or answers with an HTTP error, gets a 502, the note
+ *     and its answer as PAYMENT-RESPONSE (a pending transfer may still land);
+ *     a header that is not a payment, or is x402 version 1, gets a 400.
  *
  *   npm run build:program && npm run test:paylater-402
  *
@@ -100,6 +105,9 @@ import {
   TESSERA_PROGRAM_ADDRESS,
   type Params,
 } from '@tessera/sdk';
+import { x402Client } from '@x402/core/client';
+import type { PaymentRequired, PaymentRequirements } from '@x402/core/types';
+import { ExactSvmScheme } from '@x402/svm/exact/client';
 import { ADVERSARIES, keyPath, MERCHANTS } from './cast.js';
 import { chainTime, clientForSigner, errText, generateKeypairBytes, log, REPO_ROOT, sleep, tokenHelpers, waitForChainTime, type Cluster, type ScriptClient } from './lib.js';
 
@@ -222,6 +230,8 @@ const quotedTerms = (r: Required402): paylater.BuyNowTerms => ({
   requestHash: fromHex(String(r.extensions.tessera.requestHash)),
 });
 const decodeReceipt = (h: string | null) => (h ? (JSON.parse(Buffer.from(h, 'base64').toString('utf8')) as { success: boolean; transaction: string; payer?: string }) : null);
+/** What the stub facilitator answers to /verify and /settle (set in the setup, changed in section 8). */
+let stub: { verify: Record<string, unknown>; settle: Record<string, unknown>; settleStatus: number };
 
 try {
   await waitFor(LOCAL.rpcUrl);
@@ -315,14 +325,25 @@ try {
   keyFile('.keys/server.json', server);
   keyFile('.keys/arbiter.json', arbiter);
   for (const [id, c] of cast) keyFile(keyPath(id), c);
-  // A stub x402 facilitator that only answers /supported, so every 402 carries
-  // an exact entry (with this fee payer) before the pay-later one. Nobody pays
-  // through it here, so /verify and /settle are not served.
+  // A stub x402 facilitator. It answers /supported, so every 402 carries an
+  // exact entry (with this fee payer) before the pay-later one, and /verify
+  // and /settle with whatever section 8 sets in `stub`, to check what the
+  // server answers to a refused or failed exact payment. It never sends anything.
   const facilitatorFeePayer = (await generateKeypairBytes()).signer.address;
+  const refuseAll = { isValid: false, invalidReason: 'invalid_exact_svm_payload_transaction', invalidMessage: 'the stub refuses every payment' };
+  stub = { verify: refuseAll, settle: { success: false, errorReason: 'settlement_pending', transaction: '', network: SOLANA_DEVNET }, settleStatus: 200 };
   const facilitator = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/supported') {
       res.writeHead(200, { 'content-type': 'application/json' });
       return void res.end(JSON.stringify({ kinds: [{ x402Version: 2, scheme: 'exact', network: SOLANA_DEVNET, extra: { feePayer: facilitatorFeePayer } }], extensions: [], signers: {} }));
+    }
+    if (req.method === 'POST' && (req.url === '/verify' || req.url === '/settle')) {
+      const settle = req.url === '/settle';
+      req.resume();
+      return void req.on('end', () => {
+        res.writeHead(settle ? stub.settleStatus : 200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(settle ? stub.settle : stub.verify));
+      });
     }
     res.writeHead(404);
     res.end();
@@ -682,6 +703,37 @@ try {
   const late = await cli(['repay', '--all', '--keypair', buyerKey, '--send']);
   const lineLate = await paylater.fetchMaybeCreditLine(rpc, await paylater.linePdaOf(B));
   ok('a late repayment still clears the debt, and closes the loan: the line keeps the record', late.status === 0 && /confirmed:/.test(late.stdout) && !(await paylater.fetchMaybeLoan(rpc, built2.loan)).exists && lineLate.exists && lineLate.data.outstanding === 0n && lineLate.data.repaidLate === 1 && lineLate.data.defaults === 1, late.stdout + late.stderr);
+
+  // ------------------------------------- 8. exact payments that do not go through
+  // Last, so the per-client limit on payment requests has reset since section 6.
+  log.step('8. An exact payment the facilitator refuses or fails to settle, and headers that are not payments');
+  const qX = await get(`/agents/atlas/x402/telemetry?buyer=${B}`);
+  const rX = qX.body as Required402;
+  const orderX = rX.extensions.tessera.order as Address;
+  const exactX = rX.accepts.find((a) => a.scheme === 'exact')!;
+  const exactClient = new x402Client();
+  // The test mint is not one of the client's default assets: allow it, capped at this price.
+  exactClient.setSpendControls({ allowedAssets: [{ network: exactX.network as `${string}:${string}`, asset: exactX.asset, maxAmountPerPayment: exactX.amount }] });
+  exactClient.register('solana:*', new ExactSvmScheme(buyer.identity, { rpcUrl: LOCAL.rpcUrl }));
+  const paidX = await exactClient.createPaymentPayload({ ...(rX as unknown as PaymentRequired), accepts: [exactX as unknown as PaymentRequirements] });
+  const refusedX = await get(`/agents/atlas/x402/telemetry`, header(paidX));
+  ok('one the facilitator refuses at verify: 400 with its reason, and no "do not pay again" note, since nothing was sent', refusedX.status === 400 && /rejected by facilitator: invalid_exact_svm_payload_transaction/.test(refusedX.body.error ?? '') && refusedX.body.note === undefined, refusedX.body);
+  stub.verify = { isValid: true, payer: B };
+  const pendingX = await get(`/agents/atlas/x402/telemetry`, header(paidX));
+  const receiptX = decodeReceipt(pendingX.headers.get('PAYMENT-RESPONSE')) as { success?: boolean; errorReason?: string } | null;
+  ok('one the facilitator reports as not settled: 502 and "do not pay again", since a pending transfer may still land', pendingX.status === 502 && /settlement failed: settlement_pending/.test(pendingX.body.error ?? '') && /Do not pay again/.test(pendingX.body.note ?? ''), pendingX.body);
+  eq('its PAYMENT-RESPONSE header is the facilitator\'s answer', [receiptX?.success, receiptX?.errorReason], [false, 'settlement_pending']);
+  stub.settleStatus = 500;
+  stub.settle = { success: false, errorReason: 'unexpected_settle_error', transaction: '', network: SOLANA_DEVNET };
+  const erroredX = await get(`/agents/atlas/x402/telemetry`, header(paidX));
+  const receiptE = decodeReceipt(erroredX.headers.get('PAYMENT-RESPONSE')) as { success?: boolean; errorReason?: string } | null;
+  ok('one the facilitator answers with an HTTP error carrying a settle response: read the same way', erroredX.status === 502 && /Do not pay again/.test(erroredX.body.note ?? '') && receiptE?.success === false && receiptE.errorReason === 'unexpected_settle_error', { body: erroredX.body, receiptE });
+  stub.verify = refuseAll;
+  const notPayment = await get(`/agents/atlas/x402/telemetry`, { 'PAYMENT-SIGNATURE': '%% not a payment %%' });
+  ok('a header that is not a payment payload: 400, no note', notPayment.status === 400 && /not a base64-encoded x402 payment payload/.test(notPayment.body.error ?? '') && notPayment.body.note === undefined, notPayment.body);
+  const v1 = await get(`/agents/atlas/x402/telemetry`, header({ x402Version: 1, scheme: 'exact', network: 'solana-devnet', payload: {} }));
+  ok('an x402 version 1 payload: 400, no note', v1.status === 400 && /only x402 version 2/.test(v1.body.error ?? '') && v1.body.note === undefined, v1.body);
+  ok('none of them reached the order: it still awaits payment and its vault is empty', (await fetchOrder(rpc, orderX)).data.state === OrderState.AwaitingPayment && (await tok.balance(orderX)) === 0n);
 } catch (e) {
   failures += 1;
   console.log(`\n   FAIL stopped on an unexpected error:\n${errText(e).slice(0, 1500)}`);

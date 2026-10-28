@@ -24,6 +24,7 @@ import {
   encodePaymentRequiredHeader,
   encodePaymentResponseHeader,
 } from '@x402/core/http';
+import type { PaymentPayload } from '@x402/core/types';
 import { bytesEqual, fromUnits, TIER_NAMES, type Decoded, type Order } from '@tessera/sdk';
 import { ADVERSARIES, keyPath, MERCHANTS } from '../../../scripts/cast.js';
 import { chainNow, clientForSigner, forgetEnvKeys, loadKeypair, sleep, tokenHelpers } from '../../../scripts/lib.js';
@@ -45,7 +46,7 @@ import {
   type Actor,
 } from './chain.js';
 import { config } from './config.js';
-import { facilitators } from './facilitator.js';
+import { facilitators, SettlementFailed } from './facilitator.js';
 import { loadEvidence, MerchantAgent, PaymentRefused, pruneEvidence, type Behaviour } from './merchant.js';
 import { markOverdue, poolInfo } from './paylater.js';
 import { hashOf } from './services.js';
@@ -281,6 +282,20 @@ app.post('/agents/:id/a2a', (req, res, next) => (req.body?.params?.message?.task
 });
 
 // ------------------------------------------------------- plain HTTP 402
+/** The payment in a PAYMENT-SIGNATURE header. One that does not decode, or is not x402 version 2, was never sent: refused. */
+function paymentFrom(header: string): PaymentPayload {
+  let payload: PaymentPayload;
+  try {
+    payload = decodePaymentSignatureHeader(header);
+  } catch {
+    throw new PaymentRefused('the PAYMENT-SIGNATURE header is not a base64-encoded x402 payment payload');
+  }
+  if (payload?.x402Version !== 2 || typeof payload.accepted?.payTo !== 'string') {
+    throw new PaymentRefused(`only x402 version 2 payment payloads are accepted (this one is version ${String(payload?.x402Version)})`);
+  }
+  return payload;
+}
+
 app.get('/agents/:id/x402/:skill', (req, res, next) => (req.header('PAYMENT-SIGNATURE') ? fulfilLimit : quoteLimit)(req, res, next), taking, async (req, res) => {
   const m = merchantOf(req, res);
   if (!m) return;
@@ -300,7 +315,7 @@ app.get('/agents/:id/x402/:skill', (req, res, next) => (req.header('PAYMENT-SIGN
       res.setHeader('PAYMENT-REQUIRED', encodePaymentRequiredHeader(quote.required));
       return void res.status(402).json(quote.required);
     }
-    const payload = decodePaymentSignatureHeader(header);
+    const payload = paymentFrom(header);
     const f = await m.fulfil(payload.accepted.payTo, payload, clientKey(req));
     if (f.receipts[0]) res.setHeader('PAYMENT-RESPONSE', encodePaymentResponseHeader(f.receipts[0]));
     res.json({ result: f.deliverable, escrow: { order: f.order, deliveryHash: f.deliveryHash, state: f.state, instant: f.instant, releaseAt: f.releaseAt } });
@@ -311,6 +326,8 @@ app.get('/agents/:id/x402/:skill', (req, res, next) => (req.header('PAYMENT-SIGN
     // credit purchase refused before this merchant signed anything is the
     // one case where nothing has: the client may pay another way.
     const paid = Boolean(header) && !(e instanceof PaymentRefused);
+    // The facilitator's own answer, so an x402 client can read why it failed.
+    if (e instanceof SettlementFailed) res.setHeader('PAYMENT-RESPONSE', encodePaymentResponseHeader(e.response));
     res.status(paid ? 502 : 400).json({
       error: publicMessage(e),
       ...(paid ? { note: 'Do not pay again. If the escrow was funded, the merchant refunds it before the delivery deadline.' } : {}),
