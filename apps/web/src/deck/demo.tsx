@@ -121,26 +121,50 @@ function ProfileScene() {
   return who ? <Live route={`/agents/${who}`} run={profileTour} /> : null;
 }
 
-const TERMINAL = [
-  ['$', 'npm run buy -- --buyer scout --merchant atlas --mode x402'],
-  ['', '[scout] Atlas/telemetry: 0.20 USDC into escrow JE6F5J7i, hold 120s (merchant New, me New)'],
-  ['', 'order      JE6F5J7iVDJ7h6p42uNdwZ2up4BVjhzwu6VrL711WdUW'],
-  ['', 'amount     0.20 USDC, paid via x402 facilitator (buyer paid no SOL)'],
-  ['', 'settle tx  2w7bzSrNK9nT8zJDdE19qZA5SdoMZxpfFWZPkTXmMsEXCqrBwmyT…'],
-  ['', 'delivered  {"cluster":"devnet","slot":507451535,"epoch":1174,"tps":58,…}'],
-  ['ok', 'hash check matches the hash committed on-chain'],
-  ['', 'settlement held until 18:11:50Z (120s)'],
-  ['ok', 'final      Released'],
-  ['ok', 'scout SOL before: 0.049995   after: 0.049995'],
-] as const;
+type Line = readonly [tag: '' | '$' | 'ok' | 'no' | 'dim', text: string];
 
-const box = (x: number, y: number, w: number, title: string, sub: string, delay: number, accent = false) => (
-  <motion.g initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE, delay }}>
-    <rect x={x} y={y} width={w} height={92} rx={16} fill="#10120e" stroke={accent ? mint : '#272b21'} strokeWidth={accent ? 2 : 1.5} />
-    <text x={x + 22} y={y + 40} fontSize={25} fill={white} style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>{title}</text>
-    <text x={x + 22} y={y + 68} fontSize={16} fill="#8b8a7c" className="mono">{sub}</text>
-  </motion.g>
-);
+/** Lines of real output, typed in one after another. */
+function Terminal({ lines, step, size = 19, start = 0.5 }: { lines: readonly Line[]; step: number; size?: number; start?: number }) {
+  const colour = (tag: Line[0]) => (tag === 'ok' ? mint : tag === 'no' ? '#ec835a' : tag === '$' ? white : tag === 'dim' ? '#6f6e62' : '#c9c6b6');
+  return (
+    <div style={{ marginTop: 24, borderRadius: 22, background: '#050605', border: '1px solid #272b21', padding: '24px 30px', flex: 1 }}>
+      {lines.map(([tag, line], k) => (
+        <motion.div key={k} className="mono" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: start + k * step }} style={{ fontSize: size, lineHeight: 1.7, color: colour(tag), whiteSpace: 'pre', overflow: 'hidden', marginTop: tag === '$' && k > 0 ? 10 : 0 }}>
+          {tag === '$' ? '$ ' : '  '}
+          {line}
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+/** A real 402 from atlas on devnet, 28 October 2026 (curl -i, JSON shortened to its fields). */
+const LIVE_402: readonly Line[] = [
+  ['$', 'curl -i "localhost:4020/agents/atlas/x402/telemetry?buyer=Acy1…t7PW"'],
+  ['no', 'HTTP/1.1 402 Payment Required'],
+  ['dim', 'PAYMENT-REQUIRED: eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2Ui…   (the body below, base64)'],
+  ['', 'accepts[0]  exact             0.20 USDC  payTo DAwJTW9m…  feePayer: x402.org facilitator'],
+  ['', 'accepts[1]  exact             0.20 USDC  payTo DAwJTW9m…  feePayer: payai.network facilitator'],
+  ['ok', 'accepts[2]  tessera-paylater  0.20 USDC  payTo DAwJTW9m…  buyerLimit 9.297270 · fee 0.004 · 600 s · eligible'],
+  ['', 'extensions.tessera  order DAwJTW9m… on tESs6b4J… · vault CWAamPv6… · hold 0 s (both Trusted)'],
+  ['', '                    requestHash 7d4b23dd… · openTx 5WuVmnZV…'],
+];
+
+/** The settle transaction of the run on the slide before, read back from devnet (solana confirm -v, shortened). */
+const CHAIN_LOG: readonly Line[] = [
+  ['$', 'solana confirm -v 2mZxEzfu…MnzW8 --url devnet'],
+  ['', 'Signature 0  DJ8sWBFJ…  the merchant server, fee payer'],
+  ['', 'Signature 1  Acy1bCFC…  Nova, the buyer'],
+  ['', "Signature 2  2hQkyW5y…  Quill, the order's merchant"],
+  ['', 'Program LXNPYNYc… invoke [1]                  the pay-later program'],
+  ['ok', '  Program log: Instruction: BuyNow'],
+  ['', "  Program Tokenkeg… invoke [2]                pool vault 8.009 → 7.759, order vault 0 → 0.25 USDC"],
+  ['', '  Program tESs6b4J… invoke [2]                the escrow'],
+  ['ok', '    Program log: Instruction: ConfirmFunded'],
+  ['', '  Program tESs6b4J… success'],
+  ['', 'Program LXNPYNYc… consumed 112718 compute units, success'],
+  ['ok', 'Status: Ok · Finalized'],
+];
 
 /** New in 2.0: the pay-later flow, and the two lines of `buy_now` that keep it inside the escrow. */
 function PayLaterFlowScene() {
@@ -203,18 +227,32 @@ const PAYLATER_TERMINAL = [
   ['no', 'NOT BOUGHT not eligible for pay later: the buyer has no credit yet (New, score 40)'],
 ] as const;
 
+function Live402Scene() {
+  return (
+    <Frame pad={84}>
+      <Kicker>x402 · a real 402 from a merchant on devnet, 28 Oct 2026</Kicker>
+      <Big size={54} color={white}>Three ways to pay one order. <em>All of them into escrow.</em></Big>
+      <Terminal lines={LIVE_402} step={0.9} size={18} start={0.8} />
+      <Source>payTo is the escrow order's own account, so even a plain exact transfer lands in its vault. The pay-later option carries this buyer's live limit, read from the chain when the 402 was made.</Source>
+    </Frame>
+  );
+}
+
+function ChainScene() {
+  return (
+    <Frame pad={84}>
+      <Kicker>On chain · the purchase above, read back from devnet</Kicker>
+      <Terminal lines={CHAIN_LOG} step={0.75} size={19} />
+      <Source>explorer.solana.com/tx/2mZxEzfu5ReApNejhCz7GMEwkkBJc7rafjiG3LUiKPNGx1J3oFhxEty3xdLtFfdrJ8Aevauzoy4NX3xVGZJMnzW8?cluster=devnet</Source>
+    </Frame>
+  );
+}
+
 function PayLaterCommandsScene() {
   return (
     <Frame pad={84}>
       <Kicker>Pay later over x402 · a real run on devnet, on the new escrow tESs6b4J…, 28 Oct 2026</Kicker>
-      <div style={{ marginTop: 26, borderRadius: 22, background: '#050605', border: '1px solid #272b21', padding: '26px 32px', flex: 1 }}>
-        {PAYLATER_TERMINAL.map(([tag, line], k) => (
-          <motion.div key={k} className="mono" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.5 + k * 1.1 }} style={{ fontSize: 18.5, lineHeight: 1.72, color: tag === 'ok' ? mint : tag === 'no' ? '#ec835a' : tag === '$' ? white : '#c9c6b6', whiteSpace: 'pre', overflow: 'hidden', marginTop: tag === '$' && k > 0 ? 10 : 0 }}>
-            {tag === '$' ? '$ ' : '  '}
-            {line}
-          </motion.div>
-        ))}
-      </div>
+      <Terminal lines={PAYLATER_TERMINAL} step={1.1} size={18.5} />
       <div className="mono" style={{ fontSize: 14, color: '#5d5c52', marginTop: 12 }}>
         The limit follows the score: 1.026626 USDC in Nova's 402, as a Building buyer; 2.865299 after this repayment, at Established 527 with three loans repaid on time (boost +8.74%). Charlie, which disputes what it receives, is New. Times in UTC (28 Oct in UTC+8). Lines shortened with ….
       </div>
@@ -225,15 +263,15 @@ function PayLaterCommandsScene() {
 function FailedScene() {
   const cases: [string, string, boolean][] = [
     ['The 402 asks too much', "Above the buyer's ceiling, it signs nothing. It also reads the order from the chain and pays only its own, for that amount.", false],
-    ['Paid, never delivered', "After the deadline anyone may refund: the buyer gets it all, and the merchant's score loses 10%.", false],
-    ['The facilitator fails', 'Refused at verify: HTTP 400, nothing sent. A failed settlement is watched until it lands (the purchase goes on) or cannot (400, pay again). Still unknown after 150 s: 502, "Do not pay again", and the crank finishes or refunds anything that lands.', false],
+    ['Paid, never delivered', "After the deadline anyone may refund: the buyer gets it all, and the merchant's score loses 10%. On devnet: mallory, three orders, three refunds.", false],
+    ['A delivery is disputed', 'The arbiter checks what arrived against the hash committed on chain. On devnet: charlie disputed two valid deliveries; both were resolved for the merchant.', false],
+    ['The facilitator fails', 'Refused at verify: HTTP 400, nothing sent. Left pending: the merchant watches the vault until it lands (delivered) or can no longer land (400, pay again).', true],
     ['A forged pay-later header', 'Checked before the merchant signs, and simulated before anything is sent: HTTP 400, nothing sent, and the buyer may pay another way.', true],
-    ['Nobody pays the quote', 'confirm_funded refuses money after the 300 s window, and cancel_unpaid sends anything in the vault back to the buyer.', false],
     ['A loan not repaid', "After the grace period anyone marks it in default; the server's keeper does, every 30 s. The line freezes, and the next 402 says so.", true],
   ];
   return (
     <Frame pad={84}>
-      <Kicker>Failed payments · README, "Failed payments"</Kicker>
+      <Kicker>Failed payments · README, "Failed payments" · the refunds and disputes are on devnet</Kicker>
       <Big size={60} color={white}>No money left stuck: <em>it never moves, or it goes back.</em></Big>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 30 }}>
         {cases.map(([h, b, isNew], k) => (
@@ -262,7 +300,7 @@ export const DEMO: Slide[] = [
   {
     id: 'title',
     seconds: 4,
-    say: 'This is how Tessera works, and what 2.0 adds: pay later over x402, into the escrow. Under four minutes.',
+    say: 'Tessera: agents pay each other over x402 into an escrow on Solana, and with 2.0 they can buy now, pay later.',
     render: () => (
       <Frame center>
         <Logo size={84} invert />
@@ -275,33 +313,9 @@ export const DEMO: Slide[] = [
     ),
   },
   {
-    id: 'accounts',
-    seconds: 18,
-    say: 'One Anchor program, five kinds of account. Config holds the rules. Each wallet has an Agent account, its credit file. Each buyer and merchant pair has a Pair account. Each purchase is an Order, which owns the vault. Each rating is a Review, stored on-chain in full.',
-    render: () => (
-      <Frame pad={72}>
-        <Kicker>The program · tESs6b4J…6ry · Anchor 1.1 · 17 instructions</Kicker>
-        <Big size={64} color={white}>Five accounts. <em>Everything else is derived.</em></Big>
-        <svg viewBox="0 0 1456 560" width="100%" style={{ marginTop: 26 }}>
-          {box(40, 40, 400, 'Config', '["config"] · every rule, on-chain', 0.3)}
-          {box(40, 180, 400, 'Agent', '["agent", wallet] · the credit file', 0.5, true)}
-          {box(40, 320, 400, 'Pair', '["pair", buyer, merchant] · their history', 0.7)}
-          {box(528, 180, 400, 'Order', '["order", order_id] · the escrow', 0.9, true)}
-          {box(1016, 180, 400, 'Vault', 'token account owned by the Order', 1.1)}
-          {box(528, 320, 400, 'Review', '["review", order, reviewer] · text on-chain', 1.3)}
-          <motion.path d="M 440 226 L 528 226 M 928 226 L 1016 226 M 440 366 Q 484 366 528 250 M 728 272 L 728 320" stroke="#3a3f33" strokeWidth={2} fill="none" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.4, delay: 1.3 }} />
-          <motion.text x={1016} y={320} fontSize={19} fill={mint} className="mono" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 }}>x402 payTo = the Order account</motion.text>
-          <motion.text x={1016} y={350} fontSize={17} fill="#8b8a7c" className="mono" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.0 }}>so a plain x402 transfer lands in escrow</motion.text>
-          <motion.text x={40} y={470} fontSize={19} fill="#8b8a7c" className="mono" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.2 }}>score, tier and penalties live in Agent · credit caps and dispute history live in Pair</motion.text>
-          <motion.text x={40} y={502} fontSize={19} fill="#8b8a7c" className="mono" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.4 }}>hold, tiers and the instant flag are snapshotted into Order when it is opened</motion.text>
-        </svg>
-      </Frame>
-    ),
-  },
-  {
     id: 'trick',
-    seconds: 19,
-    say: 'The x402 exact scheme on Solana allows only a plain token transfer, so an escrow instruction has nowhere to go. But the destination is derived from pay-to. So the merchant quotes the order account as pay-to, and the money lands in the vault. The program reads the vault balance. It trusts nobody’s word.',
+    seconds: 14,
+    say: 'The x402 exact scheme on Solana allows only a plain token transfer. So the merchant quotes the escrow order’s account as pay-to: the money lands in its vault, and the program trusts that balance, not anyone’s word.',
     render: () => (
       <Frame pad={84}>
         <Kicker>The one design decision everything rests on</Kicker>
@@ -327,70 +341,52 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
     ),
   },
   {
-    id: 'network',
-    seconds: 19,
-    surface: 'paper',
-    say: 'This is the network, read from devnet in the browser. No indexer, no database. Squares are merchants, circles are buyers. A coin on a line is money in escrow. Bright nodes are Trusted. The small cluster on its own is a wash-trading ring.',
-    render: () => (
-      <>
-        <Live route="/network" />
-        <Caption>Every node is an account, every line a pair, every coin an order. Read with four <span className="mono" style={{ color: mint }}>getProgramAccounts</span> calls, decoded in the browser.</Caption>
-      </>
-    ),
-  },
-  {
-    id: 'terminal',
-    seconds: 20,
-    say: 'Here one agent buys from another. It reads the merchant’s A2A card, gets a 402, checks the escrow on-chain, and pays through the facilitator. The merchant delivers and commits a hash, and the buyer checks it. Two unknown wallets, so the money was held.',
-    render: () => (
-      <Frame pad={84}>
-        <Kicker>Agent to agent, over A2A and x402 · captured from devnet, on the version 1 escrow</Kicker>
-        <div style={{ marginTop: 30, borderRadius: 22, background: '#050605', border: '1px solid #272b21', padding: '30px 34px', flex: 1 }}>
-          {TERMINAL.map(([tag, line], k) => (
-            <motion.div key={k} className="mono" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, delay: 0.6 + k * 1.7 }} style={{ fontSize: 21.5, lineHeight: 2.05, color: tag === 'ok' ? mint : tag === '$' ? white : '#c9c6b6', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              {tag === '$' ? '$ ' : tag === 'ok' ? '✓ ' : '  '}
-              {line}
-            </motion.div>
-          ))}
-        </div>
-      </Frame>
-    ),
+    id: 'live402',
+    seconds: 13,
+    say: 'Here is a real 402 from a merchant on devnet. One order, three ways to pay it: exact, through either of two facilitators, or tessera-paylater, with this buyer’s credit limit and fee. Every option pays into the escrow.',
+    render: () => <Live402Scene />,
   },
   {
     id: 'paylater',
-    seconds: 20,
-    say: "New in 2.0: the same purchase, on credit. The 402 offers a second option, tessera-paylater. The buyer signs one buy_now at the quoted price, and the merchant checks it, signs it too and sends it. In that one instruction the pool pays the order's vault and the escrow confirms it, so the pool's money never sits in an unconfirmed order the buyer could cancel. From there it is an ordinary order: deliver, hold, release. The buyer repays the pool later, every loan in one transaction.",
+    seconds: 15,
+    say: "New in 2.0, pay later. The buyer signs one buy_now at the quoted price, and the merchant checks it, signs it too and sends it. In that one instruction the pool pays the order's vault and the escrow confirms it. The buyer repays the pool later.",
     render: () => <PayLaterFlowScene />,
   },
   {
     id: 'paylater-commands',
-    seconds: 27,
-    say: 'This is a real run on devnet, on the new escrow and the pay-later build that names it. Nova, a Building buyer, buys a summary on credit. One transaction, signed by Nova and by Quill, the merchant: the pool pays the escrow, and the escrow confirms it. Nova owes twenty-five and a half cents, due in ten minutes. The summary arrives, its hash matches, and the money is released. Nova repays in one transaction, is now Established, and its limit goes up. Charlie is new, so it is refused and signs nothing.',
+    seconds: 18,
+    say: 'A real run on devnet. Nova buys a summary on credit, in one transaction signed by Nova and by Quill, the merchant. The summary arrives, its hash matches, and the money is released. Nova repays, and its limit goes up. Charlie, a new wallet, is refused and signs nothing.',
     render: () => <PayLaterCommandsScene />,
   },
   {
+    id: 'chain',
+    seconds: 11,
+    say: 'And that transaction, read back from devnet: three signers, the pay-later program’s buy now, the pool’s transfer, and inside it, the escrow’s confirm funded.',
+    render: () => <ChainScene />,
+  },
+  {
     id: 'failed',
-    seconds: 24,
-    say: 'When a payment fails: if the 402 asks more than the buyer allows, it signs nothing. If the facilitator refuses a payment, nothing was sent. If a settlement fails, the merchant watches the vault until the payment lands or can no longer land, and only while that is unknown is the buyer told not to pay again. An unpaid quote expires and its vault goes back. A merchant that never delivers is refunded. New in 2.0: a forged pay-later header is refused before the merchant signs, and an unpaid loan is marked in default, which freezes the line.',
+    seconds: 18,
+    say: 'When a payment fails, no money is stuck. A refused payment was never sent. A settlement left pending is watched until it lands or cannot. On devnet, a merchant that never delivered was refunded, and disputed deliveries were judged against their hash. An unpaid loan freezes the buyer’s line.',
     render: () => <FailedScene />,
   },
   {
     id: 'checkout',
-    seconds: 31,
+    seconds: 48,
     surface: 'paper',
-    say: 'A person can buy from the same agents on the website, with its built-in devnet test wallet. The merchant opens the escrow. The browser checks it on-chain before paying. The payment goes into the vault. The merchant delivers, and the hash of what arrived matches the one on-chain. This buyer is new, so the money is held. Here it confirms receipt, and the merchant is paid.',
+    say: 'A person can buy from the same agents on the website, with a built-in devnet test wallet. The merchant opens the escrow, and the browser checks it on-chain before paying into its vault. The merchant delivers and commits a hash, and the browser checks what arrived against it. This buyer is new, so the money is held until it confirms receipt.',
     render: () => (
       <>
         <Live route="/market" run={buyTour} />
-        <Caption side>A real purchase on devnet, performed by this slide: escrow opened, verified in the browser, paid, delivered, hash checked, released.</Caption>
+        <Caption side>A real purchase on devnet, performed by this slide: escrow opened, verified in the browser, paid, delivered, hash checked.</Caption>
       </>
     ),
   },
   {
     id: 'profile',
-    seconds: 13,
+    seconds: 9,
     surface: 'paper',
-    say: 'Every wallet has a credit file anyone can read: the score and what it is made of, and every review with the weight it carried. Its reviews are mirrored to Solana’s Agent Registry with proof of payment.',
+    say: 'Every wallet has a credit file anyone can read: the score, what it is made of, and every review with the weight it carried.',
     render: () => (
       <>
         <ProfileScene />
@@ -400,8 +396,8 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
   },
   {
     id: 'stack',
-    seconds: 13,
-    say: 'The stack: Anchor, Solana Kit and Codama, x402 with a second option the merchant settles itself, and A2A. It is devnet only, with test money, single keys and no audit.',
+    seconds: 11,
+    say: 'Anchor, Solana Kit, x402 and A2A, with an API, an MCP server and a CLI for agents. Devnet only, and unaudited.',
     render: () => (
       <Frame pad={84}>
         <Kicker>Stack, and what is not done</Kicker>
