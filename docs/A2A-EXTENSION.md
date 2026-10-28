@@ -1,6 +1,6 @@
 # Tessera escrow: an A2A extension
 
-**URI:** `https://github.com/edison9733/agentic_commerce/blob/main/docs/A2A-EXTENSION.md`
+**URI:** `https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md`
 
 This extension tells a client agent two things about a merchant agent that takes
 [x402 payments over A2A](https://github.com/google-agentic-commerce/a2a-x402): that the payment goes
@@ -15,7 +15,7 @@ the agent. It adds metadata; it does not change the x402 extension's flow or mes
     "extensions": [
       { "uri": "https://github.com/google-agentic-commerce/a2a-x402/blob/main/spec/v0.2", "required": true },
       {
-        "uri": "https://github.com/edison9733/agentic_commerce/blob/main/docs/A2A-EXTENSION.md",
+        "uri": "https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md",
         "required": false,
         "params": {
           "program": "TessSeP5QV5Bxpvm73iEefdsTjgtTEokKSx7jqFn1CQ",

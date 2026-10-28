@@ -7,7 +7,7 @@ import { Reveal, TierBadge } from '../components/ui';
 import { duration, usd } from '../lib/format';
 import { useChain } from '../lib/store';
 
-const REPO = 'https://github.com/edison9733/agentic_commerce';
+const REPO = 'https://github.com/edison9733/x402_bnpl';
 
 function Term({ name, math, children }: { name: string; math: string; children: React.ReactNode }) {
   return (

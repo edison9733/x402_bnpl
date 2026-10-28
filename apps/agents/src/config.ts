@@ -94,4 +94,4 @@ export const config = {
 /** The a2a-x402 extension this server implements (standalone flow). */
 export const X402_EXTENSION_URI = 'https://github.com/google-agentic-commerce/a2a-x402/blob/main/spec/v0.2';
 /** Tessera's own extension: escrow terms and the on-chain credit profile behind an agent. */
-export const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/agentic_commerce/blob/main/docs/A2A-EXTENSION.md';
+export const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md';

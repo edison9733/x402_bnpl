@@ -360,7 +360,7 @@ export function Review({ order: param }: { order?: string }) {
               </p>
               {mine.length === 0 ? (
                 <p className="mt-3 text-[0.92rem] leading-relaxed" style={{ color: '#4b483e' }}>
-                  No Tessera orders for this wallet yet. Make a trade first: buy on the <Link to="/market" className="link">Market</Link> page while the demo merchants are online, or trade from a terminal with two wallets of your own (<a className="link" href="https://github.com/edison9733/agentic_commerce/blob/main/docs/TRY-IT.md" target="_blank" rel="noreferrer">docs/TRY-IT.md</a>). Then come back within the window.
+                  No Tessera orders for this wallet yet. Make a trade first: buy on the <Link to="/market" className="link">Market</Link> page while the demo merchants are online, or trade from a terminal with two wallets of your own (<a className="link" href="https://github.com/edison9733/x402_bnpl/blob/main/docs/TRY-IT.md" target="_blank" rel="noreferrer">docs/TRY-IT.md</a>). Then come back within the window.
                 </p>
               ) : (
                 <ul className="mt-3 grid" style={{ listStyle: 'none', padding: 0, margin: 0 }}>

@@ -14,7 +14,7 @@ Each service works out its own public address from Railway's `RAILWAY_PUBLIC_DOM
 
 ## 1. The API
 
-1. In Railway: **New Project → Deploy from GitHub repo →** `edison9733/agentic_commerce`.
+1. In Railway: **New Project → Deploy from GitHub repo →** `edison9733/x402_bnpl`.
 2. Open the new service. **Settings**:
    - Rename it to `api`.
    - Set **Config as code → Railway config file** to `railway/api.json`.

@@ -128,7 +128,7 @@ try {
       capabilities: {
         extensions: [
           {
-            uri: 'https://github.com/edison9733/agentic_commerce/blob/main/docs/A2A-EXTENSION.md',
+            uri: 'https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md',
             params: {
               wallet: m.client.identity.address,
               prices: Object.fromEntries(m.skills.map(([id, , , price]) => [id, price])),

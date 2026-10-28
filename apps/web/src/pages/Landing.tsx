@@ -17,7 +17,7 @@ import { Link, usePath } from '../lib/router';
 import { useChain, useProfiles } from '../lib/store';
 import { recordedAt, session } from '../lib/findDemo';
 
-const REPO = 'https://github.com/edison9733/agentic_commerce';
+const REPO = 'https://github.com/edison9733/x402_bnpl';
 const PROGRAM: string = TESSERA_PROGRAM_ADDRESS;
 
 const mask = { display: 'inline-block', overflow: 'hidden', verticalAlign: 'top', paddingBottom: '0.2em', marginBottom: '-0.12em' } as const;

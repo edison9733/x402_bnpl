@@ -19,7 +19,7 @@ import { isPrivateIp } from './ip.js';
 
 export { isPrivateIp };
 
-export const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/agentic_commerce/blob/main/docs/A2A-EXTENSION.md';
+export const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md';
 
 const envMs = (v: string | undefined, fallback: number) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : fallback);
 /** From the first DNS query to the last byte: a card that drips slowly is cut off here, not kept alive by each byte. */
