@@ -166,20 +166,22 @@ Only work done from now to 8 November is judged.
   12 October and what is new", and setup steps for the new feature. All four added. On 28 Oct
   (`858fe25`): the Node range vite 8 needs (`^20.19.0 || >=22.12.0`), `.nvmrc` 22, `npm run buy:http`
   at the root, and TRY-IT clones `x402_bnpl`. Still open: test the setup steps from a fresh clone.
-- [ ] **Video, under 3:00, recorded on devnet.** Encode asks for "A 2–4-minute demo video."; we keep
+- [x] (2026-10-28) **Video, under 3:00, recorded on devnet.** Encode asks for "A 2–4-minute demo video."; we keep
   to the "maximum 3 minutes" of the [Solana x402 hackathon page](https://solana.com/x402/hackathon)
   as well, though that page is the 2025 edition (closed 11 November 2025) and not one we enter. One
   video of about 2:50 fits both. Show a 402 response, the payment verified or settled
   on Solana (open the transaction in the devnet explorer), the delivery, one failed-payment case, and the
   2.0 feature.
-  Drafts rendered 28 Oct (`tessera-demo.mp4` 3:51, `tessera-pitch.mp4` 3:54) are too long. The demo
-  draft has the transcript of an earlier agent-to-agent x402 purchase on devnet through the facilitator;
-  the 2.0 flow and the transcript of a real devnet run on credit; the failed-payment cases as a slide
-  (Scout's refusal as a transcript line); and a real purchase on the website on devnet with the delivery
-  and hash check. Its devnet runs were on the retired escrow. Scout has since earned Established on the
-  new escrow, so the refusal to show is Charlie's ("not eligible for pay later: the buyer has no credit
-  yet"). Not in it yet: a transaction opened in the devnet explorer on camera, and a failed-payment case
-  performed live.
+  Done: the demo video is 2:54 (`7355b8a`), committed as
+  [`apps/web/public/videos/tessera-2.0-demo.mp4`](../apps/web/public/videos/tessera-2.0-demo.mp4) with
+  its captions. It shows a real 402 from a merchant on devnet (three `accepts`), the 2.0 flow, Nova's
+  run on credit on the new escrow and Charlie's refusal, that `buy_now` transaction read back from
+  devnet (three signers, the pool's transfer, the escrow's `ConfirmFunded`), the failed-payment cases on
+  one slide, and a full purchase on the website on devnet with the delivery and hash check. Two
+  differences from the plan: the transaction is read back with `solana confirm -v`, not opened in the
+  explorer (the explorer's bot check stopped the headless recorder); and the failed-payment cases are
+  described with their devnet outcomes (Mallory's refunds, Charlie's resolved disputes, whose
+  transactions the README links), not performed live. The pitch video is 3:53 and not committed.
 - [ ] **Mid-submission by 1 Nov.** Submit what runs, even if rough. Rule: missing it "shows in the final score."
 - [ ] **Final submission by 8 Nov.** Repository link, video, prior-work statement, Solana explanation.
 
