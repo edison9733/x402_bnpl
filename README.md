@@ -589,7 +589,7 @@ the rest of the demo. It measures this prototype on that endpoint, not Solana.
 
 ## Run it
 
-Needs Node 20.18 or newer (22 recommended), Rust, Solana CLI 3.1 and Anchor 1.1.2. Everything targets **devnet**.
+Needs Node 20.19 or newer, or 22.12 or newer (22 recommended; `.nvmrc` says 22), Rust, Solana CLI 3.1 and Anchor 1.1.2. Everything targets **devnet**.
 
 ```bash
 npm install

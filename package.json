@@ -9,7 +9,7 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=20.18"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "build:program": "NO_DNA=1 anchor build",
@@ -28,6 +28,7 @@
     "typecheck": "tsc -p packages/sdk/tsconfig.json --noEmit && tsc -p apps/agents/tsconfig.json --noEmit && tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/mcp/tsconfig.json --noEmit && tsc -p apps/cli/tsconfig.json --noEmit && tsc -p scripts/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
     "snapshot": "tsx scripts/snapshot.ts",
     "buy": "npm run buy -w @tessera/agents --",
+    "buy:http": "npm run buy:http -w @tessera/agents --",
     "registry": "tsx scripts/registry.ts",
     "test:agents": "tsx scripts/smoke-agents.ts",
     "api": "npm run start -w @tessera/api",
