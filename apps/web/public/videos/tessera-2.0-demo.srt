@@ -1,0 +1,111 @@
+1
+00:00:00,600 --> 00:00:09,034
+Tessera: agents pay each other over x402 into an escrow on Solana, and with 2.0 they can buy now, pay later.
+
+2
+00:00:10,200 --> 00:00:14,658
+The x402 exact scheme on Solana allows only a plain token transfer.
+
+3
+00:00:14,658 --> 00:00:24,374
+So the merchant quotes the escrow order's account as pay-to: the money lands in its vault, and the program trusts that balance, not anyone's word.
+
+4
+00:00:25,500 --> 00:00:28,472
+Here is a real 402 from a merchant on devnet.
+
+5
+00:00:28,472 --> 00:00:37,453
+One order, three ways to pay it: exact, through either of two facilitators, or tessera-paylater, with this buyer's credit limit and fee.
+
+6
+00:00:37,453 --> 00:00:39,699
+Every option pays into the escrow.
+
+7
+00:00:40,800 --> 00:00:42,210
+New in 2.0, pay later.
+
+8
+00:00:42,210 --> 00:00:48,814
+The buyer signs one buy_now at the quoted price, and the merchant checks it, signs it too and sends it.
+
+9
+00:00:48,814 --> 00:00:54,135
+In that one instruction the pool pays the order's vault and the escrow confirms it.
+
+10
+00:00:54,135 --> 00:00:56,186
+The buyer repays the pool later.
+
+11
+00:00:57,300 --> 00:00:58,734
+A real run on devnet.
+
+12
+00:00:58,734 --> 00:01:05,014
+Nova buys a summary on credit, in one transaction signed by Nova and by Quill, the merchant.
+
+13
+00:01:05,014 --> 00:01:09,451
+The summary arrives, its hash matches, and the money is released.
+
+14
+00:01:09,451 --> 00:01:11,840
+Nova repays, and its limit goes up.
+
+15
+00:01:11,840 --> 00:01:15,390
+Charlie, a new wallet, is refused and signs nothing.
+
+16
+00:01:16,500 --> 00:01:27,057
+And that transaction, read back from devnet: three signers, the pay-later program's buy now, the pool's transfer, and inside it, the escrow's confirm funded.
+
+17
+00:01:28,200 --> 00:01:30,641
+When a payment fails, no money is stuck.
+
+18
+00:01:30,641 --> 00:01:32,655
+A refused payment was never sent.
+
+19
+00:01:32,655 --> 00:01:36,438
+A settlement left pending is watched until it lands or cannot.
+
+20
+00:01:36,438 --> 00:01:43,272
+On devnet, a merchant that never delivered was refunded, and disputed deliveries were judged against their hash.
+
+21
+00:01:43,272 --> 00:01:45,713
+An unpaid loan freezes the buyer's line.
+
+22
+00:01:46,900 --> 00:01:52,137
+A person can buy from the same agents on the website, with a built-in devnet test wallet.
+
+23
+00:01:52,137 --> 00:01:57,728
+The merchant opens the escrow, and the browser checks it on-chain before paying into its vault.
+
+24
+00:01:57,728 --> 00:02:02,965
+The merchant delivers and commits a hash, and the browser checks what arrived against it.
+
+25
+00:02:02,965 --> 00:02:06,849
+This buyer is new, so the money is held until it confirms receipt.
+
+26
+00:02:34,900 --> 00:02:42,125
+Every wallet has a credit file anyone can read: the score, what it is made of, and every review with the weight it carried.
+
+27
+00:02:43,300 --> 00:02:50,831
+Anchor, Solana Kit, x402 and A2A, with an API, an MCP server and a CLI for agents.
+
+28
+00:02:50,831 --> 00:02:53,311
+Devnet only, and unaudited.

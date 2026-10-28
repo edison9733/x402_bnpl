@@ -7,10 +7,16 @@ credit score decides how long the money waits. Strangers wait. Agents with a rec
 
 ## See it
 
-- **Live site (devnet):** <https://agentic-commerce-two-theta.vercel.app>. There is no wallet login: the Market page pays with a built-in devnet test wallet.
-- **Click-through decks:** [the pitch](https://agentic-commerce-two-theta.vercel.app/decks/tessera-pitch-slides.html) and [the technical demo](https://agentic-commerce-two-theta.vercel.app/decks/tessera-demo-slides.html). Click or press → for the next slide.
+- **Tessera 2.0 demo video (2:54):** [`apps/web/public/videos/tessera-2.0-demo.mp4`](apps/web/public/videos/tessera-2.0-demo.mp4)
+  ([captions](apps/web/public/videos/tessera-2.0-demo.srt)), rendered on 28 October 2026 from the demo deck, on devnet: a real 402
+  offering one escrow order three ways, a purchase on credit and its repayment, that transaction read back from
+  the chain, the failed payments, and a live purchase on the website.
+- **For judges, in three steps:** the video; then [How Solana powers this](#how-solana-powers-this) for the two
+  programs and the transactions to open in the explorer; then [Failed payments](#failed-payments).
+- **Live site (devnet):** <https://agentic-commerce-two-theta.vercel.app>. There is no wallet login: the Market page pays with a built-in devnet test wallet. It is still the version 1 build of 16 October until it is redeployed from this repository; run the site yourself (below) to see 2.0.
+- **Click-through decks:** [the pitch](apps/web/public/decks/tessera-pitch-slides.html) and [the technical demo](apps/web/public/decks/tessera-demo-slides.html), single offline HTML files (download and open; → for the next slide, n for speaker notes), and as PDFs: [pitch](apps/web/public/decks/tessera-pitch-deck.pdf), [demo](apps/web/public/decks/tessera-demo-deck.pdf). The live site's copies are version 1 until it is redeployed.
 - **In-site decks:** [/#/deck/pitch](https://agentic-commerce-two-theta.vercel.app/#/deck/pitch) and [/#/deck/demo](https://agentic-commerce-two-theta.vercel.app/#/deck/demo).
-- **Demo videos:** [the terminal demo with voice-over and pay later (2:59)](https://agentic-commerce-two-theta.vercel.app/videos/tessera-demo-paylater.mp4): why Tessera exists (anonymous agents, three attacks, escrow), finding and checking merchants, buyer and merchant trading side by side, a refund when a merchant never delivers, and from 2:12 pay later (a new wallet refused, a buyer repaying on time, a default freezing a line). The [earlier cut without pay later (2:03)](https://agentic-commerce-two-theta.vercel.app/videos/tessera-demo-voiceover.mp4) and [the website walkthrough (1:41)](https://agentic-commerce-two-theta.vercel.app/videos/tessera-demo.mp4) are still up. All were recorded on a local Solana validator running the real programs.
+- **Earlier videos (version 1 and the pay-later preview, before 12 October):** [the terminal demo with voice-over and pay later (2:59)](https://agentic-commerce-two-theta.vercel.app/videos/tessera-demo-paylater.mp4): why Tessera exists (anonymous agents, three attacks, escrow), finding and checking merchants, buyer and merchant trading side by side, a refund when a merchant never delivers, and from 2:12 pay later (a new wallet refused, a buyer repaying on time, a default freezing a line). The [earlier cut without pay later (2:03)](https://agentic-commerce-two-theta.vercel.app/videos/tessera-demo-voiceover.mp4) and [the website walkthrough (1:41)](https://agentic-commerce-two-theta.vercel.app/videos/tessera-demo.mp4) are still up. All were recorded on a local Solana validator running the real programs.
 - **Run the site yourself:** `npm install`, then `npm run web`. It reads devnet directly and needs no keys.
 - **Try a whole trade:** [docs/TRY-IT.md](docs/TRY-IT.md) walks through one step by step, as buyer and merchant with two wallets of your own, including a refund when a merchant never delivers.
 
