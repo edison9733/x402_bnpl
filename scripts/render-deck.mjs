@@ -32,7 +32,8 @@ import { chromium } from 'playwright-core';
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const name = ['demo', 'update'].includes(process.argv[2]) ? process.argv[2] : 'pitch';
 // Encode Club asks for a demo video of 2 to 4 minutes; the update is a one-minute format.
-const limit = name === 'update' ? 60 : 240;
+// The demo goes to hackathons that cap it at 3 minutes: warn well before that.
+const limit = name === 'update' ? 60 : name === 'demo' ? 175 : 240;
 const titles = { pitch: 'pitch', demo: 'technical demo', update: 'update' };
 const flag = (k, d) => {
   const i = process.argv.indexOf(`--${k}`);
@@ -91,7 +92,8 @@ const cues = [];
 for (const [i, s] of slides.entries()) {
   rows.push(`| ${i + 1} | ${mmss(at)} | ${s.id} | ${s.say} |`);
   // One caption per sentence, timed in proportion to its length over the spoken audio.
-  const sentences = s.say.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g)?.map((x) => x.trim()).filter(Boolean) ?? [s.say];
+  // Split only where a stop is followed by a space, so "2.0" or "0.25" stays in one piece.
+  const sentences = s.say.split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean);
   const speak = withVoice ? s.spoken : s.hold - 1;
   const chars = sentences.reduce((n, x) => n + x.length, 0);
   let t = at + 0.6;
@@ -148,7 +150,8 @@ renameSync(video, raw);
 // slide change in the picture itself: the first slide on the light surface is
 // a jump in brightness that cannot be missed.
 let lead = Math.max(0, (startedAt - opened) / 1000);
-const anchor = slides.findIndex((s) => s.id === { demo: 'network', update: 'shipped' }[name]);
+// the first slide on the light surface: the website purchase in the demo
+const anchor = slides.findIndex((s) => s.id === { demo: 'checkout', update: 'shipped' }[name]);
 if (anchor > 0) {
   const expected = slides.slice(0, anchor).reduce((n, s) => n + s.hold, 0);
   const luma = sh('ffmpeg', ['-loglevel', 'error', '-i', raw, '-vf', 'fps=10,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-', '-f', 'null', '-']);
