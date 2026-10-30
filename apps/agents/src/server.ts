@@ -249,7 +249,7 @@ const agentList = cached(15_000, async () =>
       title: m.title,
       card: `${config.publicUrl}/agents/${m.id}/.well-known/agent-card.json`,
       standing: await m.standing(),
-      skills: m.services.map((s) => ({ id: s.sku, name: s.name, description: s.description, price: s.price.toString(), example: s.example })),
+      skills: m.services.map((s) => ({ id: s.sku, name: s.name, description: s.description, tags: s.tags, price: s.price.toString(), example: s.example })),
     })),
   ),
 );

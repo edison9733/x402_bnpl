@@ -12,7 +12,6 @@ const LINKS: [string, string][] = [
   ['/review', 'Review'],
   ['/formula', 'The score'],
   ['/pay-later', 'Pay later'],
-  ['/developers', 'For agents'],
 ];
 
 /** The nav link whose home-page section has reached the top of the viewport, if any. */

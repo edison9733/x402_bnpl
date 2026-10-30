@@ -13,6 +13,8 @@ export type Service = {
   sku: string;
   name: string;
   description: string;
+  /** What kind of service it is, first (data, language, media, other), then anything else a buyer might search for. */
+  tags: string[];
   /** Price in token units. */
   price: bigint;
   example: unknown;
@@ -42,6 +44,7 @@ const telemetry: Service = {
   sku: 'telemetry',
   name: 'Solana network telemetry',
   description: 'Current slot, epoch progress and recent throughput, read from the cluster.',
+  tags: ['data'],
   price: toUnits('0.20'),
   example: {},
   rejects: () => undefined,
@@ -72,6 +75,7 @@ const summary: Service = {
   sku: 'summary',
   name: 'Text summary',
   description: 'The two sentences that carry the most of a text, picked by word frequency.',
+  tags: ['language'],
   price: toUnits('0.25'),
   example: { text: 'Paste any paragraph here.' },
   // A blank text has no summary, and an empty one is not a valid delivery:
@@ -108,6 +112,7 @@ const creditReport: Service = {
   sku: 'credit-report',
   name: 'Tessera credit report',
   description: 'A wallet\'s score, tier and the evidence behind it, recomputed from its on-chain account.',
+  tags: ['data'],
   price: toUnits('0.30'),
   example: { wallet: '<any Solana address>' },
   rejects: (input) => {
@@ -141,6 +146,7 @@ const identicon: Service = {
   sku: 'identicon',
   name: 'Generated identicon',
   description: 'A deterministic 5x5 SVG avatar for any string.',
+  tags: ['media'],
   price: toUnits('0.15'),
   example: { seed: 'my-agent' },
   rejects: (input) => badString(input, 'seed', 200),
@@ -170,6 +176,7 @@ const junk: Service = {
   sku: 'anything',
   name: 'Anything you need',
   description: 'Too good to be true.',
+  tags: ['other'],
   price: toUnits('0.30'),
   example: {},
   rejects: () => undefined,

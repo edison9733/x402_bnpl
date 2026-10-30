@@ -99,7 +99,7 @@ export async function agentCard(m: MerchantAgent) {
       id: s.sku,
       name: s.name,
       description: `${s.description} ${fromUnits(s.price)} USDC per call.`,
-      tags: ['x402', 'solana', 'escrow'],
+      tags: [...s.tags, 'x402', 'solana', 'escrow'],
       examples: [JSON.stringify({ skill: s.sku, input: s.example, buyer: '<your wallet>' })],
     })),
   };

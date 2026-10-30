@@ -33,8 +33,10 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
   type Address,
+  type Base64EncodedWireTransaction,
   type Instruction,
   type KeyPairSigner,
+  type Signature,
 } from '@solana/kit';
 import { fetchMaybeToken } from '@solana-program/token';
 import {
@@ -100,12 +102,51 @@ type Opts = {
  * instructions (`repay`, then `close_loan`, which returns the loan's rent to
  * the buyer), so a tab of this size fits a v0 transaction comfortably.
  */
-const REPAYS_PER_TX = 8;
+export const REPAYS_PER_TX = 8;
 
 /** Repay a loan and close it: `close_loan` runs once `repay` has marked it repaid, so both go in one transaction. */
-async function repayAndClose(mint: Address, loan: Address, buyer: Address, payer: KeyPairSigner): Promise<Instruction[]> {
+export async function repayAndClose(mint: Address, loan: Address, buyer: Address, payer: KeyPairSigner): Promise<Instruction[]> {
   const [line, payerToken] = await Promise.all([paylater.linePdaOf(buyer), findAta(payer.address, mint)]);
   return [await paylater.getRepayInstructionAsync({ mint, loan, line, payer, payerToken }), paylater.getCloseLoanInstruction({ loan, buyer })];
+}
+
+type Rpc = ReturnType<typeof createSolanaRpc>;
+
+/** The chain's clock, from the Clock sysvar: what the program judges due dates by. Undefined when the RPC has no clock. */
+export async function readClock(rpc: Rpc): Promise<bigint | undefined> {
+  const c = await fetchEncodedAccount(rpc, CLOCK);
+  return c.exists ? new DataView(c.data.buffer, c.data.byteOffset).getBigInt64(32, true) : undefined;
+}
+
+/** One version-0 transaction of `ixs`, paid for and signed by `kp` against the latest blockhash: its wire bytes and its signature. */
+export async function signInstructions(rpc: Rpc, kp: KeyPairSigner, ixs: Instruction[]): Promise<{ wire: Base64EncodedWireTransaction; sig: Signature }> {
+  const { value: latest } = await rpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
+  const signed = await signTransactionMessageWithSigners(
+    pipe(
+      createTransactionMessage({ version: 0 }),
+      (m) => setTransactionMessageFeePayerSigner(kp, m),
+      (m) => setTransactionMessageLifetimeUsingBlockhash(latest, m),
+      (m) => appendTransactionMessageInstructions(ixs, m),
+    ),
+  );
+  return { wire: getBase64EncodedWireTransaction(signed), sig: getSignatureFromTransaction(signed) };
+}
+
+/** What the program said when it refused a transaction, from the simulation logs the RPC's error carries. */
+export function programRefusal(e: unknown): string | undefined {
+  const logs = (e as { context?: { logs?: string[] } }).context?.logs ?? [];
+  return logs.map((l) => /Error Message: (.*?)\.?$/.exec(l)?.[1]).find(Boolean);
+}
+
+/** Waits up to 60 s for `sig` to land: `failed` when the transaction ran and errored, `timeout` when it never confirmed. */
+export async function waitConfirmed(rpc: Rpc, sig: Signature): Promise<'confirmed' | 'failed' | 'timeout'> {
+  for (let i = 0; i < 120; i += 1) {
+    const { value } = await rpc.getSignatureStatuses([sig]).send();
+    if (value[0]?.err) return 'failed';
+    if (value[0]?.confirmationStatus === 'confirmed' || value[0]?.confirmationStatus === 'finalized') return 'confirmed';
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return 'timeout';
 }
 
 export async function payLater(cmd: string, a1: string | undefined, a2: string | undefined, o: Opts): Promise<void> {
@@ -119,11 +160,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     }
   };
 
-  const chainNow = async () => {
-    const c = await fetchEncodedAccount(rpc, CLOCK);
-    if (!c.exists) o.die('the RPC has no clock');
-    return new DataView(c.data.buffer, c.data.byteOffset).getBigInt64(32, true);
-  };
+  const chainNow = async () => (await readClock(rpc)) ?? o.die('the RPC has no clock');
   const pool = await paylater.fetchMaybePool(rpc, await paylater.poolPda());
   if (!pool.exists) o.die(`no pay-later pool on ${o.rpcUrl}`);
   const cfg = await fetchMaybeConfig(rpc, await configPda());
@@ -157,34 +194,17 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
   const owedTotal = (tab: { data: paylater.Loan }[]) => tab.reduce((sum, l) => sum + paylater.owedOf(l.data), 0n);
 
   async function sendOrPrint(kp: KeyPairSigner, ixs: Instruction[]): Promise<void> {
-    const { value: latest } = await rpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
-    const signed = await signTransactionMessageWithSigners(
-      pipe(
-        createTransactionMessage({ version: 0 }),
-        (m) => setTransactionMessageFeePayerSigner(kp, m),
-        (m) => setTransactionMessageLifetimeUsingBlockhash(latest, m),
-        (m) => appendTransactionMessageInstructions(ixs, m),
-      ),
-    );
-    const wire = getBase64EncodedWireTransaction(signed);
+    const { wire, sig } = await signInstructions(rpc, kp, ixs);
     if (!o.send) return void console.log(`signed transaction (send with --send or any RPC):\n${wire}`);
-    const sig = getSignatureFromTransaction(signed);
     try {
       await rpc.sendTransaction(wire, { encoding: 'base64', preflightCommitment: 'confirmed' }).send();
     } catch (e) {
-      const logs = (e as { context?: { logs?: string[] } }).context?.logs ?? [];
-      const why = logs.map((l) => /Error Message: (.*?)\.?$/.exec(l)?.[1]).find(Boolean);
-      o.die(`refused by the program: ${why ?? (e as Error).message}`);
+      o.die(`refused by the program: ${programRefusal(e) ?? (e as Error).message}`);
     }
-    for (let i = 0; i < 120; i += 1) {
-      const { value } = await rpc.getSignatureStatuses([sig]).send();
-      if (value[0]?.err) o.die(`transaction ${sig} failed`);
-      if (value[0]?.confirmationStatus === 'confirmed' || value[0]?.confirmationStatus === 'finalized') {
-        return void console.log(`confirmed: ${sig}`);
-      }
-      await new Promise((r) => setTimeout(r, 500));
-    }
-    o.die(`transaction ${sig} was not confirmed within 60 s`);
+    const status = await waitConfirmed(rpc, sig);
+    if (status === 'failed') o.die(`transaction ${sig} failed`);
+    if (status === 'timeout') o.die(`transaction ${sig} was not confirmed within 60 s`);
+    console.log(`confirmed: ${sig}`);
   }
 
   if (cmd === 'credit') {

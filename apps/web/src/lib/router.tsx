@@ -11,8 +11,10 @@ export function RouterProvider({ children }: { children: ReactNode }) {
   const [path, setPath] = useState(read);
   useEffect(() => {
     const on = () => {
-      setPath(read());
-      window.scrollTo({ top: 0 });
+      const p = read();
+      setPath(p);
+      // "#trust" is an anchor on the home page, which the browser scrolls to itself; "#/agents" is a page.
+      if (p.startsWith('/')) window.scrollTo({ top: 0 });
     };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);

@@ -64,6 +64,7 @@ import {
 } from '@tessera/sdk';
 import { OUTCOMES, ROLES, TOOLS, type ToolName } from '@tessera/api/contract';
 import { PAYLATER_COMMANDS, PAYLATER_HELP, payLater } from './paylater.js';
+import { TAB_COMMANDS, TAB_HELP, tabCommands } from './tab.js';
 
 const HELP = `tessera: credit checks and non-custodial escrow for agent payments on Solana
 
@@ -86,6 +87,8 @@ After payment
 
 ${PAYLATER_HELP}
 
+${TAB_HELP}
+
 Options
   --api URL        Tessera API (default $TESSERA_API_URL or http://127.0.0.1:4030)
   --rpc URL        Solana RPC the CLI reads the order from itself before it signs
@@ -96,7 +99,7 @@ Options
   --send           with --keypair: send the signed transaction through the API
   --json           print the API's JSON as it is
 
-Exit codes: 0 ok, 1 refused or failed, 3 check said block.`;
+Exit codes: 0 ok, 1 refused or failed, 2 usage error, 3 check said block.`;
 
 type Flags = Record<string, string | boolean | undefined>;
 
@@ -129,6 +132,13 @@ const { values: flags, positionals } = parseArgs({
     sort: { type: 'string' },
     'max-price': { type: 'string' },
     limit: { type: 'string' },
+    category: { type: 'string' },
+    network: { type: 'string' },
+    tab: { type: 'string' },
+    wallet: { type: 'string' },
+    'dry-run': { type: 'boolean' },
+    yes: { type: 'boolean' },
+    'no-color': { type: 'boolean' },
     help: { type: 'boolean', short: 'h' },
   },
 }) as { values: Flags; positionals: string[] };
@@ -136,6 +146,12 @@ const { values: flags, positionals } = parseArgs({
 function die(message: string): never {
   console.error(`tessera: ${message}`);
   process.exit(1);
+}
+
+/** A mistake on the command line, as opposed to a refusal or a failure: exit 2. */
+function usage(message: string): never {
+  console.error(`tessera: ${message}`);
+  process.exit(2);
 }
 
 /** Plain http only to this machine: anywhere else an on-path attacker could rewrite what comes back. */
@@ -559,6 +575,29 @@ if (PAYLATER_COMMANDS.has(cmd)) {
     die,
   }).catch((e: Error) => die(`${cmd} failed: ${e.message} (RPC ${new URL(rpcUrl).host})`));
   process.exit(0);
+}
+
+if (TAB_COMMANDS.has(cmd)) {
+  const rpcUrl = endpoint(String(flags.rpc ?? ((process.env.TESSERA_RPC_URLS ?? '').split(',')[0]!.trim() || 'https://api.devnet.solana.com')), flags.rpc ? '--rpc' : 'TESSERA_RPC_URLS');
+  const str = (k: string): string | undefined => (flags[k] === undefined ? undefined : String(flags[k]));
+  const code = await tabCommands(cmd, a1, {
+    rpcUrl,
+    rpcFlag: str('rpc'),
+    kp,
+    json: Boolean(flags.json),
+    noColor: Boolean(flags['no-color']),
+    network: str('network'),
+    sort: str('sort'),
+    category: str('category'),
+    limit: str('limit'),
+    tab: str('tab'),
+    wallet: str('wallet'),
+    dryRun: Boolean(flags['dry-run']),
+    yes: Boolean(flags.yes),
+    die,
+    usage,
+  }).catch((e: Error) => die(`${cmd} failed: ${e.message} (RPC ${new URL(rpcUrl).host})`));
+  process.exit(code);
 }
 
 let tool: ToolName;

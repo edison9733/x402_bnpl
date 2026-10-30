@@ -15,6 +15,7 @@
     "build:program": "NO_DNA=1 anchor build",
     "codegen": "tsx packages/sdk/codama.ts",
     "test:formula": "tsx --test packages/sdk/test/*.test.ts",
+    "test:cli": "tsx --test apps/cli/test/*.test.ts",
     "test:local": "tsx scripts/test-local.ts",
     "test:paylater": "tsx scripts/test-paylater.ts",
     "test:paylater-402": "tsx scripts/test-paylater-402.ts",
