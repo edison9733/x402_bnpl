@@ -5,7 +5,8 @@
   "type": "module",
   "description": "The Tessera HTTP API: credit checks and unsigned escrow transactions for agent payments. The MCP server and the CLI call it.",
   "exports": {
-    "./contract": "./src/contract.ts"
+    "./contract": "./src/contract.ts",
+    "./find": "./src/find.ts"
   },
   "scripts": {
     "start": "tsx src/server.ts"

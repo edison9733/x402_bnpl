@@ -855,6 +855,8 @@ npm run agents                                             # 402s offer pay late
 npm run buy -- --buyer nova --merchant quill --pay-later   # buys on credit over A2A, prints the loan and due date
 npm run tessera -- credit <nova's address>                 # limit, owed, each loan's due time
 npm run tessera -- repay --all --keypair .keys/agents/nova.json --send
+npm run tessera -- tab <nova's address>                    # the same loans as a tab: one row per order, the total owed
+npm run tessera -- settle --keypair .keys/agents/nova.json  # pays the whole tab in one payment (asks first; --yes skips)
 ```
 
 `buy-later --order` sends the `buy_now` itself, so it takes the order's merchant's key as well

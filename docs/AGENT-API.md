@@ -9,7 +9,7 @@ the same statuses, whichever an agent speaks.
 | **HTTP API** | `POST /v1/check` and friends. Reads the program, returns decisions, builds unsigned transactions. | Any code, other platforms | [`apps/api`](../apps/api) · `npm run api` (port 4030) |
 | **MCP server** | The same tools over MCP's Streamable HTTP transport. Each tool calls the API. | Claude, Codex, Cursor | [`apps/mcp`](../apps/mcp) · `npm run mcp` (port 4040) |
 | **Skill** | `SKILL.md`: when to use Tessera and how. The main rule: before any paid tool call, call `check_payment`. | Claude Code and other skill-aware agents | [`skills/tessera/SKILL.md`](../skills/tessera/SKILL.md) |
-| **CLI** | `tessera check …`, `tessera report …`. Each command calls the API. | Developers, coding agents | [`apps/cli`](../apps/cli) · `npm run tessera -- help` |
+| **CLI** | `tessera check …`, `tessera report …`. Each escrow command calls the API; `tessera merchants`, `tessera tab` and `tessera settle` (the pay-later tab, settled in one payment) read the chain themselves. | Developers, coding agents | [`apps/cli`](../apps/cli) · `npm run tessera -- help` |
 
 ## Run it
 

@@ -41,6 +41,17 @@ hold the escrow released it to Quill, and the delivered hash matched. Nova repai
 and the loan was closed in the same transaction ([`4LUwpKcB…`](https://explorer.solana.com/tx/4LUwpKcBk6mGvKf1hN6bJ4yZq8Aub292AuPHtyN4RpnMkjcQV9KTqzWGjDXy9U65C6AJtge2ebZPV6PYijf4jQnY?cluster=devnet)), after which it is Established at
 score 527 with a limit of 2.865299 USDC, three loans repaid on time. Order [`Fi68yAxK…`](https://explorer.solana.com/address/Fi68yAxKs6ZF3bumeMvJmXDBSzsKuszo94gTwVfwm7S8?cluster=devnet), loan [`35R7bZzw…`](https://explorer.solana.com/address/35R7bZzwWKyYHoGoSZYwy37m8mpJavdWvNL5RqArxU1U?cluster=devnet).
 
+The first tab settled with `tessera settle`, 30 October 2026 (UTC), on the new escrow: Nova bought Atlas's 0.20 USDC
+telemetry and Pixel's 0.15 USDC identicon on credit over x402 with `tessera buy-later` (settle transactions
+[`3yEMZpBY…`](https://explorer.solana.com/tx/3yEMZpBYXHnnMRBJUFS8vJWKQP2cRKi8QvMBBYXmADPRguVMS3rLJTvZWdAPvvifxrzSzKXjKBUjuGN2aeagbaKx?cluster=devnet) and
+[`2FYj4FM7…`](https://explorer.solana.com/tx/2FYj4FM7DXFqY55wggZ6V43DQBUuoy5NLjNJP2WHrubfQBcQbzvJqPn5tTGsJqvSyDMzxo6K7vzYqg7GXZ3gVdys?cluster=devnet),
+both released at once since both sides are Trusted). `tessera tab` listed the two orders, 0.357 USDC owed with the
+pool's fees, and `tessera settle` repaid both and closed both loans in one transaction
+([`4Wb2n7Mh…`](https://explorer.solana.com/tx/4Wb2n7MhzmQmHQmoc3B9JKkx3rPEcSXXTCVW2iP95vyeSQymDAuS6upeXXPniFRzu82M9JtgTFDf1daHNNzUVTzA?cluster=devnet)),
+after which Nova's record reads 5 loans, 5 on time. Orders
+[`7kPqmZcT…`](https://explorer.solana.com/address/7kPqmZcTwjhrREnA4uAgupwrmQJBVksJUmTM63wXsgu?cluster=devnet) and
+[`BPCn7n4b…`](https://explorer.solana.com/address/BPCn7n4bRJ9sHRn6bCQJ3FYmokvJwuWnx8vQgvjX7ZWy?cluster=devnet).
+
 | | Devnet |
 |---|---|
 | Program | `LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D` (`Anchor.toml`, `declare_id!`, the generated SDK), deployed 27 October 2026 in slot 515513248 from commit `9d543b1`; upgraded the same day in slot 515711875 to the build of `61196cc` (transaction `ZsQ12niKDQnMijF1TE5czfHsjFcnNaZ2GB7U7TWb6pLAf3xCgyt2arCza7e9bTAAu7nBHcrzgYviUfn7GoScg5V`); upgraded 28 October 2026 (UTC+8; block time 2026-10-27 17:22:02 UTC) in slot 515766612 to the build of `1bd11be` (transaction [`3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E`](https://explorer.solana.com/tx/3vcqaD4McyE5FDa1tHDxEMd8sgdNGTWdk2bm3BGFHQmHx36jmjoYU7ZBdKuVXc4K5KeBYHBjYUG36wVp2AVS7s2E?cluster=devnet)); upgraded again 28 October 2026 (UTC+8; block time 2026-10-28 06:17:53 UTC) in slot 515961295 to the build of `eca65b0`, which names the new escrow (transaction [`3YJDEfVq961AwaqKYFwoDRxEfDwJDmLUvXFNHVBjWyGzL9J1U5UrFomjNTLUoxmSG1QN1X1vXunTJBdSwwmp1XgG`](https://explorer.solana.com/tx/3YJDEfVq961AwaqKYFwoDRxEfDwJDmLUvXFNHVBjWyGzL9J1U5UrFomjNTLUoxmSG1QN1X1vXunTJBdSwwmp1XgG?cluster=devnet)), the build on devnet now |
@@ -295,6 +306,8 @@ npm run tessera -- credit <alice> --rpc http://127.0.0.1:18999
 npm run tessera -- buy-later --order <quote> --keypair <alice.json> --merchant-keypair <shop.json> --rpc http://127.0.0.1:18999 --send
 npm run tessera -- repay <loan> --keypair <alice.json> --rpc http://127.0.0.1:18999 --send
 npm run tessera -- repay --all --keypair <alice.json> --rpc http://127.0.0.1:18999 --send   # settle every loan still owed, at once
+npm run tessera -- tab <alice> --rpc http://127.0.0.1:18999                                  # the same loans as a tab: one row per order, the total owed
+npm run tessera -- settle --keypair <alice.json> --rpc http://127.0.0.1:18999 --yes          # pay the whole tab in one payment, with a progress bar
 npm run tessera -- mark-default <loan> --keypair <stranger.json> --rpc http://127.0.0.1:18999 --send
 ```
 

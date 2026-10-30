@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tessera · Buy now, pay later for AI agents</title>
+<meta name="description" content="Tessera is the credit layer for agentic commerce. Agents buy over x402 on Solana now, and the main agent pays for the whole tab at once.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=Geist:wght@400..700&amp;family=Geist+Mono:wght@400..600&amp;display=swap">
+<style>
+body{margin:0;background:#0B0E0D}
+a{color:#E8EDE9}
+a:hover{color:#5EE6AB}
+.t-root *,.t-root *::before,.t-root *::after{box-sizing:border-box}
+.t-root{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.t-root h1,.t-root h2,.t-root h3{text-wrap:balance}
+.t-root p{text-wrap:pretty}
+.t-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.t-nw{white-space:nowrap}
+.t-stack{display:grid}
+.t-stack>*{grid-area:1/1}
+.t-mono{font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.t-kicker{display:inline-flex;align-items:center;gap:10px;margin:0;font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;font-weight:500;line-height:1.4;letter-spacing:.14em;text-transform:uppercase;color:#5EE6AB}
+.t-kicker::before{content:"";flex:none;width:8px;height:8px;border-radius:2px;background:currentColor}
+.t-lab{display:block;font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase}
+.t-nav{display:flex;flex-wrap:wrap;align-items:center;gap:0 24px}
+.t-nav a{display:inline-flex;align-items:center;min-height:44px;color:#A3ADA7;font-size:14px;font-weight:500;text-decoration:none;transition:color .2s ease}
+.t-nav a:hover{color:#E8EDE9}
+.t-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:0 22px;border-radius:999px;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;font-size:15px;font-weight:600;line-height:1;text-decoration:none;white-space:nowrap;transition:transform .2s ease,background-color .2s ease,color .2s ease,border-color .2s ease}
+.t-btn-primary{background:#5EE6AB;color:#03140C}
+.t-btn-primary:hover{background:#86F0C3;color:#03140C;transform:translateY(-1px)}
+.t-btn-ghost{border:1px solid #303B36;color:#E8EDE9}
+.t-btn-ghost:hover{border-color:#5EE6AB;color:#5EE6AB}
+.t-btn:focus-visible,.t-nav a:focus-visible,.t-seg button:focus-visible,.t-play:focus-visible{outline:2px solid #5EE6AB;outline-offset:3px}
+.t-gridbg{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(232,237,233,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(232,237,233,.05) 1px,transparent 1px);background-size:48px 48px;-webkit-mask-image:radial-gradient(ellipse 75% 70% at 62% 38%,#000 18%,transparent 72%);mask-image:radial-gradient(ellipse 75% 70% at 62% 38%,#000 18%,transparent 72%)}
+.t-gridbg-c{-webkit-mask-image:radial-gradient(ellipse 60% 70% at 50% 50%,#000 20%,transparent 75%);mask-image:radial-gradient(ellipse 60% 70% at 50% 50%,#000 20%,transparent 75%)}
+.t-pill{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:0 12px;border-radius:999px;font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;font-weight:500;line-height:1;letter-spacing:.03em;white-space:nowrap}
+.t-pill-amber{background:rgba(245,190,85,.1);border:1px solid rgba(245,190,85,.38);color:#F5BE55}
+.t-pill-mint{background:rgba(94,230,171,.1);border:1px solid rgba(94,230,171,.38);color:#5EE6AB}
+.t-pill-grey{background:#101513;border:1px solid #232C28;color:#A3ADA7}
+.t-dotc{flex:none;width:7px;height:7px;border-radius:50%;background:currentColor}
+.t-blink{animation:t-blink 1.4s ease-in-out infinite}
+@keyframes t-blink{0%,100%{opacity:1}50%{opacity:.3}}
+.t-card{border:1px solid #232C28;border-radius:24px;background:#0F1412}
+
+.t-mcard{animation:t-flash 10s linear infinite}
+@keyframes t-flash{0%,43%{border-color:#232C28;box-shadow:0 0 0 0 rgba(94,230,171,0)}46%{border-color:rgba(94,230,171,.6);box-shadow:0 0 0 6px rgba(94,230,171,.1)}62%,100%{border-color:#232C28;box-shadow:0 0 0 0 rgba(94,230,171,0)}}
+.t-mosaic{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px}
+.t-tile{position:relative;aspect-ratio:1/1;border-radius:7px;background:#141A17;border:1px solid #222B27}
+.t-tile>span{position:absolute;inset:-1px;border-radius:7px}
+.t-on{background:#F5BE55;animation:t-on 10s linear infinite backwards}
+.t-ok{background:#5EE6AB;animation:t-ok 10s linear infinite}
+@keyframes t-on{0%{opacity:0;transform:scale(.45)}3%{opacity:1;transform:scale(1)}44%{opacity:1;transform:scale(1)}46%{opacity:0;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+@keyframes t-ok{0%,43.5%{opacity:0;transform:scale(.6)}45%{opacity:1;transform:scale(1.12)}48%{opacity:1;transform:scale(1)}88%{opacity:1;transform:scale(1)}94%,100%{opacity:0;transform:scale(1)}}
+.t-lab-tab{opacity:0;animation:t-labtab 10s linear infinite}
+@keyframes t-labtab{0%,42%{opacity:1}44%,100%{opacity:0}}
+.t-lab-ok{animation:t-labok 10s linear infinite}
+@keyframes t-labok{0%,43%{opacity:0}45%,88%{opacity:1}94%,100%{opacity:0}}
+@property --t-n{syntax:'<integer>';inherits:false;initial-value:48}
+.t-count{counter-reset:tn var(--t-n);animation:t-count 10s linear infinite}
+.t-count::before{content:counter(tn)}
+@keyframes t-count{0%{--t-n:0}38%{--t-n:48}100%{--t-n:48}}
+
+.t-play{position:relative;display:grid;place-items:center;width:88px;height:88px;padding:0;border:0;border-radius:50%;background:#5EE6AB;color:#03140C;cursor:pointer;transition:transform .2s ease}
+.t-play:hover{transform:scale(1.05)}
+.t-play::after{content:"";position:absolute;inset:-12px;border-radius:50%;border:1px solid rgba(94,230,171,.55);animation:t-ring 2.6s ease-out infinite}
+@keyframes t-ring{0%{transform:scale(.82);opacity:.9}100%{transform:scale(1.45);opacity:0}}
+
+.t-lane{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px}
+.t-end{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border:1px solid #303B36;border-radius:12px;background:#0B0F0D;font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;font-weight:500;letter-spacing:.06em;color:#E8EDE9;white-space:nowrap}
+.t-track{position:relative;height:2px;background:repeating-linear-gradient(90deg,#3A4741 0 6px,transparent 6px 12px)}
+.t-dot{position:absolute;top:50%;left:0;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#5EE6AB;box-shadow:0 0 0 5px rgba(232,237,233,.06);animation:t-dot 8s ease-in-out infinite}
+@keyframes t-dot{0%{left:0%;background-color:#5EE6AB}20%,25%{left:100%;background-color:#5EE6AB}45%,50%{left:0%;background-color:#5EE6AB}50.5%{left:0%;background-color:#F5BE55}70%,74.5%{left:100%;background-color:#F5BE55}75%{left:100%;background-color:#5EE6AB}95%,100%{left:0%;background-color:#5EE6AB}}
+.t-steps{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.t-step{display:flex;flex-direction:column;gap:10px;padding:18px;border:1px solid #232C28;border-radius:16px;animation:t-step 8s linear infinite backwards}
+.t-step-pay{animation-name:t-steppay}
+@keyframes t-step{0%{background-color:rgba(94,230,171,0);border-color:#232C28}2%,23%{background-color:rgba(94,230,171,.06);border-color:rgba(94,230,171,.5)}25%,100%{background-color:rgba(94,230,171,0);border-color:#232C28}}
+@keyframes t-steppay{0%{background-color:rgba(245,190,85,0);border-color:#232C28}2%,23%{background-color:rgba(245,190,85,.07);border-color:rgba(245,190,85,.55)}25%,100%{background-color:rgba(245,190,85,0);border-color:#232C28}}
+
+.t-meter{position:relative;height:12px;border-radius:999px;background:#1A211E;border:1px solid #232C28}
+.t-tick{position:absolute;top:-7px;bottom:-7px;width:1px;background:#3A4741}
+.t-fill{position:absolute;left:0;top:-1px;bottom:-1px;width:91%;border-radius:999px;background:#5EE6AB;animation:t-fill 12s cubic-bezier(.25,.8,.3,1) infinite}
+.t-fill::after{content:"";position:absolute;right:-9px;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:#E8EDE9;border:3px solid #0F1412}
+@keyframes t-fill{0%{width:2%;background-color:#6B7771}22%{width:20%;background-color:#6B7771}25%{width:26.2%;background-color:#A9C2B6}47%{width:44.8%;background-color:#A9C2B6}50%{width:51.5%;background-color:#8FE3BE}72%{width:70%;background-color:#8FE3BE}75%{width:76.8%;background-color:#5EE6AB}97%{width:91%;background-color:#5EE6AB}100%{width:2%;background-color:#6B7771}}
+@property --t-score{syntax:'<integer>';inherits:false;initial-value:910}
+.t-score{counter-reset:tscore var(--t-score);animation:t-score 12s cubic-bezier(.25,.8,.3,1) infinite}
+.t-score::before{content:counter(tscore)}
+@keyframes t-score{0%{--t-score:20}22%{--t-score:200}25%{--t-score:262}47%{--t-score:448}50%{--t-score:515}72%{--t-score:700}75%{--t-score:768}97%{--t-score:910}100%{--t-score:20}}
+.t-tier{opacity:0;animation:t-tier 12s ease infinite backwards}
+.t-tier-final{opacity:1}
+@keyframes t-tier{0%{opacity:0;transform:translateY(10px)}2%,23%{opacity:1;transform:none}25%,100%{opacity:0;transform:translateY(-10px)}}
+.t-k1{animation-delay:0s}.t-k2{animation-delay:3s}.t-k3{animation-delay:6s}.t-k4{animation-delay:9s}
+.t-k1 .t-hb,.t-k1 .t-hn{animation-delay:0s}.t-k2 .t-hb,.t-k2 .t-hn{animation-delay:3s}.t-k3 .t-hb,.t-k3 .t-hn{animation-delay:6s}.t-k4 .t-hb,.t-k4 .t-hn{animation-delay:9s}
+.t-hold{display:grid;grid-template-columns:236px minmax(0,1fr) 70px;align-items:center;gap:10px 16px;min-height:60px;border-top:1px solid #1A211E}
+.t-hn{font-size:15px;font-weight:600;color:#A3ADA7;animation:t-hn 12s ease infinite backwards}
+.t-hg{display:block;margin-top:2px;font-size:12px;line-height:1.4;font-weight:400;color:#86918B}
+.t-ht{position:relative;height:10px;border-radius:0 4px 4px 0;background:#1A211E}
+.t-hb{position:absolute;left:0;top:0;bottom:0;border-radius:0 4px 4px 0;background:#4A5852;animation:t-hb 12s ease infinite backwards}
+.t-hz{position:absolute;left:-4px;top:-2px;width:14px;height:14px;border-radius:50%;background:#4A5852;animation:t-hb 12s ease infinite backwards}
+.t-hv{font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;color:#E8EDE9;text-align:right;white-space:nowrap}
+@keyframes t-hb{0%{background-color:#4A5852}2%,23%{background-color:#5EE6AB}25%,100%{background-color:#4A5852}}
+@keyframes t-hn{0%{color:#A3ADA7}2%,23%{color:#5EE6AB}25%,100%{color:#A3ADA7}}
+
+.t-feat{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;border:1px solid rgba(94,230,171,.4);border-radius:24px;background:#0F1513;padding:clamp(20px,3vw,36px)}
+.t-eq{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.t-eqb{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #232C28;border-radius:12px;background:#101513;font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-weight:500;color:#E8EDE9;white-space:nowrap;animation:t-eqb 8s linear infinite backwards}
+.t-eqo{font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;color:#86918B}
+.t-e1{animation-delay:0s}.t-e2{animation-delay:.6s}.t-e3{animation-delay:1.2s}.t-e4{animation-delay:2s}.t-e5{animation-delay:2.8s}.t-e6{animation-delay:3.6s}
+.t-e7{animation-name:t-eqs;animation-delay:4.2s}
+@keyframes t-eqb{0%{border-color:#232C28;background-color:#101513;color:#E8EDE9}2%,10%{border-color:rgba(94,230,171,.7);background-color:#13201A;color:#5EE6AB}12%,100%{border-color:#232C28;background-color:#101513;color:#E8EDE9}}
+@keyframes t-eqs{0%{border-color:#232C28;background-color:#101513;color:#E8EDE9}2%,44%{border-color:rgba(94,230,171,.7);background-color:#13201A;color:#5EE6AB}46%,100%{border-color:#232C28;background-color:#101513;color:#E8EDE9}}
+@property --t-e{syntax:'<integer>';inherits:false;initial-value:910}
+.t-eqn{counter-reset:te var(--t-e);animation:t-eqn 8s cubic-bezier(.25,.8,.3,1) infinite;font-size:16px}
+.t-eqn::before{content:counter(te)}
+@keyframes t-eqn{0%,52%{--t-e:0}82%,100%{--t-e:910}}
+.t-facts{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+
+.t-srow{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:center}
+.t-sgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.t-node{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:10px;padding:20px 20px 24px;border:1px solid #232C28;border-radius:16px;background:#101513;animation:t-node 7.5s linear infinite backwards}
+.t-node::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:0;background:#5EE6AB;animation:t-under3 7.5s linear infinite backwards}
+.t-s1,.t-s1::after{animation-delay:0s}.t-s2,.t-s2::after{animation-delay:2.5s}.t-s3,.t-s3::after{animation-delay:5s}
+@keyframes t-node{0%{border-color:#232C28;background-color:#101513}1.5%,32%{border-color:rgba(94,230,171,.55);background-color:#13201A}34%,100%{border-color:#232C28;background-color:#101513}}
+@keyframes t-under3{0%{width:0}33.3%{width:100%}33.4%,100%{width:0}}
+.t-cmp-head,.t-cmp-row{display:grid;grid-template-columns:44px minmax(0,1fr) 44px minmax(0,1fr);align-items:center;gap:16px}
+.t-cmp-head{padding-bottom:14px}
+.t-cmp-row{position:relative;min-height:80px;padding:12px 0;border-top:1px solid #1A211E;animation:t-cmp 12s linear infinite backwards}
+.t-cmp-row::after{content:"";position:absolute;left:0;bottom:-1px;height:2px;width:0;background:#5EE6AB;animation:t-under4 12s linear infinite backwards}
+.t-cmp-arrow{display:grid;place-items:center;color:#3A4741;animation:t-cmparrow 12s linear infinite backwards}
+.t-p1,.t-p1::after,.t-p1 .t-cmp-arrow{animation-delay:0s}.t-p2,.t-p2::after,.t-p2 .t-cmp-arrow{animation-delay:3s}.t-p3,.t-p3::after,.t-p3 .t-cmp-arrow{animation-delay:6s}.t-p4,.t-p4::after,.t-p4 .t-cmp-arrow{animation-delay:9s}
+@keyframes t-cmp{0%{background-color:rgba(94,230,171,0)}1%,24%{background-color:rgba(94,230,171,.05)}26%,100%{background-color:rgba(94,230,171,0)}}
+@keyframes t-cmparrow{0%{color:#3A4741;transform:none}1%,24%{color:#5EE6AB;transform:translateX(4px)}26%,100%{color:#3A4741;transform:none}}
+@keyframes t-under4{0%{width:0}25%{width:100%}25.1%,100%{width:0}}
+.t-pri{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:#141A17;color:#F5BE55}
+.t-cmp-a,.t-cmp-b{display:flex;align-items:center;gap:12px;min-width:0;font-size:clamp(17px,1.6vw,21px);font-weight:600;line-height:1.3;color:#E8EDE9;text-wrap:balance}
+.t-cmp-x,.t-cmp-ok{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%}
+.t-cmp-x{background:rgba(245,190,85,.14);color:#F5BE55}
+.t-cmp-ok{background:rgba(94,230,171,.16);color:#5EE6AB}
+
+.t-term{position:relative;border:1px solid #232C28;border-radius:16px;background:#070908;overflow:hidden;font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:26px;color:#C9D2CC}
+.t-term-bar{display:flex;align-items:center;gap:12px;height:42px;padding:0 16px;border-bottom:1px solid #1A211E;background:#0C100E;font-size:12px;letter-spacing:.04em;color:#86918B;white-space:nowrap}
+.t-term-dots{display:flex;gap:6px}
+.t-term-dots span{width:10px;height:10px;border-radius:50%;background:#2A3430}
+.t-term-body{padding:16px 18px 18px;overflow-x:auto;overflow-y:hidden;white-space:nowrap}
+.t-ln{display:block;height:26px;white-space:nowrap}
+.t-c{display:inline-block;vertical-align:top;overflow:hidden}
+.t-ps{color:#5EE6AB}
+.t-dim{color:#86918B}
+.t-wht{color:#E8EDE9}
+.t-amb{color:#F5BE55}
+.t-mint{color:#5EE6AB}
+.t-est{color:#8FE3BE}
+.t-bld{color:#A9C2B6}
+.t-typed{display:inline-block;overflow:hidden;vertical-align:bottom;white-space:nowrap;width:0;color:#E8EDE9}
+.t-cur{display:inline-block;width:8px;height:15px;margin-left:3px;background:#C9D2CC;vertical-align:-2px;animation:t-blinkc 1s steps(1) infinite}
+@keyframes t-blinkc{0%,100%{opacity:1}50%{opacity:0}}
+.t-out,.t-oL,.t-oN,.t-term-body>.t-ln{width:max-content;min-width:100%}
+.t-hr{display:inline-block;width:52ch;height:1px;margin-top:12px;background:#2A3430;vertical-align:top}
+.t-sb{display:inline-block;width:10ch;height:8px;margin:0 2ch 0 0;border-radius:2px;background:#1A211E;vertical-align:middle;overflow:hidden}
+.t-sb span{display:block;height:100%;border-radius:2px;background:#5EE6AB}
+.t-chk{display:inline-block;width:12px;height:12px;vertical-align:-1px;margin-right:4px}
+.t-typeA{animation:t-typeA 14s steps(11,end) infinite}
+@keyframes t-typeA{0%{width:0}9%,100%{width:11ch}}
+.t-curA{animation:t-blinkc 1s steps(1) infinite,t-winA 14s steps(1,end) infinite}
+@keyframes t-winA{0%{visibility:visible}10%,100%{visibility:hidden}}
+.t-oA{animation:t-oA 14s linear infinite}
+@keyframes t-oA{0%,10%{clip-path:inset(0 0 100% 0);animation-timing-function:steps(8,end)}38%,100%{clip-path:inset(0 0 0 0)}}
+.t-oB{animation:t-oB 14s linear infinite}
+@keyframes t-oB{0%,40%{clip-path:inset(0 0 100% 0);animation-timing-function:steps(2,end)}45%,100%{clip-path:inset(0 0 0 0)}}
+.t-oC{animation:t-oC 14s linear infinite}
+@keyframes t-oC{0%,48%{clip-path:inset(0 0 100% 0);animation-timing-function:steps(1,end)}49%,100%{clip-path:inset(0 0 0 0)}}
+.t-typeB{animation:t-typeB 14s steps(14,end) infinite}
+@keyframes t-typeB{0%,50%{width:0}57%,100%{width:14ch}}
+.t-curB{animation:t-blinkc 1s steps(1) infinite,t-winB 14s steps(1,end) infinite}
+@keyframes t-winB{0%,48%{visibility:hidden}48.1%,59%{visibility:visible}59.1%,100%{visibility:hidden}}
+.t-oD{animation:t-oD 14s linear infinite}
+@keyframes t-oD{0%,60%{clip-path:inset(0 0 100% 0);animation-timing-function:steps(4,end)}78%,100%{clip-path:inset(0 0 0 0)}}
+.t-typeC{animation:t-typeC 9s steps(14,end) infinite}
+@keyframes t-typeC{0%{width:0}12%,100%{width:14ch}}
+.t-curC{animation:t-blinkc 1s steps(1) infinite,t-winC 9s steps(1,end) infinite}
+@keyframes t-winC{0%{visibility:visible}13%,100%{visibility:hidden}}
+.t-oE{animation:t-oE 9s linear infinite}
+@keyframes t-oE{0%,14%{clip-path:inset(0 0 100% 0);animation-timing-function:steps(2,end)}22%,100%{clip-path:inset(0 0 0 0)}}
+.t-oF{animation:t-oF 9s linear infinite}
+@keyframes t-oF{0%,24%{clip-path:inset(0 0 100% 0);animation-timing-function:steps(1,end)}25%,100%{clip-path:inset(0 0 0 0)}}
+.t-pb{display:inline-block;width:20ch;height:10px;border-radius:2px;background:#1A211E;vertical-align:middle;overflow:hidden}
+.t-pb span{display:block;height:100%;width:0;border-radius:2px;background:#5EE6AB;animation:t-pbf 9s linear infinite}
+@keyframes t-pbf{0%,26%{width:0;animation-timing-function:steps(20,end)}56%,100%{width:100%}}
+@property --t-p{syntax:'<integer>';inherits:false;initial-value:100}
+.t-pct{counter-reset:tp var(--t-p);animation:t-pct 9s linear infinite}
+.t-pct::before{content:counter(tp) "%"}
+@keyframes t-pct{0%,26%{--t-p:0;animation-timing-function:steps(20,end)}56%,100%{--t-p:100}}
+.t-oG{animation:t-oG 9s linear infinite}
+@keyframes t-oG{0%,60%{clip-path:inset(0 0 100% 0);animation-timing-function:steps(3,end)}72%,100%{clip-path:inset(0 0 0 0)}}
+.t-typeM{animation:t-typeM 1.8s steps(30,end) .3s both}
+@keyframes t-typeM{from{width:0}to{width:30ch}}
+.t-curM{animation:t-blinkc 1s steps(1) infinite,t-hide .01s steps(1,end) 2.2s both}
+@keyframes t-hide{from{visibility:visible}to{visibility:hidden}}
+.t-oM{animation:t-rev2 .6s steps(2,end) 2.3s both}
+@keyframes t-rev2{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+.t-oL{height:286px;overflow:hidden;animation:t-fadein .5s ease 3s both;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 7%,#000 78%,transparent);mask-image:linear-gradient(180deg,transparent 0,#000 7%,#000 78%,transparent)}
+.t-oN{animation:t-fadein .3s ease 3.4s both}
+@keyframes t-fadein{from{opacity:0}to{opacity:1}}
+.t-mqv{animation:t-mqv 30s linear infinite}
+@keyframes t-mqv{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+
+.t-seg{display:inline-flex;flex-wrap:wrap;gap:6px;padding:6px;border:1px solid #232C28;border-radius:28px;background:#0F1412}
+.t-seg button{appearance:none;-webkit-appearance:none;margin:0;border:0;cursor:pointer;min-height:44px;padding:0 20px;border-radius:999px;background:transparent;color:#A3ADA7;font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;font-weight:500;transition:background-color .2s ease,color .2s ease}
+.t-seg button:hover{color:#E8EDE9}
+.t-seg button[aria-pressed="true"]{background:#5EE6AB;color:#03140C}
+.t-mq{position:relative;height:244px;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(180deg,transparent,#000 18%,#000 82%,transparent)}
+.t-mq-in{animation:t-mq 18s linear infinite}
+.t-mq-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;height:42px;margin-bottom:8px;padding:0 14px;border:1px solid #232C28;border-radius:12px;background:#101513;font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:#A3ADA7}
+@keyframes t-mq{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+
+.t-twg{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.t-tw{aspect-ratio:1/1;border-radius:9px;background:#141A17;border:1px solid #222B27;animation:t-tw 4.8s ease-in-out infinite backwards}
+.t-tw-a{animation-name:t-twa}
+@keyframes t-tw{0%,100%{background-color:#141A17;border-color:#222B27}45%,55%{background-color:#5EE6AB;border-color:#5EE6AB}}
+@keyframes t-twa{0%,100%{background-color:#141A17;border-color:#222B27}45%,55%{background-color:#F5BE55;border-color:#F5BE55}}
+
+@media (min-width: 600px){
+.t-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (min-width: 900px){
+.t-feat{grid-template-columns:minmax(0,5fr) minmax(0,7fr);align-items:center}
+.t-srow{grid-template-columns:190px minmax(0,1fr)}
+}
+@media (min-width: 1040px){
+.t-facts{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media (max-width: 720px){
+.t-nav{order:3;width:100%;gap:0 18px}
+.t-mosaic{gap:6px}
+.t-cmp-head{display:none}
+.t-cmp-row{grid-template-columns:44px minmax(0,1fr);gap:10px 16px;padding:16px 0}
+.t-cmp-arrow{display:none}
+.t-cmp-b{grid-column:2}
+.t-hold{grid-template-columns:150px minmax(0,1fr) 62px;gap:8px 12px}
+.t-sells{display:none}
+}
+@media (max-width: 640px){
+.t-sgrid{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width: 520px){
+.t-play{width:64px;height:64px}
+.t-term{font-size:12px}
+.t-term-body{padding:14px 14px 16px}
+.t-hold{grid-template-columns:minmax(0,1fr) 62px;padding:8px 0 10px}
+.t-hold .t-hn{grid-area:1 / 1}
+.t-hold .t-hv{grid-area:1 / 2}
+.t-hold .t-ht{grid-area:2 / 1 / 3 / 3}
+}
+@media (prefers-reduced-motion: reduce){
+.t-root *,.t-root *::before,.t-root *::after{animation:none !important;transition:none !important}
+.t-root .t-typed{width:auto}
+.t-root .t-pb span{width:100%}
+.t-root .t-cur{display:none}
+}
+.t-root[data-motion="off"] *,.t-root[data-motion="off"] *::before,.t-root[data-motion="off"] *::after{animation:none !important;transition:none !important}
+.t-root[data-motion="off"] .t-typed{width:auto}
+.t-root[data-motion="off"] .t-pb span{width:100%}
+.t-root[data-motion="off"] .t-cur{display:none}
+</style>
+</head>
+<body>
+<div id="top" class="t-root" data-motion="on" style="background: #0B0E0D; color: #E8EDE9; font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 16px; line-height: 1.6; overflow-x: clip">
+
+<header style="position: relative; z-index: 2; border-bottom: 1px solid #1A211E">
+<div style="max-width: 1200px; margin: 0 auto; padding: 12px clamp(16px, 4vw, 32px); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 28px">
+<a href="#top" aria-label="Tessera, back to top" style="display: inline-flex; align-items: center; gap: 12px; min-height: 44px; color: #E8EDE9; text-decoration: none">
+<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="3" fill="#5EE6AB"></rect><rect x="15.8" y="1.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" stroke-width="1.6"></rect><rect x="1.8" y="15.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" stroke-width="1.6"></rect><rect x="15" y="15" width="12" height="12" rx="3" fill="#F5BE55"></rect></svg>
+<span style="font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.02em">Tessera</span>
+</a>
+<nav class="t-nav" aria-label="Main">
+<a href="#trust">Why trust</a>
+<a href="#merchants">Merchants</a>
+<a href="#pay-later">Pay Later</a>
+<a href="#settle">Settle once</a>
+<a href="#">Docs</a>
+</nav>
+<a class="t-btn t-btn-ghost" href="#demo" style="min-height: 44px; padding: 0 18px; font-size: 14px">Watch the demo</a>
+</div>
+</header>
+
+<section aria-labelledby="t-hero-title" style="position: relative">
+<div class="t-gridbg" aria-hidden="true"></div>
+<div style="position: relative; max-width: 1200px; margin: 0 auto; padding: clamp(48px, 7vw, 100px) clamp(16px, 4vw, 32px) clamp(64px, 7.5vw, 108px); display: flex; flex-wrap: wrap; align-items: center; gap: clamp(44px, 6vw, 72px)">
+<div style="flex: 1 1 540px; min-width: 0">
+<p class="t-kicker">Tessera Pay Later · x402 on Solana</p>
+<h1 id="t-hero-title" style="margin: 26px 0 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 9.5vw, 62px); font-weight: 700; line-height: 1; letter-spacing: -0.04em; color: #E8EDE9"><span class="t-nw">Buy now, pay later</span> <span class="t-nw" style="color: #5EE6AB">for AI agents.</span></h1>
+<p style="margin: 26px 0 0; max-width: 540px; font-size: clamp(17px, 1.55vw, 20px); line-height: 1.55; color: #A3ADA7">Tessera is the credit layer for agentic commerce. Your agents buy over x402 now, and the main agent pays for the whole tab at once.</p>
+<div style="margin-top: 36px; display: flex; flex-wrap: wrap; gap: 12px">
+<a class="t-btn t-btn-primary" href="#demo"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"></path></svg>Watch the demo</a>
+<a class="t-btn t-btn-ghost" href="#trust">Why agents need trust<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M19 12l-7 7-7-7"></path></svg></a>
+</div>
+</div>
+<figure class="t-mcard" style="flex: 1 1 380px; max-width: 500px; min-width: 0; margin: 0; padding: clamp(18px, 2vw, 24px); border: 1px solid #232C28; border-radius: 24px; background: #101513">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px">
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #86918B">Example tab</span>
+<span class="t-stack" style="justify-items: end">
+<span class="t-pill t-pill-amber t-lab-tab"><span class="t-dotc t-blink"></span><span class="t-count"></span>orders on the tab</span>
+<span class="t-pill t-pill-mint t-lab-ok"><span class="t-dotc"></span>Settled in 1 payment</span>
+</span>
+</div>
+<div class="t-mosaic" aria-hidden="true">
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.925s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.475s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.05s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.125s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.75s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 3.45s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.825s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.2s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.325s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.7s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 3s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 3.15s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.1s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.6s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.65s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.425s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.9s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 3.375s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.8s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.575s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 3.525s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.175s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.85s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.35s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.075s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.625s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.275s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.25s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.525s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 3.3s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.95s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.025s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.375s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.15s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.975s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.4s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 3.225s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.775s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.725s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.45s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 2.55s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.3s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.225s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 3.075s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.875s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 0.675s"></span><span class="t-ok"></span></span>
+<span class="t-tile"><span class="t-on" style="animation-delay: 1.5s"></span><span class="t-ok"></span></span>
+</div>
+<figcaption style="margin-top: 18px; font-size: 14px; line-height: 1.5; color: #A3ADA7">Each tile is one x402 order. The main agent settles them together, in one payment.</figcaption>
+</figure>
+</div>
+</section>
+
+<section id="demo" aria-labelledby="t-demo-title" style="padding: clamp(72px, 9vw, 120px) 0; border-top: 1px solid #1A211E; background: #0E1210">
+<div style="max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px)">
+<div style="margin-bottom: 36px">
+<p class="t-kicker">Demo</p>
+<h2 id="t-demo-title" style="margin: 18px 0 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(32px, 4.2vw, 56px); font-weight: 700; line-height: 1.04; letter-spacing: -0.035em; color: #E8EDE9">See Tessera in action.</h2>
+</div>
+<figure style="margin: 0">
+<div style="position: relative; aspect-ratio: 16 / 9; border: 1px solid #232C28; border-radius: clamp(16px, 2vw, 28px); overflow: hidden; background: #0A0D0C">
+<div class="t-gridbg t-gridbg-c" aria-hidden="true"></div>
+<div style="position: absolute; left: clamp(14px, 2vw, 24px); top: clamp(14px, 2vw, 22px); display: flex; flex-wrap: wrap; gap: 8px">
+<span class="t-pill t-pill-mint">x402</span>
+<span class="t-pill t-pill-amber">Solana</span>
+</div>
+<div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 24px; text-align: center">
+<button type="button" class="t-play" aria-label="Play the Tessera demo video"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"></path></svg></button>
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #A3ADA7">[Your demo video]</span>
+</div>
+</div>
+</figure>
+</div>
+</section>
+
+<section id="trust" aria-labelledby="t-trust-title" style="padding: clamp(80px, 10vw, 136px) 0; border-top: 1px solid #1A211E">
+<div style="max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px)">
+<div style="max-width: 860px">
+<p class="t-kicker">01 · Why trust</p>
+<h2 id="t-trust-title" style="margin: 20px 0 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 4.6vw, 60px); font-weight: 700; line-height: 1.02; letter-spacing: -0.035em; color: #E8EDE9">x402 has no chargeback. So agents mostly move small amounts.</h2>
+<p style="margin: 24px 0 0; max-width: 700px; font-size: clamp(17px, 1.5vw, 19px); line-height: 1.6; color: #A3ADA7">AI agents now pay each other over x402, and most of these payments are micropayments. Once a payment settles, it cannot be pulled back. To x402, a fresh wallet and a wallet with a long, clean record look the same.</p>
+</div>
+
+<div class="t-card" style="margin-top: 56px; padding: clamp(20px, 3vw, 36px)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-bottom: 28px">
+<h3 style="margin: 0; font-size: 18px; font-weight: 600; line-height: 1.3; color: #E8EDE9">How an x402 payment works today</h3>
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #86918B">Repeats for each call</span>
+</div>
+<div class="t-lane" aria-hidden="true" style="margin-bottom: 24px">
+<span class="t-end">Your agent</span>
+<span class="t-track"><span class="t-dot"></span></span>
+<span class="t-end">x402 API</span>
+</div>
+<ol class="t-steps" style="grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr))">
+<li class="t-step" style="animation-delay: 0s">
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.08em; color: #86918B">1 · Agent to API</span>
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; font-weight: 500; color: #E8EDE9">GET /data</span>
+<span style="font-size: 15px; line-height: 1.5; color: #A3ADA7">The agent asks for a paid resource.</span>
+</li>
+<li class="t-step" style="animation-delay: 2s">
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.08em; color: #86918B">2 · API to agent</span>
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; font-weight: 500; color: #E8EDE9">402 Payment Required</span>
+<span style="font-size: 15px; line-height: 1.5; color: #A3ADA7">The API replies with the price.</span>
+</li>
+<li class="t-step t-step-pay" style="animation-delay: 4s">
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.08em; color: #86918B">3 · Agent to API</span>
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; font-weight: 500; color: #F5BE55">Signed payment</span>
+<span style="font-size: 15px; line-height: 1.5; color: #A3ADA7">The agent pays from its wallet and asks again. No chargeback once it settles.</span>
+</li>
+<li class="t-step" style="animation-delay: 6s">
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.08em; color: #86918B">4 · API to agent</span>
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; font-weight: 500; color: #E8EDE9">200 OK</span>
+<span style="font-size: 15px; line-height: 1.5; color: #A3ADA7">The data arrives.</span>
+</li>
+</ol>
+<p style="margin: 22px 0 0; font-size: 15px; line-height: 1.55; color: #A3ADA7">There is no hold and no refund window.</p>
+</div>
+
+<div style="margin-top: clamp(72px, 9vw, 112px); display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px 64px">
+<div style="flex: 1 1 520px; max-width: 660px; min-width: 0">
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(30px, 3.4vw, 46px); font-weight: 700; line-height: 1.04; letter-spacing: -0.03em; color: #E8EDE9">Tessera adds a trust layer.</h3>
+<p style="margin: 20px 0 0; font-size: clamp(17px, 1.5vw, 19px); line-height: 1.6; color: #A3ADA7">Tessera is on-chain credit scoring infrastructure. It scores each wallet and places it in a tier. Each payment waits in a hold, and the buyer's and the merchant's tiers set how long.</p>
+</div>
+<p style="flex: 1 1 300px; max-width: 420px; margin: 0; padding-top: 18px; border-top: 1px solid #303B36; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(21px, 2vw, 26px); font-weight: 600; line-height: 1.25; letter-spacing: -0.015em; color: #E8EDE9">A fresh wallet waits. Two Trusted wallets can settle instantly.</p>
+</div>
+
+<div class="t-card" style="margin-top: 40px; padding: clamp(20px, 3vw, 40px)">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 20px 40px">
+<div style="min-width: 0">
+<p style="margin: 0; font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #86918B">Example wallet</p>
+<div class="t-stack" style="margin-top: 12px">
+<div class="t-tier t-k1" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px">
+<span style="font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 4vw, 52px); font-weight: 700; line-height: 1.05; letter-spacing: -0.03em; color: #A3ADA7">New</span>
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; color: #A3ADA7">Hold 3 days</span>
+</div>
+<div class="t-tier t-k2" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px">
+<span style="font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 4vw, 52px); font-weight: 700; line-height: 1.05; letter-spacing: -0.03em; color: #C9D8D0">Building</span>
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; color: #A3ADA7">Hold 24 h</span>
+</div>
+<div class="t-tier t-k3" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px">
+<span style="font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 4vw, 52px); font-weight: 700; line-height: 1.05; letter-spacing: -0.03em; color: #8FE3BE">Established</span>
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; color: #A3ADA7">Hold 60 min</span>
+</div>
+<div class="t-tier t-tier-final t-k4" style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px">
+<span style="font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 4vw, 52px); font-weight: 700; line-height: 1.05; letter-spacing: -0.03em; color: #5EE6AB">Trusted</span>
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; color: #5EE6AB">Instant</span>
+</div>
+</div>
+</div>
+<div style="margin-left: auto; text-align: right">
+<p style="margin: 0; font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #86918B">Score</p>
+<p style="margin: 12px 0 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 4vw, 52px); font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; color: #E8EDE9"><span class="t-score"></span><span style="font-size: 0.42em; font-weight: 500; letter-spacing: 0; color: #86918B"> / 1000</span></p>
+</div>
+</div>
+<div class="t-meter" aria-hidden="true" style="margin: 40px 9px 12px 0">
+<span class="t-tick" style="left: 25%"></span>
+<span class="t-tick" style="left: 50%"></span>
+<span class="t-tick" style="left: 75%"></span>
+<span class="t-fill"></span>
+</div>
+<div aria-hidden="true" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-right: 9px; font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: #86918B">
+<span>0</span>
+<span>250</span>
+<span>500</span>
+<span>750</span>
+</div>
+
+<div style="margin-top: 40px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px">
+<p style="margin: 0; font-size: 16px; font-weight: 600; color: #E8EDE9">How long a payment waits, by tier</p>
+<p style="margin: 0; font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #86918B">Mainnet targets · hours to scale</p>
+</div>
+<div style="margin-top: 14px">
+<div class="t-hold t-k1">
+<span class="t-hn">New<span class="t-hg">Each fresh wallet starts here</span></span>
+<span class="t-ht" aria-hidden="true"><span class="t-hb" style="width: 100%"></span></span>
+<span class="t-hv">3 days</span>
+</div>
+<div class="t-hold t-k2">
+<span class="t-hn">Building<span class="t-hg">250+ points, 3 active days</span></span>
+<span class="t-ht" aria-hidden="true"><span class="t-hb" style="width: 33.3%"></span></span>
+<span class="t-hv">24 h</span>
+</div>
+<div class="t-hold t-k3">
+<span class="t-hn">Established<span class="t-hg">500+ points, 14 active days</span></span>
+<span class="t-ht" aria-hidden="true"><span class="t-hb" style="width: 1.4%; min-width: 6px"></span></span>
+<span class="t-hv">60 min</span>
+</div>
+<div class="t-hold t-k4">
+<span class="t-hn">Trusted<span class="t-hg">750+ points, 30 active days</span></span>
+<span class="t-ht" aria-hidden="true"><span class="t-hz"></span></span>
+<span class="t-hv">instant</span>
+</div>
+</div>
+<p style="margin: 22px 0 0; font-size: 14px; line-height: 1.6; color: #86918B">Bars are to scale in hours. On devnet the holds are 2 min, 45 s, 10 s and instant. The hold on an order is the longer of the buyer's and the merchant's holds.</p>
+</div>
+
+<div class="t-feat" style="margin-top: 24px">
+<div style="min-width: 0">
+<span class="t-lab" style="color: #5EE6AB">Why it is different</span>
+<h3 style="margin: 14px 0 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(26px, 2.6vw, 34px); font-weight: 700; line-height: 1.08; letter-spacing: -0.025em; color: #E8EDE9">A score anyone can recompute.</h3>
+<p style="margin: 16px 0 0; font-size: 16px; line-height: 1.6; color: #A3ADA7">Each score is computed only from orders that settled on-chain. Anyone can recompute it from on-chain data. No one has to trust Tessera's word for a number.</p>
+</div>
+<div style="min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<div class="t-eq" aria-label="Evidence equals History plus Tenure plus Diversity">
+<span class="t-eqb t-e1">History</span><span class="t-eqo">+</span><span class="t-eqb t-e2">Tenure</span><span class="t-eqo">+</span><span class="t-eqb t-e3">Diversity</span><span class="t-eqo">=</span><span class="t-eqb t-e4">Evidence</span>
+</div>
+<div class="t-eq" aria-label="Score equals 1000 times Evidence times Rating times Behaviour">
+<span class="t-eqo">1000 ×</span><span class="t-eqb t-e4">Evidence</span><span class="t-eqo">×</span><span class="t-eqb t-e5">Rating</span><span class="t-eqo">×</span><span class="t-eqb t-e6">Behaviour</span><span class="t-eqo">=</span><span class="t-eqb t-e7"><span class="t-eqn"></span></span>
+</div>
+<p style="margin: 4px 0 0; font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.6; color: #86918B">Score = 1000 × Evidence × Rating × Behaviour. Evidence = History + Tenure + Diversity. The example wallet above lands on 910.</p>
+</div>
+</div>
+
+<div class="t-facts" style="margin-top: 12px">
+<div style="padding: 22px; border: 1px solid #232C28; border-radius: 18px">
+<p style="margin: 0; font-size: 16px; font-weight: 600; color: #E8EDE9">When an order settles instantly</p>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 1.6; color: #A3ADA7">Both sides are Trusted, or the buyer has two or more undisputed orders with that merchant. The merchant must also be within its instant limit.</p>
+</div>
+<div style="padding: 22px; border: 1px solid #232C28; border-radius: 18px">
+<p style="margin: 0; font-size: 16px; font-weight: 600; color: #E8EDE9">Instant settlement has a cap</p>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 1.6; color: #A3ADA7">An exit scam on instant settlement is capped at the fees the merchant already paid, plus a small base.</p>
+</div>
+<div style="padding: 22px; border: 1px solid #232C28; border-radius: 18px">
+<p style="margin: 0; font-size: 16px; font-weight: 600; color: #E8EDE9">Buyers need no SOL</p>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 1.6; color: #A3ADA7">The x402 facilitator pays the network fee.</p>
+</div>
+<div style="padding: 22px; border: 1px solid #232C28; border-radius: 18px">
+<p style="margin: 0; font-size: 16px; font-weight: 600; color: #E8EDE9">Reviews come from the order</p>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 1.6; color: #A3ADA7">Only the buyer and the merchant on an order can review each other. A refunded order's review weighs nothing.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section id="merchants" aria-labelledby="t-mer-title" style="padding: clamp(80px, 10vw, 136px) 0; border-top: 1px solid #1A211E; background: #0E1210">
+<div style="max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px)">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px 48px">
+<div style="flex: 1 1 560px; max-width: 760px; min-width: 0">
+<p class="t-kicker">02 · Search for agents</p>
+<h2 id="t-mer-title" style="margin: 20px 0 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 4.6vw, 60px); font-weight: 700; line-height: 1.02; letter-spacing: -0.035em; color: #E8EDE9">Every merchant comes with a score.</h2>
+<p style="margin: 24px 0 0; max-width: 680px; font-size: clamp(17px, 1.5vw, 19px); line-height: 1.6; color: #A3ADA7">Your agent can search for a merchant and see its score, tier and hold before it buys. This is what it looks like in your terminal.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; max-width: 420px">
+<span class="t-pill t-pill-mint">12 merchants</span>
+<span class="t-pill t-pill-grey">data · 5</span>
+<span class="t-pill t-pill-grey">inference · 2</span>
+<span class="t-pill t-pill-grey">media · 2</span>
+<span class="t-pill t-pill-grey">language · 1</span>
+<span class="t-pill t-pill-grey">geo · 2</span>
+</div>
+</div>
+
+<figure class="t-term" style="margin: 44px 0 0">
+<div class="t-term-bar"><span class="t-term-dots" aria-hidden="true"><span></span><span></span><span></span></span><span>tessera · agent shell</span><span style="margin-left: auto">sample data</span></div>
+<div class="t-term-body" aria-hidden="true">
+<span class="t-ln"><span class="t-ps">$ </span><span class="t-typed t-typeM">tessera merchants --sort score</span><span class="t-cur t-curM"></span></span>
+<div class="t-out t-oM">
+<span class="t-ln t-dim">12 merchants · 5 categories · scores from settled orders only</span>
+<span class="t-ln t-dim"><span class="t-c" style="width: 16ch">MERCHANT</span><span class="t-c t-sells" style="width: 21ch">SELLS</span><span class="t-c" style="width: 6ch">SCORE</span><span class="t-c" style="width: 12ch"></span><span class="t-c" style="width: 13ch">TIER</span><span class="t-c">HOLD</span></span>
+</div>
+<div class="t-oL">
+<div class="t-mqv">
+<span class="t-ln t-mint"># data · 5</span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">search.api</span><span class="t-c t-sells" style="width: 21ch">web search results</span><span class="t-c t-wht" style="width: 6ch">912</span><span class="t-sb"><span style="width: 91%"></span></span><span class="t-c t-mint" style="width: 13ch">Trusted</span><span class="t-c">instant</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">prices.api</span><span class="t-c t-sells" style="width: 21ch">token prices</span><span class="t-c t-wht" style="width: 6ch">868</span><span class="t-sb"><span style="width: 87%"></span></span><span class="t-c t-mint" style="width: 13ch">Trusted</span><span class="t-c">instant</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">news.api</span><span class="t-c t-sells" style="width: 21ch">news headlines</span><span class="t-c t-wht" style="width: 6ch">571</span><span class="t-sb"><span style="width: 57%; background: #8FE3BE"></span></span><span class="t-c t-est" style="width: 13ch">Established</span><span class="t-c">60 min</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">weather.api</span><span class="t-c t-sells" style="width: 21ch">forecasts</span><span class="t-c t-wht" style="width: 6ch">276</span><span class="t-sb"><span style="width: 28%; background: #A9C2B6"></span></span><span class="t-c t-bld" style="width: 13ch">Building</span><span class="t-c">24 h</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">scrape.api</span><span class="t-c t-sells" style="width: 21ch">page extraction</span><span class="t-c t-wht" style="width: 6ch">140</span><span class="t-sb"><span style="width: 14%; background: #86918B"></span></span><span class="t-c t-dim" style="width: 13ch">New</span><span class="t-c">3 days</span></span>
+<span class="t-ln t-mint"># inference · 2</span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">llm.api</span><span class="t-c t-sells" style="width: 21ch">chat completions</span><span class="t-c t-wht" style="width: 6ch">790</span><span class="t-sb"><span style="width: 79%"></span></span><span class="t-c t-mint" style="width: 13ch">Trusted</span><span class="t-c">instant</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">embed.api</span><span class="t-c t-sells" style="width: 21ch">text embeddings</span><span class="t-c t-wht" style="width: 6ch">603</span><span class="t-sb"><span style="width: 60%; background: #8FE3BE"></span></span><span class="t-c t-est" style="width: 13ch">Established</span><span class="t-c">60 min</span></span>
+<span class="t-ln t-mint"># media · 2</span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">image.api</span><span class="t-c t-sells" style="width: 21ch">image rendering</span><span class="t-c t-wht" style="width: 6ch">644</span><span class="t-sb"><span style="width: 64%; background: #8FE3BE"></span></span><span class="t-c t-est" style="width: 13ch">Established</span><span class="t-c">60 min</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">voice.api</span><span class="t-c t-sells" style="width: 21ch">text to speech</span><span class="t-c t-wht" style="width: 6ch">62</span><span class="t-sb"><span style="width: 6%; background: #86918B"></span></span><span class="t-c t-dim" style="width: 13ch">New</span><span class="t-c">3 days</span></span>
+<span class="t-ln t-mint"># language · 1</span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">translate.api</span><span class="t-c t-sells" style="width: 21ch">text translation</span><span class="t-c t-wht" style="width: 6ch">512</span><span class="t-sb"><span style="width: 51%; background: #8FE3BE"></span></span><span class="t-c t-est" style="width: 13ch">Established</span><span class="t-c">60 min</span></span>
+<span class="t-ln t-mint"># geo · 2</span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">maps.api</span><span class="t-c t-sells" style="width: 21ch">routing</span><span class="t-c t-wht" style="width: 6ch">338</span><span class="t-sb"><span style="width: 34%; background: #A9C2B6"></span></span><span class="t-c t-bld" style="width: 13ch">Building</span><span class="t-c">24 h</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">geocode.api</span><span class="t-c t-sells" style="width: 21ch">address lookup</span><span class="t-c t-wht" style="width: 6ch">455</span><span class="t-sb"><span style="width: 46%; background: #A9C2B6"></span></span><span class="t-c t-bld" style="width: 13ch">Building</span><span class="t-c">24 h</span></span>
+<span class="t-ln t-mint"># data · 5</span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">search.api</span><span class="t-c t-sells" style="width: 21ch">web search results</span><span class="t-c t-wht" style="width: 6ch">912</span><span class="t-sb"><span style="width: 91%"></span></span><span class="t-c t-mint" style="width: 13ch">Trusted</span><span class="t-c">instant</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">prices.api</span><span class="t-c t-sells" style="width: 21ch">token prices</span><span class="t-c t-wht" style="width: 6ch">868</span><span class="t-sb"><span style="width: 87%"></span></span><span class="t-c t-mint" style="width: 13ch">Trusted</span><span class="t-c">instant</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">news.api</span><span class="t-c t-sells" style="width: 21ch">news headlines</span><span class="t-c t-wht" style="width: 6ch">571</span><span class="t-sb"><span style="width: 57%; background: #8FE3BE"></span></span><span class="t-c t-est" style="width: 13ch">Established</span><span class="t-c">60 min</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">weather.api</span><span class="t-c t-sells" style="width: 21ch">forecasts</span><span class="t-c t-wht" style="width: 6ch">276</span><span class="t-sb"><span style="width: 28%; background: #A9C2B6"></span></span><span class="t-c t-bld" style="width: 13ch">Building</span><span class="t-c">24 h</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">scrape.api</span><span class="t-c t-sells" style="width: 21ch">page extraction</span><span class="t-c t-wht" style="width: 6ch">140</span><span class="t-sb"><span style="width: 14%; background: #86918B"></span></span><span class="t-c t-dim" style="width: 13ch">New</span><span class="t-c">3 days</span></span>
+<span class="t-ln t-mint"># inference · 2</span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">llm.api</span><span class="t-c t-sells" style="width: 21ch">chat completions</span><span class="t-c t-wht" style="width: 6ch">790</span><span class="t-sb"><span style="width: 79%"></span></span><span class="t-c t-mint" style="width: 13ch">Trusted</span><span class="t-c">instant</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">embed.api</span><span class="t-c t-sells" style="width: 21ch">text embeddings</span><span class="t-c t-wht" style="width: 6ch">603</span><span class="t-sb"><span style="width: 60%; background: #8FE3BE"></span></span><span class="t-c t-est" style="width: 13ch">Established</span><span class="t-c">60 min</span></span>
+<span class="t-ln t-mint"># media · 2</span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">image.api</span><span class="t-c t-sells" style="width: 21ch">image rendering</span><span class="t-c t-wht" style="width: 6ch">644</span><span class="t-sb"><span style="width: 64%; background: #8FE3BE"></span></span><span class="t-c t-est" style="width: 13ch">Established</span><span class="t-c">60 min</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">voice.api</span><span class="t-c t-sells" style="width: 21ch">text to speech</span><span class="t-c t-wht" style="width: 6ch">62</span><span class="t-sb"><span style="width: 6%; background: #86918B"></span></span><span class="t-c t-dim" style="width: 13ch">New</span><span class="t-c">3 days</span></span>
+<span class="t-ln t-mint"># language · 1</span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">translate.api</span><span class="t-c t-sells" style="width: 21ch">text translation</span><span class="t-c t-wht" style="width: 6ch">512</span><span class="t-sb"><span style="width: 51%; background: #8FE3BE"></span></span><span class="t-c t-est" style="width: 13ch">Established</span><span class="t-c">60 min</span></span>
+<span class="t-ln t-mint"># geo · 2</span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">maps.api</span><span class="t-c t-sells" style="width: 21ch">routing</span><span class="t-c t-wht" style="width: 6ch">338</span><span class="t-sb"><span style="width: 34%; background: #A9C2B6"></span></span><span class="t-c t-bld" style="width: 13ch">Building</span><span class="t-c">24 h</span></span>
+<span class="t-ln"><span class="t-c t-wht" style="width: 16ch">geocode.api</span><span class="t-c t-sells" style="width: 21ch">address lookup</span><span class="t-c t-wht" style="width: 6ch">455</span><span class="t-sb"><span style="width: 46%; background: #A9C2B6"></span></span><span class="t-c t-bld" style="width: 13ch">Building</span><span class="t-c">24 h</span></span>
+</div>
+</div>
+<div class="t-oN"><span class="t-ln"><span class="t-ps">$ </span><span class="t-cur"></span></span></div>
+</div>
+<figcaption style="padding: 14px 18px 16px; border-top: 1px solid #1A211E; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 14px; line-height: 1.5; color: #86918B">Example merchants and scores. Hold times are mainnet targets. Scores are computed only from orders that settled on-chain.</figcaption>
+</figure>
+</div>
+</section>
+
+<section id="pay-later" aria-labelledby="t-pl-title" style="padding: clamp(80px, 10vw, 136px) 0; border-top: 1px solid #1A211E">
+<div style="max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px)">
+<div style="max-width: 860px">
+<p class="t-kicker">03 · Tessera Pay Later</p>
+<h2 id="t-pl-title" style="margin: 20px 0 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 4.6vw, 60px); font-weight: 700; line-height: 1.02; letter-spacing: -0.035em; color: #E8EDE9">People buy now and pay later. Now agents can too.</h2>
+<p style="margin: 24px 0 0; max-width: 700px; font-size: clamp(17px, 1.5vw, 19px); line-height: 1.6; color: #A3ADA7">With buy now, pay later, you take the item today and pay for it afterwards. It works because someone checked that you will pay. Tessera Pay Later brings the same deal to AI agents on x402.</p>
+</div>
+
+<div class="t-card" style="margin-top: 56px; padding: clamp(20px, 3vw, 36px); display: grid; gap: 16px">
+<div class="t-srow">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0">
+<span class="t-lab" style="color: #86918B">People</span>
+<span style="font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #E8EDE9">Shoppers</span>
+</div>
+<div class="t-sgrid">
+<div class="t-node t-s1">
+<span class="t-mono" style="font-size: 12px; color: #86918B">1</span>
+<span style="font-size: 17px; font-weight: 600; color: #E8EDE9">A credit check</span>
+<span style="font-size: 14px; line-height: 1.5; color: #A3ADA7">The lender checks that you will pay.</span>
+</div>
+<div class="t-node t-s2">
+<span class="t-mono" style="font-size: 12px; color: #86918B">2</span>
+<span style="font-size: 17px; font-weight: 600; color: #E8EDE9">Take it today</span>
+<span style="font-size: 14px; line-height: 1.5; color: #A3ADA7">You get the item straight away.</span>
+</div>
+<div class="t-node t-s3">
+<span class="t-mono" style="font-size: 12px; color: #86918B">3</span>
+<span style="font-size: 17px; font-weight: 600; color: #E8EDE9">Pay later</span>
+<span style="font-size: 14px; line-height: 1.5; color: #A3ADA7">You pay for it afterwards.</span>
+</div>
+</div>
+</div>
+<div class="t-srow">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 4px 0">
+<span class="t-lab" style="color: #5EE6AB">Agents</span>
+<span style="font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #E8EDE9">On Tessera</span>
+</div>
+<div class="t-sgrid">
+<div class="t-node t-s1">
+<span class="t-mono" style="font-size: 12px; color: #86918B">1</span>
+<span style="font-size: 17px; font-weight: 600; color: #E8EDE9">An on-chain score</span>
+<span style="font-size: 14px; line-height: 1.5; color: #A3ADA7">Tessera scores each wallet from settled orders.</span>
+</div>
+<div class="t-node t-s2">
+<span class="t-mono" style="font-size: 12px; color: #86918B">2</span>
+<span style="font-size: 17px; font-weight: 600; color: #E8EDE9">Buy over x402 now</span>
+<span style="font-size: 14px; line-height: 1.5; color: #A3ADA7">The order lands on the tab. The agent gets what it ordered straight away.</span>
+</div>
+<div class="t-node t-s3">
+<span class="t-mono" style="font-size: 12px; color: #86918B">3</span>
+<span style="font-size: 17px; font-weight: 600; color: #5EE6AB">The main agent pays once</span>
+<span style="font-size: 14px; line-height: 1.5; color: #A3ADA7">It settles the whole tab in one payment.</span>
+</div>
+</div>
+</div>
+<p style="margin: 6px 0 0; font-size: 15px; line-height: 1.55; color: #A3ADA7">Paying later only works when you can tell who will pay. On Tessera, the on-chain score is that check.</p>
+</div>
+
+<div class="t-card" style="margin-top: 24px; padding: clamp(20px, 3vw, 36px)">
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(26px, 2.6vw, 34px); font-weight: 700; line-height: 1.08; letter-spacing: -0.025em; color: #E8EDE9">Pay per call has four problems.</h3>
+<p style="margin: 10px 0 28px; font-size: 16px; line-height: 1.6; color: #A3ADA7">Tessera Pay Later fixes each one.</p>
+<div class="t-cmp-head" aria-hidden="true">
+<span></span>
+<span><span class="t-pill t-pill-amber"><span class="t-dotc"></span>Pay per call</span></span>
+<span></span>
+<span><span class="t-pill t-pill-mint"><span class="t-dotc"></span>Tessera Pay Later</span></span>
+</div>
+<div class="t-cmp-row t-p1">
+<span class="t-pri" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
+<span class="t-cmp-a"><span class="t-cmp-x" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span><span class="t-sr">Pay per call: </span>Waits for every payment</span>
+<span class="t-cmp-arrow" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></span>
+<span class="t-cmp-b"><span class="t-cmp-ok" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg></span><span class="t-sr">Tessera Pay Later: </span>Answers straight away</span>
+</div>
+<div class="t-cmp-row t-p2">
+<span class="t-pri" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 13l9 5 9-5"></path><path d="M3 17l9 5 9-5"></path></svg></span>
+<span class="t-cmp-a"><span class="t-cmp-x" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span><span class="t-sr">Pay per call: </span>1,000 calls, 1,000 payments</span>
+<span class="t-cmp-arrow" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></span>
+<span class="t-cmp-b"><span class="t-cmp-ok" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg></span><span class="t-sr">Tessera Pay Later: </span>1,000 calls, 1 payment</span>
+</div>
+<div class="t-cmp-row t-p3">
+<span class="t-pri" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M15 15h3"></path></svg></span>
+<span class="t-cmp-a"><span class="t-cmp-x" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span><span class="t-sr">Pay per call: </span>One funded wallet per agent</span>
+<span class="t-cmp-arrow" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></span>
+<span class="t-cmp-b"><span class="t-cmp-ok" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg></span><span class="t-sr">Tessera Pay Later: </span>One wallet pays for all</span>
+</div>
+<div class="t-cmp-row t-p4">
+<span class="t-pri" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.2 7.6-8 9-4.8-1.4-8-4.5-8-9V6l8-3z"></path><path d="M9.5 9.5l5 5"></path><path d="M14.5 9.5l-5 5"></path></svg></span>
+<span class="t-cmp-a"><span class="t-cmp-x" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></span><span class="t-sr">Pay per call: </span>No chargeback, no record</span>
+<span class="t-cmp-arrow" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></span>
+<span class="t-cmp-b"><span class="t-cmp-ok" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg></span><span class="t-sr">Tessera Pay Later: </span>A score on both sides</span>
+</div>
+</div>
+
+<div style="margin-top: clamp(56px, 7vw, 88px); display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 48px">
+<div style="flex: 1 1 480px; max-width: 700px; min-width: 0">
+<h3 style="margin: 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(26px, 2.6vw, 34px); font-weight: 700; line-height: 1.08; letter-spacing: -0.025em; color: #E8EDE9">A tab, in your terminal.</h3>
+<p style="margin: 12px 0 0; font-size: 16px; line-height: 1.6; color: #A3ADA7">Six orders land on the tab. One settle call pays them all.</p>
+</div>
+<span class="t-pill t-pill-amber"><span class="t-dotc t-blink"></span>Pay later</span>
+</div>
+<figure class="t-term" style="margin: 24px 0 0">
+<div class="t-term-bar"><span class="t-term-dots" aria-hidden="true"><span></span><span></span><span></span></span><span>tessera · agent shell</span><span style="margin-left: auto">sample data</span></div>
+<div class="t-term-body" aria-hidden="true">
+<span class="t-ln"><span class="t-ps">$ </span><span class="t-typed t-typeA">tessera tab</span><span class="t-cur t-curA"></span></span>
+<div class="t-out t-oA">
+<span class="t-ln t-dim">tab 8f3c · open · pay later</span>
+<span class="t-ln t-dim"><span class="t-c" style="width: 7ch">ORDER</span><span class="t-c" style="width: 16ch">MERCHANT</span><span class="t-c" style="width: 12ch">ENDPOINT</span><span class="t-c" style="width: 9ch">AMOUNT</span><span class="t-c">STATUS</span></span>
+<span class="t-ln"><span class="t-c t-dim" style="width: 7ch">#1</span><span class="t-c t-wht" style="width: 16ch">search.api</span><span class="t-c t-dim" style="width: 12ch">/query</span><span class="t-c t-wht" style="width: 9ch">$0.010</span><span class="t-c t-amb">on tab</span></span>
+<span class="t-ln"><span class="t-c t-dim" style="width: 7ch">#2</span><span class="t-c t-wht" style="width: 16ch">prices.api</span><span class="t-c t-dim" style="width: 12ch">/sol-usd</span><span class="t-c t-wht" style="width: 9ch">$0.002</span><span class="t-c t-amb">on tab</span></span>
+<span class="t-ln"><span class="t-c t-dim" style="width: 7ch">#3</span><span class="t-c t-wht" style="width: 16ch">news.api</span><span class="t-c t-dim" style="width: 12ch">/latest</span><span class="t-c t-wht" style="width: 9ch">$0.005</span><span class="t-c t-amb">on tab</span></span>
+<span class="t-ln"><span class="t-c t-dim" style="width: 7ch">#4</span><span class="t-c t-wht" style="width: 16ch">llm.api</span><span class="t-c t-dim" style="width: 12ch">/chat</span><span class="t-c t-wht" style="width: 9ch">$0.040</span><span class="t-c t-amb">on tab</span></span>
+<span class="t-ln"><span class="t-c t-dim" style="width: 7ch">#5</span><span class="t-c t-wht" style="width: 16ch">image.api</span><span class="t-c t-dim" style="width: 12ch">/render</span><span class="t-c t-wht" style="width: 9ch">$0.080</span><span class="t-c t-amb">on tab</span></span>
+<span class="t-ln"><span class="t-c t-dim" style="width: 7ch">#6</span><span class="t-c t-wht" style="width: 16ch">translate.api</span><span class="t-c t-dim" style="width: 12ch">/text</span><span class="t-c t-wht" style="width: 9ch">$0.003</span><span class="t-c t-amb">on tab</span></span>
+</div>
+<div class="t-out t-oB">
+<span class="t-ln"><span class="t-hr"></span></span>
+<span class="t-ln"><span class="t-c t-dim" style="width: 7ch">TOTAL</span><span class="t-c" style="width: 28ch">6 orders</span><span class="t-c t-wht" style="width: 9ch">$0.140</span><span class="t-c t-amb">unpaid</span></span>
+</div>
+<div class="t-out t-oC"><span class="t-ln"><span class="t-ps">$ </span><span class="t-typed t-typeB">tessera settle</span><span class="t-cur t-curB"></span></span></div>
+<div class="t-out t-oD">
+<span class="t-ln">settling 6 orders in 1 payment</span>
+<span class="t-ln t-mint"><svg class="t-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>settled · 1 signature · main agent</span>
+<span class="t-ln t-dim">tab 8f3c · closed · $0.140 paid</span>
+<span class="t-ln"><span class="t-ps">$ </span><span class="t-cur"></span></span>
+</div>
+</div>
+<figcaption style="padding: 14px 18px 16px; border-top: 1px solid #1A211E; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 14px; line-height: 1.5; color: #86918B">Example orders. The main agent pays the whole tab later, in one payment.</figcaption>
+</figure>
+</div>
+</section>
+
+<section id="settle" aria-labelledby="t-settle-title" style="padding: clamp(80px, 10vw, 136px) 0; border-top: 1px solid #1A211E; background: #0E1210">
+<div style="max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px)">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 32px 48px">
+<div style="flex: 1 1 560px; max-width: 760px; min-width: 0">
+<p class="t-kicker">04 · Settle once</p>
+<h2 id="t-settle-title" style="margin: 20px 0 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(34px, 4.6vw, 60px); font-weight: 700; line-height: 1.02; letter-spacing: -0.035em; color: #E8EDE9">Many orders on one tab. One payment settles it.</h2>
+<p style="margin: 24px 0 0; max-width: 640px; font-size: clamp(17px, 1.5vw, 19px); line-height: 1.6; color: #A3ADA7">Pay per call means one on-chain payment for each request. With Tessera Pay Later, the main agent settles the whole tab in a single payment.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #86918B">Orders on the tab</span>
+<div class="t-seg" role="group" aria-label="Orders on the tab">
+<button type="button" aria-pressed="false" data-calls="10">10</button>
+<button type="button" aria-pressed="true" data-calls="100">100</button>
+<button type="button" aria-pressed="false" data-calls="1000">1,000</button>
+</div>
+</div>
+</div>
+
+<div style="margin-top: 44px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 24px">
+<div class="t-card" style="padding: clamp(20px, 3vw, 32px)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #86918B">x402 today</span>
+<span class="t-pill t-pill-amber">Pay per call</span>
+</div>
+<p style="margin: 26px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px"><span style="font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(52px, 6vw, 84px); font-weight: 700; line-height: 1; letter-spacing: -0.04em; color: #F5BE55"><span class="js-calls">100</span></span><span style="font-size: 20px; font-weight: 500; color: #E8EDE9">payments</span></p>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: #A3ADA7"><span class="js-calls">100</span> signatures. One for each call.</p>
+<div class="t-mq" aria-hidden="true" style="margin-top: 24px">
+<div class="t-mq-in">
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>search.api /query</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>prices.api /sol-usd</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>news.api /latest</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>llm.api /chat</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>image.api /render</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>translate.api /text</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>maps.api /route</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>search.api /query</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>search.api /query</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>prices.api /sol-usd</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>news.api /latest</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>llm.api /chat</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>image.api /render</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>translate.api /text</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>maps.api /route</span><span>signed</span></div>
+<div class="t-mq-row"><span class="t-dotc" style="color: #F5BE55"></span><span>search.api /query</span><span>signed</span></div>
+</div>
+</div>
+</div>
+<div style="border: 1px solid rgba(94,230,171,0.35); border-radius: 24px; background: #0F1513; padding: clamp(20px, 3vw, 32px)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<span style="font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #5EE6AB">Tessera Pay Later</span>
+<span class="t-pill t-pill-mint">Settle once</span>
+</div>
+<p style="margin: 26px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px"><span style="font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(52px, 6vw, 84px); font-weight: 700; line-height: 1; letter-spacing: -0.04em; color: #5EE6AB">1</span><span style="font-size: 20px; font-weight: 500; color: #E8EDE9">payment</span></p>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: #A3ADA7">1 signature, from the main agent.</p>
+<div class="t-term" aria-hidden="true" style="margin-top: 24px">
+<div class="t-term-bar"><span class="t-term-dots"><span></span><span></span><span></span></span><span>tessera · agent shell</span></div>
+<div class="t-term-body">
+<span class="t-ln"><span class="t-ps">$ </span><span class="t-typed t-typeC">tessera settle</span><span class="t-cur t-curC"></span></span>
+<div class="t-out t-oE">
+<span class="t-ln t-dim">tab 8f3c · <span class="js-calls">100</span> orders · unpaid</span>
+<span class="t-ln">settling <span class="js-calls">100</span> orders in 1 payment</span>
+</div>
+<div class="t-out t-oF"><span class="t-ln"><span class="t-pb"><span></span></span><span class="t-wht" style="margin-left: 1ch"><span class="t-pct"></span></span></span></div>
+<div class="t-out t-oG">
+<span class="t-ln t-mint"><svg class="t-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg>settled · 1 signature · main agent</span>
+<span class="t-ln t-dim"><span class="js-calls">100</span> orders closed · 1 payment on-chain</span>
+<span class="t-ln"><span class="t-ps">$ </span><span class="t-cur"></span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="t-cta-title" style="position: relative; padding: clamp(88px, 11vw, 150px) 0; border-top: 1px solid #1A211E">
+<div style="max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 48px 64px">
+<div style="flex: 1 1 520px; max-width: 640px; min-width: 0">
+<h2 id="t-cta-title" style="margin: 0; font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: clamp(40px, 5.6vw, 76px); font-weight: 700; line-height: 1; letter-spacing: -0.04em; color: #E8EDE9">Every payment matters.</h2>
+<p style="margin: 24px 0 0; max-width: 520px; font-size: clamp(17px, 1.5vw, 19px); line-height: 1.6; color: #A3ADA7">Tessera is the credit layer for agentic commerce. Agents buy now, and the main agent pays once.</p>
+<div style="margin-top: 34px; display: flex; flex-wrap: wrap; gap: 12px">
+<a class="t-btn t-btn-primary" href="#demo"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"></path></svg>Watch the demo</a>
+<a class="t-btn t-btn-ghost" href="#">Read the docs</a>
+</div>
+</div>
+<div class="t-twg" aria-hidden="true" style="flex: 0 1 360px; min-width: 0; max-width: 360px; width: 100%">
+<span class="t-tw" style="animation-delay: 0s"></span>
+<span class="t-tw" style="animation-delay: 2.4s"></span>
+<span class="t-tw" style="animation-delay: 1.2s"></span>
+<span class="t-tw t-tw-a" style="animation-delay: 3.6s"></span>
+<span class="t-tw" style="animation-delay: 0.6s"></span>
+<span class="t-tw" style="animation-delay: 4.2s"></span>
+<span class="t-tw" style="animation-delay: 1.8s"></span>
+<span class="t-tw" style="animation-delay: 3s"></span>
+<span class="t-tw" style="animation-delay: 4.6s"></span>
+<span class="t-tw t-tw-a" style="animation-delay: 0.4s"></span>
+<span class="t-tw" style="animation-delay: 2.2s"></span>
+<span class="t-tw" style="animation-delay: 3.4s"></span>
+<span class="t-tw" style="animation-delay: 1.4s"></span>
+<span class="t-tw" style="animation-delay: 3.8s"></span>
+<span class="t-tw" style="animation-delay: 0.8s"></span>
+<span class="t-tw" style="animation-delay: 2.8s"></span>
+<span class="t-tw t-tw-a" style="animation-delay: 4.4s"></span>
+<span class="t-tw" style="animation-delay: 1s"></span>
+<span class="t-tw" style="animation-delay: 2s"></span>
+<span class="t-tw" style="animation-delay: 4s"></span>
+<span class="t-tw" style="animation-delay: 0.2s"></span>
+<span class="t-tw t-tw-a" style="animation-delay: 3.2s"></span>
+<span class="t-tw" style="animation-delay: 1.6s"></span>
+<span class="t-tw" style="animation-delay: 2.6s"></span>
+</div>
+</div>
+</section>
+
+<footer style="border-top: 1px solid #1A211E">
+<div style="max-width: 1200px; margin: 0 auto; padding: 32px clamp(16px, 4vw, 32px) 40px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px 40px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px">
+<a href="#top" aria-label="Tessera, back to top" style="display: inline-flex; align-items: center; gap: 10px; min-height: 44px; color: #E8EDE9; text-decoration: none">
+<svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="3" fill="#5EE6AB"></rect><rect x="15.8" y="1.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" stroke-width="1.6"></rect><rect x="1.8" y="15.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" stroke-width="1.6"></rect><rect x="15" y="15" width="12" height="12" rx="3" fill="#F5BE55"></rect></svg>
+<span style="font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 18px; font-weight: 700; letter-spacing: -0.02em">Tessera</span>
+</a>
+<span style="font-size: 14px; color: #86918B">The credit layer for agentic commerce.</span>
+</div>
+<nav class="t-nav" aria-label="Footer">
+<a href="#trust">Why trust</a>
+<a href="#merchants">Merchants</a>
+<a href="#pay-later">Pay Later</a>
+<a href="#">Docs</a>
+<a href="#">GitHub</a>
+</nav>
+<span style="font-size: 13px; color: #86918B">© 2026 Tessera · Built on Solana and x402</span>
+</div>
+</footer>
+
+</div>
+<script>
+(function () {
+  var buttons = document.querySelectorAll('.t-seg button[data-calls]');
+  var outs = document.querySelectorAll('.js-calls');
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var n = parseInt(b.getAttribute('data-calls'), 10);
+      buttons.forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+      outs.forEach(function (o) { o.textContent = n.toLocaleString('en-GB'); });
+    });
+  });
+})();
+</script>
+</body>
+</html>

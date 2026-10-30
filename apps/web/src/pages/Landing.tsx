@@ -1,951 +1,971 @@
-import { AnimatePresence, motion, useScroll, useTransform } from 'motion/react';
-import { Fragment, useEffect, useRef, useState } from 'react';
-import { DEVNET_PARAMS, MAINNET_TARGET_PARAMS, paylater, TESSERA_PROGRAM_ADDRESS } from '@tessera/sdk';
-import registry from '../../../../deployments/registry.json';
-import snapshot from '../../../../deployments/snapshot.json';
-import { AttackLab } from '../components/AttackLab';
-import { Feed } from '../components/Feed';
-import { Graph } from '../components/Graph';
-import { Nav } from '../components/Nav';
-import { CONTACT, Waitlist } from '../components/Waitlist';
-import { Playground } from '../components/Playground';
-import { ReviewRewards } from '../components/ReviewRewards';
-import { Counter, EASE, Logo, Reveal, TierBadge, Words } from '../components/ui';
-import { NETWORK_LABEL } from '../lib/client';
-import { compactUsd, duration, explorerAddress, short, TIER_DARK, tierName } from '../lib/format';
+/**
+ * The home page: Tessera Pay Later, ported from the design handoff in
+ * docs/handoff/landing/index.html. The copy, colours, fonts and animations are
+ * the design's (landing.css holds its stylesheet). The only JavaScript on the
+ * page is the orders toggle in "Settle once" and the demo video's play button;
+ * everything that moves is a CSS keyframe.
+ *
+ * The sample merchants and orders in the terminals are labelled as such on the
+ * page: devnet has six merchants and no categories yet, and their agent cards
+ * are only served when the agents server runs.
+ */
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Logo } from '../components/ui';
+import { CONTACT } from '../components/Waitlist';
 import { Link, usePath } from '../lib/router';
-import { useChain, useProfiles } from '../lib/store';
-import { recordedAt, session } from '../lib/findDemo';
+import './landing.css';
 
 const REPO = 'https://github.com/edison9733/x402_bnpl';
-const PROGRAM: string = TESSERA_PROGRAM_ADDRESS;
+/** The docs start at the README on GitHub. */
+const DOCS = `${REPO}#readme`;
+/** The Tessera 2.0 demo of 28 October 2026, rendered on devnet (apps/web/public/videos). */
+const VIDEO = { src: '/videos/tessera-2.0-demo.mp4', poster: '/videos/tessera-2.0-demo-poster.jpg', captions: '/videos/tessera-2.0-demo.vtt', length: '2:54' };
 
-const mask = { display: 'inline-block', overflow: 'hidden', verticalAlign: 'top', paddingBottom: '0.2em', marginBottom: '-0.12em' } as const;
+const DISPLAY = "'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif";
+const MONO = "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
-/** "Agents without a name, with a record.", with the turn of the sentence in a shimmering green and an underline that draws itself. */
-function HeroTitle() {
-  // [words, accent, line break after them on wide screens]
-  const parts: [string, boolean, boolean][] = [['Agents without', false, false], ['a name,', false, true], ['with a record.', true, false]];
+/** The four tiles of the mark: two filled, two outlined. */
+function Mark({ size }: { size: number }) {
   return (
-    <h1 className="display mx-auto mt-7 text-[clamp(2.8rem,7.2vw,6.4rem)]" style={{ maxWidth: '22ch' }} aria-label="Agents without a name, with a record.">
-      {parts.map(([w, accent, br], i) => (
-        <Fragment key={w}>
-        <span aria-hidden style={{ position: 'relative', display: 'inline-block' }}>
-          <span style={mask}>
-            <motion.span
-              className={accent ? 'hero-accent' : undefined}
-              style={{ display: 'inline-block' }}
-              initial={{ y: '110%' }}
-              animate={{ y: 0 }}
-              transition={{ duration: 1, ease: EASE, delay: 0.1 + i * 0.08 }}
-            >
-              {w}
-            </motion.span>
-          </span>
-          {accent && (
-            <svg viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden style={{ position: 'absolute', left: '2%', right: '2%', width: '96%', bottom: '-0.02em', height: '0.24em', overflow: 'visible' }}>
-              <motion.path
-                d="M4 16 C 70 6, 150 4, 220 9 S 290 14, 296 10"
-                fill="none"
-                stroke="#4fd19a"
-                strokeWidth={5}
-                strokeLinecap="round"
-                initial={{ pathLength: 0, opacity: 0 }}
-                animate={{ pathLength: 1, opacity: 1 }}
-                transition={{ duration: 1.1, ease: EASE, delay: 0.9 }}
-              />
-            </svg>
-          )}
-        </span>
-        {i < parts.length - 1 ? ' ' : ''}
-        {br && <br className="hidden md:block" />}
-        </Fragment>
-      ))}
-    </h1>
-  );
-}
-
-function Hero() {
-  const { pairs, orders, feed, config } = useChain();
-  const { profiles, byWallet } = useProfiles();
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
-  const scale = useTransform(scrollYProgress, [0, 1], [1, 1.04]);
-  const lift = useTransform(scrollYProgress, [0, 1], [0, -40]);
-
-  return (
-    <section ref={ref} className="relative pb-20">
-      <div className="wrap pt-14 text-center md:pt-20">
-        <motion.a
-          href={explorerAddress(PROGRAM)}
-          target="_blank"
-          rel="noreferrer"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: EASE }}
-          className="mono inline-flex items-center gap-2.5 rounded-full border px-3.5 py-1.5 text-[0.74rem]"
-          style={{ borderColor: '#ded7c2', background: 'rgba(255,255,255,0.6)' }}
-        >
-          <span style={{ width: 7, height: 7, borderRadius: 7, background: '#2f8f66', boxShadow: '0 0 0 4px rgba(47,143,102,0.18)' }} />
-          Live on {NETWORK_LABEL} · program {short(PROGRAM)}
-        </motion.a>
-
-        <HeroTitle />
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, ease: EASE, delay: 0.5 }}
-          className="display mt-4 text-[clamp(1.9rem,4.2vw,3.4rem)]"
-          style={{ color: '#4b483e' }}
-        >
-          <em>Every payment matters.</em>
-        </motion.p>
-
-        <motion.p
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, ease: EASE, delay: 0.55 }}
-          className="mx-auto mt-7 max-w-[41rem] text-[1.14rem] leading-relaxed md:text-[1.24rem]"
-          style={{ color: '#4b483e' }}
-        >
-          AI agents now pay each other over x402, final in about a second, and nobody checks who is on the other end. Tessera puts the payment in escrow on Solana and lets an on-chain credit score decide how long it waits.{' '}
-          <span style={{ color: '#14130f' }}>Strangers wait. Agents with a record settle at once.</span>
-        </motion.p>
-
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, ease: EASE, delay: 0.7 }} className="mt-9 flex flex-wrap justify-center gap-3">
-          <Link to="/network" className="btn btn-ink">
-            Watch the live network <span aria-hidden>→</span>
-          </Link>
-          <Link to="/formula" className="btn btn-ghost">
-            How the score works
-          </Link>
-        </motion.div>
-      </div>
-
-      <motion.div style={{ scale, y: lift }} initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.3, ease: EASE, delay: 0.85 }} className="wrap mt-14" >
-        <div className="night gridded relative overflow-hidden" style={{ borderRadius: 28, border: '1px solid #272b21', boxShadow: '0 60px 120px -50px rgba(20,19,15,0.55)' }}>
-          <div className="mono flex items-center justify-between px-5 py-3.5 text-[0.72rem]" style={{ borderBottom: '1px solid #1c1f18', color: '#8b8a7c' }}>
-            <span className="inline-flex items-center gap-2">
-              <span style={{ width: 7, height: 7, borderRadius: 7, background: '#4fd19a' }} />
-              tessera · devnet · read from chain, in your browser
-            </span>
-            <span className="hidden gap-6 sm:inline-flex">
-              <span>
-                <span style={{ color: '#e9e6d8' }}><Counter value={profiles.length} /></span> agents
-              </span>
-              <span>
-                <span style={{ color: '#e9e6d8' }}><Counter value={Number(config?.ordersSettled ?? 0n)} /></span> orders settled
-              </span>
-              <span>
-                <span style={{ color: '#e9e6d8' }}><Counter value={Number(config?.volumeSettled ?? 0n)} format={(n) => compactUsd(BigInt(Math.round(n)))} /></span> through escrow
-              </span>
-            </span>
-          </div>
-          <div data-nav="/network" className="grid lg:grid-cols-[1fr_340px]">
-            <Graph profiles={profiles} pairs={pairs} orders={orders} feed={feed} height={500} />
-            <div className="hidden p-5 lg:block" style={{ borderLeft: '1px solid #1c1f18' }}>
-              <div className="eyebrow" style={{ color: '#8b8a7c' }}>On-chain, just now</div>
-              <div className="mt-2">
-                <Feed events={feed} byWallet={byWallet} limit={11} />
-              </div>
-            </div>
-          </div>
-        </div>
-        <p className="mono mt-4 text-center text-[0.72rem]" style={{ color: '#878371' }}>
-          Squares are merchant agents, circles are buyers. A coin in the middle of a line is money in escrow; the ring around it is its hold running down.
-        </p>
-      </motion.div>
-    </section>
-  );
-}
-
-function Problem() {
-  const cards: [string, string, string, string][] = [
-    [
-      '~1 s',
-      'An x402 payment is a signed token transfer.',
-      'Once a facilitator settles it, it is done. There is no chargeback, and nobody to call.',
-      'x402 `exact` scheme on Solana',
-    ],
-    [
-      '120–365 d',
-      'Card networks sort out fraud afterwards.',
-      'To win a fraud dispute under Visa’s Compelling Evidence 3.0, a merchant shows two earlier undisputed purchases by that buyer, 120 to 365 days old.',
-      'Checkout.com, Visa CE 3.0 explained, Oct 2025',
-    ],
-    [
-      '0.05 SOL',
-      'A new wallet costs nothing.',
-      'Ten thousand signatures cost 0.05 SOL at the 5,000-lamport base fee. A reputation that new wallets can mint is worth exactly that.',
-      'Solana base fee: 5,000 lamports per signature',
-    ],
-  ];
-  return (
-    <section className="wrap py-24 md:py-32">
-      <Reveal>
-        <Stage kind="pain" n={1} label="Who is on the other end?" />
-        <h2 className="display mt-4 max-w-[19ch] text-[clamp(2.4rem,5.6vw,4.6rem)]">
-          One person can launch unlimited agents. <em>Nobody checks who owns them.</em>
-        </h2>
-        <p className="mt-6 max-w-[46rem] text-[1.12rem] leading-relaxed" style={{ color: '#4b483e' }}>
-          An AI agent is just a wallet. One person can create as many as they like, with no identity check, and an agent you meet today may be gone tomorrow. Yet these anonymous agents now pay each other, and the payment is final.
-        </p>
-      </Reveal>
-      <div className="mt-14 grid gap-4 md:grid-cols-3">
-        {cards.map(([big, title, body, source], i) => (
-          <Reveal key={title} delay={i * 0.1}>
-            <motion.div whileHover={{ y: -6 }} transition={{ duration: 0.4, ease: EASE }} className="card flex h-full flex-col p-7">
-              <div className="display text-[3.4rem] leading-none">{big}</div>
-              <div className="mt-6 text-[1.08rem] font-medium">{title}</div>
-              <p className="mt-2.5 text-[0.97rem] leading-relaxed" style={{ color: '#4b483e' }}>{body}</p>
-              <div className="mono mt-auto pt-6 text-[0.7rem]" style={{ color: '#878371' }}>{source}</div>
-            </motion.div>
-          </Reveal>
-        ))}
-      </div>
-      <Reveal delay={0.1}>
-        <p className="mt-12 max-w-[46rem] text-[1.14rem] leading-relaxed" style={{ color: '#4b483e' }}>
-          So before an agent pays a stranger, it needs one answer:
-          <span style={{ color: '#14130f' }}> has this wallet behaved well before, with real money, for real counterparties?</span>
-        </p>
-      </Reveal>
-    </section>
-  );
-}
-
-/** "Pain 2" above a problem and "Fix 2" above its answer, so the page reads as problem, then solution. */
-function Stage({ kind, n, label, dark = false }: { kind: 'pain' | 'fix'; n: number; label: string; dark?: boolean }) {
-  const pain = kind === 'pain';
-  const bg = pain ? (dark ? '#3a1d1a' : '#f8e3dc') : dark ? '#123526' : '#dff5e9';
-  const fg = pain ? (dark ? '#f2b8a8' : '#8a2f1c') : dark ? '#b9f8da' : '#0f5c3e';
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="mono rounded-full px-3 py-1 text-[0.72rem] font-medium uppercase tracking-[0.08em]" style={{ background: bg, color: fg }}>
-        {pain ? 'Pain' : 'Fix'} {n}
-      </span>
-      <span className="eyebrow" style={{ color: dark ? '#8b8a7c' : '#878371' }}>{label}</span>
-    </div>
-  );
-}
-
-function CreditLayer() {
-  const labels: [string, string][] = [
-    ['Behaviour', 'Orders delivered, released, refunded or disputed, and how each dispute ended.'],
-    ['Amounts', 'How much really settled, with how many different counterparties, over how many active days.'],
-    ['Ratings', 'Reviews from the other side of settled orders, weighted by the money behind them.'],
-  ];
-  return (
-    <section data-nav="/agents" className="py-24 md:py-32" style={{ background: '#f4efe0' }}>
-      <div className="wrap">
-        <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-end">
-          <Reveal className="min-w-0">
-            <Stage kind="fix" n={1} label="The credit layer" />
-            <h2 className="display mt-4 text-[clamp(2.4rem,5vw,4.2rem)]">
-              We can't see who owns an agent. <em>We can see how it behaves.</em>
-            </h2>
-          </Reveal>
-          <Reveal delay={0.1} className="min-w-0">
-            <p className="text-[1.08rem] leading-relaxed" style={{ color: '#4b483e' }}>
-              Tessera is the bridge from an anonymous wallet to an agent you can judge. Every order that goes through it leaves a public record on Solana, and the program turns that record into a credit file: a score from 0 to 1000 and one of four tiers. No identity needed, and nothing to take on trust: anyone can recompute it from the chain.
-            </p>
-          </Reveal>
-        </div>
-        <div className="mt-12 grid items-stretch gap-3 md:grid-cols-[1fr_auto_1.6fr]">
-          <Reveal>
-            <div className="card flex h-full flex-col justify-center p-6">
-              <div className="mono text-[0.72rem]" style={{ color: '#878371' }}>before</div>
-              <div className="mono mt-2 text-[1.2rem]">7xKp…9fQe</div>
-              <div className="mt-2 text-[0.95rem]" style={{ color: '#4b483e' }}>An address. No name, no history you can read at a glance.</div>
-            </div>
-          </Reveal>
-          <div className="display hidden self-center px-2 text-[2.4rem] md:block" style={{ color: '#878371' }} aria-hidden>
-            →
-          </div>
-          <Reveal delay={0.1}>
-            <div className="card h-full p-6">
-              <div className="flex items-center justify-between gap-3">
-                <span className="mono text-[0.72rem]" style={{ color: '#878371' }}>after: its credit file</span>
-                <TierBadge tier={2} />
-              </div>
-              <div className="mt-4 grid gap-3">
-                {labels.map(([t, b]) => (
-                  <div key={t} className="grid gap-1 md:grid-cols-[7rem_1fr]">
-                    <span className="font-medium">{t}</span>
-                    <span className="text-[0.95rem]" style={{ color: '#4b483e' }}>{b}</span>
-                  </div>
-                ))}
-              </div>
-              <Link to="/agents" className="link mt-5 inline-block text-[0.93rem]">
-                See every agent's credit file →
-              </Link>
-            </div>
-          </Reveal>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Threats() {
-  const cards: [string, string, string][] = [
-    ['Sybil attacks', 'One person, many wallets.', 'Wallets are free, so an attacker can split into hundreds of "different" agents: to look popular, to vouch for each other, or to start again clean after getting caught.'],
-    ['Friendly fraud', 'Got the goods, wants the money back.', 'A buyer receives exactly what it paid for, then claims it never arrived. With no record of the delivery, the merchant cannot prove otherwise.'],
-  ];
-  return (
-    <section className="night gridded py-24 md:py-32">
-      <div className="wrap">
-        <Reveal>
-          <Stage kind="pain" n={2} label="What we had to defend against" dark />
-          <h2 className="display mt-4 max-w-[19ch] text-[clamp(2.4rem,5.6vw,4.6rem)]" style={{ color: '#f1eee2' }}>
-            A score is only useful <em>if it is hard to fake.</em>
-          </h2>
-          <p className="mt-6 max-w-[44rem] text-[1.05rem] leading-relaxed">
-            The moment a good record is worth something, people try to fake one. Building Tessera, we kept running into the same three attacks.
-          </p>
-        </Reveal>
-        <div className="mt-12 grid gap-3 md:grid-cols-2">
-          {cards.map(([t, sub, body], i) => (
-            <Reveal key={t} delay={i * 0.08}>
-              <div className="card-night h-full p-7">
-                <div className="mono text-[0.72rem]" style={{ color: '#f2b8a8' }}>{String(i + 1).padStart(2, '0')}</div>
-                <div className="display mt-2 text-[2rem]" style={{ color: '#f1eee2' }}>{t}</div>
-                <div className="mt-1 font-medium" style={{ color: '#e9e6d8' }}>{sub}</div>
-                <p className="mt-3 text-[0.97rem] leading-relaxed">{body}</p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-        <Reveal delay={0.12}>
-          <div className="card-night mt-3 p-7">
-            <div className="mono text-[0.72rem]" style={{ color: '#f2b8a8' }}>03 · the one that worries us most</div>
-            <div className="display mt-2 text-[2rem]" style={{ color: '#f1eee2' }}>Reputation farming</div>
-            <div className="mt-1 font-medium" style={{ color: '#e9e6d8' }}>Build a fake good name, then cash it in.</div>
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
-              {[
-                ['Farm', 'Trade with your own wallets, over and over. Every order settles, every review is five stars.'],
-                ['Look trusted', 'From the outside it looks like a busy, well-rated agent that real buyers keep coming back to.'],
-                ['Cash in', 'Strangers now pay it without waiting. It takes their money, delivers nothing, and walks away.'],
-              ].map(([t, b], i) => (
-                <div key={t} className="rounded-2xl p-5" style={{ background: '#0a0b09', border: '1px solid #272b21' }}>
-                  <div className="mono text-[0.72rem]" style={{ color: '#8b8a7c' }}>step {i + 1}</div>
-                  <div className="mt-1 font-medium" style={{ color: '#f1eee2' }}>{t}</div>
-                  <p className="mt-2 text-[0.93rem] leading-relaxed">{b}</p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-5 max-w-[46rem] text-[0.97rem] leading-relaxed">
-              If farming is cheap and fast, every score is worthless. So the real question became: how do we make it expensive and slow?
-            </p>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-function WhyEscrow() {
-  const rows: [string, string][] = [
-    ['Sybil attacks', 'A new wallet counts for only 10%, and any one counterparty can add only so much to a score (the pair cap). A hundred fresh wallets vouching for each other add up to very little.'],
-    ['Friendly fraud', 'The merchant commits a hash of what it delivered on-chain before the escrow pays out, so an arbiter (one key in this devnet demo) can check a dispute against it. A buyer who disputes and loses takes a 25% penalty on its score and loses its Trusted tier.'],
-    ['Reputation farming', 'Every farmed order pays a protocol fee it can never fully earn back, and Trusted needs 30 active days that cannot be squeezed into one. A ring of farm wallets costs hundreds to a few thousand dollars and one to three months.'],
-  ];
-  return (
-    <section className="wrap py-24 md:py-32">
-      <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-end">
-        <Reveal className="min-w-0">
-          <Stage kind="fix" n={2} label="Escrow" />
-          <h2 className="display mt-4 text-[clamp(2.4rem,5vw,4.2rem)]">
-            So every payment waits in escrow <em>until the wallet has earned trust.</em>
-          </h2>
-        </Reveal>
-        <Reveal delay={0.1} className="min-w-0">
-          <p className="text-[1.08rem] leading-relaxed" style={{ color: '#4b483e' }}>
-            The money goes to a Solana program, not to the merchant. A stranger's payment is held long enough for the buyer to dispute; an agent with a real record is paid at once. That raises the cost and the time of faking a record, from a free trick to real money and real months, and caps what a fake can take.
-          </p>
-        </Reveal>
-      </div>
-      <div className="mt-12 grid gap-3">
-        {rows.map(([t, b], i) => (
-          <Reveal key={t} delay={i * 0.08}>
-            <div className="card grid gap-3 p-6 md:grid-cols-[14rem_1fr] md:items-baseline">
-              <div className="display text-[1.6rem]">{t}</div>
-              <p className="text-[0.98rem] leading-relaxed" style={{ color: '#4b483e' }}>{b}</p>
-            </div>
-          </Reveal>
-        ))}
-      </div>
-      <Reveal delay={0.1}>
-        <p className="mono mt-6 text-[0.76rem]" style={{ color: '#878371' }}>
-          Priced, not impossible: an attacker with enough wallets, money and time can still reach any tier, and we say so. Numbers are the mainnet targets in docs/SECURITY.md and docs/SCORING.md. Try the attacks yourself in the attack lab further down.
-        </p>
-      </Reveal>
-    </section>
-  );
-}
-
-function TopUp() {
-  return (
-    <section className="night py-20 md:py-28">
-      <div className="wrap grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-end">
-        <Reveal className="min-w-0">
-          <Stage kind="pain" n={3} label="Paying for every job" dark />
-          <h2 className="display mt-4 text-[clamp(2.2rem,5vw,4rem)]" style={{ color: '#f1eee2' }}>
-            Top up, count tokens, <em>top up again.</em>
-          </h2>
-        </Reveal>
-        <Reveal delay={0.1} className="min-w-0">
-          <p className="text-[1.05rem] leading-relaxed">
-            Today an agent can only spend what is already in its wallet. Its owner has to keep topping it up and guess how many tokens the next job will need. Guess low, and the agent stops halfway through the task.
-          </p>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-const STEPS: [string, string, string][] = [
-  ['Ask', 'A buyer agent finds a merchant by its A2A agent card and asks for a service.', 'A2A · message/send'],
-  ['Quote', 'The merchant opens an escrow on-chain and answers 402. The address to pay is the escrow account, not the merchant.', 'x402 · payTo = order account'],
-  ['Verify, then pay', 'The buyer re-derives the escrow address, reads the order from the chain, and only then signs one USDC transfer. A facilitator pays the network fee, so the buyer needs no SOL.', 'x402 · facilitator settles'],
-  ['Deliver', 'The merchant does the work and commits a hash of it on-chain. The buyer checks what it received against that hash.', 'deliver(delivery_hash)'],
-  ['Hold', 'The program holds the money for as long as the two scores say. During the hold the buyer can dispute.', 'hold = max(tier of buyer, tier of merchant)'],
-  ['Settle and rate', 'When the hold ends anyone can release the escrow. Both sides rate each other, and both scores move.', 'release · submit_review'],
-];
-
-function Diagram({ step }: { step: number }) {
-  // where the coin is at each step: 0 buyer, 1 escrow, 2 merchant
-  const at = [0, 0, 1, 1, 1, 2][step]!;
-  const x = [86, 260, 434][at]!;
-  const box = (cx: number, label: string, sub: string, active: boolean, square = false) => (
-    <g>
-      <motion.rect
-        x={cx - 62}
-        y={96}
-        width={124}
-        height={96}
-        rx={square ? 14 : 48}
-        fill="#10120e"
-        animate={{ stroke: active ? '#b9f8da' : '#272b21' }}
-        strokeWidth={1.5}
-        transition={{ duration: 0.4 }}
-      />
-      <text x={cx} y={140} textAnchor="middle" fontSize={13} fill="#e9e6d8" style={{ fontFamily: 'var(--font-sans)', fontWeight: 500 }}>
-        {label}
-      </text>
-      <text x={cx} y={160} textAnchor="middle" fontSize={10} fill="#8b8a7c" className="mono">
-        {sub}
-      </text>
-    </g>
-  );
-  return (
-    <svg viewBox="0 0 520 300" width="100%" role="img" aria-label={`Step ${step + 1}: ${STEPS[step]![0]}`}>
-      <line x1={148} y1={144} x2={198} y2={144} stroke="#272b21" strokeWidth={1.5} strokeDasharray="3 5" />
-      <line x1={322} y1={144} x2={372} y2={144} stroke="#272b21" strokeWidth={1.5} strokeDasharray="3 5" />
-      {box(86, 'Buyer agent', 'holds only USDC', step <= 2)}
-      {box(260, 'Escrow', 'order account', step >= 1 && step <= 4, true)}
-      {box(434, 'Merchant agent', 'A2A + x402', step === 0 || step === 3 || step === 5)}
-      <AnimatePresence>
-        {step === 0 && (
-          <motion.path key="ask" d="M 86 84 Q 260 10 434 84" fill="none" stroke="#3987e5" strokeWidth={1.5} initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.9, ease: EASE }} />
-        )}
-        {step === 1 && (
-          <motion.path key="quote" d="M 434 84 Q 260 10 86 84" fill="none" stroke="#c98500" strokeWidth={1.5} initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.9, ease: EASE }} />
-        )}
-        {step === 3 && (
-          <motion.path key="deliver" d="M 434 204 Q 260 286 86 204" fill="none" stroke="#b9f8da" strokeWidth={1.5} initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.9, ease: EASE }} />
-        )}
-      </AnimatePresence>
-      <text x={260} y={42} textAnchor="middle" fontSize={10.5} fill="#8b8a7c" className="mono">
-        {step === 0 ? 'request' : step === 1 ? '402 Payment Required' : ''}
-      </text>
-      <text x={260} y={272} textAnchor="middle" fontSize={10.5} fill="#8b8a7c" className="mono">
-        {step === 3 ? 'delivery + hash on-chain' : ''}
-      </text>
-      {step >= 1 && (
-        <motion.g animate={{ x }} initial={{ x: 86 }} transition={{ duration: 1, ease: EASE }}>
-          <circle cx={0} cy={216} r={9} fill={step === 5 ? '#b9f8da' : '#fab219'} />
-          <text x={0} y={219.5} textAnchor="middle" fontSize={9} fill="#0a0b09" className="mono" fontWeight={600}>
-            $
-          </text>
-          {step === 4 && (
-            <motion.circle cx={0} cy={216} r={15} fill="none" stroke="#fab219" strokeWidth={1.5} strokeDasharray="94" initial={{ strokeDashoffset: 0 }} animate={{ strokeDashoffset: 94 }} transition={{ duration: 3.2, ease: 'linear', repeat: Infinity }} />
-          )}
-        </motion.g>
-      )}
+    <svg width={size} height={size} viewBox="0 0 28 28" aria-hidden>
+      <rect x="1" y="1" width="12" height="12" rx="3" fill="#5EE6AB" />
+      <rect x="15.8" y="1.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" strokeWidth="1.6" />
+      <rect x="1.8" y="15.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" strokeWidth="1.6" />
+      <rect x="15" y="15" width="12" height="12" rx="3" fill="#F5BE55" />
     </svg>
   );
 }
 
-function HowItWorks() {
-  const [step, setStep] = useState(0);
+const PlayIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
+    <path d="M7 4.5v15l12.5-7.5z" fill="currentColor" />
+  </svg>
+);
+const DownIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 5v14" />
+    <path d="M19 12l-7 7-7-7" />
+  </svg>
+);
+const Cross = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+    <path d="M6 6l12 12M18 6L6 18" />
+  </svg>
+);
+const Tick = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12l5 5L20 7" />
+  </svg>
+);
+const Arrow = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14" />
+    <path d="M13 6l6 6-6 6" />
+  </svg>
+);
+/** The check mark on a settled line of a terminal. */
+const Check = () => (
+  <svg className="t-chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M5 12l5 5L20 7" />
+  </svg>
+);
+
+function Header() {
   return (
-    <section className="night gridded py-24 md:py-32">
-      <div className="wrap">
-        <Reveal>
-          <div className="eyebrow" style={{ color: '#8b8a7c' }}>How a payment moves</div>
-          <h2 className="display mt-4 max-w-[18ch] text-[clamp(2.4rem,5.6vw,4.6rem)]" style={{ color: '#f1eee2' }}>
-            One 402. <em>Six steps.</em> No new payment scheme.
-          </h2>
-        </Reveal>
-        <div className="mt-14 grid gap-10 lg:grid-cols-2">
-          <div className="grid gap-2">
-            {STEPS.map(([title, body, code], i) => (
-              <motion.button
-                key={title}
-                onViewportEnter={() => setStep(i)}
-                viewport={{ margin: '-45% 0px -45% 0px' }}
-                onClick={() => setStep(i)}
-                className="grid gap-1 rounded-2xl p-5 text-left"
-                style={{ gridTemplateColumns: '2.4rem 1fr', cursor: 'pointer', border: '1px solid', borderColor: step === i ? '#272b21' : 'transparent', background: step === i ? '#10120e' : 'transparent' }}
-                animate={{ opacity: step === i ? 1 : 0.42 }}
-                transition={{ duration: 0.4 }}
-              >
-                <span className="mono text-[0.8rem]" style={{ color: '#8b8a7c' }}>{String(i + 1).padStart(2, '0')}</span>
-                <span>
-                  <span className="display block text-[1.7rem]" style={{ color: '#f1eee2' }}>{title}</span>
-                  <span className="mt-1.5 block text-[0.98rem] leading-relaxed">{body}</span>
-                  <span className="mono mt-2.5 block text-[0.72rem]" style={{ color: '#4fd19a' }}>{code}</span>
-                </span>
-              </motion.button>
+    <header style={{ position: 'relative', zIndex: 2, borderBottom: '1px solid #1A211E' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '12px clamp(16px, 4vw, 32px)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '4px 28px' }}>
+        <a href="#top" aria-label="Tessera, back to top" style={{ display: 'inline-flex', alignItems: 'center', gap: 12, minHeight: 44, color: '#E8EDE9', textDecoration: 'none' }}>
+          <Mark size={28} />
+          <span style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>Tessera</span>
+        </a>
+        <nav className="t-nav" aria-label="Main">
+          <a href="#trust">Why trust</a>
+          <a href="#merchants">Merchants</a>
+          <a href="#pay-later">Pay Later</a>
+          <a href="#settle">Settle once</a>
+          <a href={DOCS} target="_blank" rel="noreferrer">
+            Docs
+          </a>
+        </nav>
+        <a className="t-btn t-btn-ghost" href="#demo" style={{ minHeight: 44, padding: '0 18px', fontSize: 14 }}>
+          Watch the demo
+        </a>
+      </div>
+    </header>
+  );
+}
+
+// ------------------------------------------------------------------ hero
+
+/** When each of the 48 tiles lands on the tab, in seconds; the design's order. */
+const MOSAIC_DELAYS = [
+  2.925, 2.475, 1.05, 1.125, 0.75, 3.45, 0.825, 1.2, 2.325, 2.7, 3, 3.15, 2.1, 0.6, 0, 1.65, 1.425, 0.9, 3.375, 1.8, 1.575, 3.525, 2.175, 2.85, 1.35, 0.075, 2.625, 1.275, 2.25, 0.525, 3.3, 1.95, 2.025, 0.375,
+  0.15, 0.975, 2.4, 3.225, 2.775, 1.725, 0.45, 2.55, 0.3, 0.225, 3.075, 1.875, 0.675, 1.5,
+];
+
+function Hero() {
+  return (
+    <section aria-labelledby="t-hero-title" style={{ position: 'relative' }}>
+      <div className="t-gridbg" aria-hidden />
+      <div style={{ position: 'relative', maxWidth: 1200, margin: '0 auto', padding: 'clamp(48px, 7vw, 100px) clamp(16px, 4vw, 32px) clamp(64px, 7.5vw, 108px)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'clamp(44px, 6vw, 72px)' }}>
+        <div style={{ flex: '1 1 540px', minWidth: 0 }}>
+          <p className="t-kicker">Tessera Pay Later · x402 on Solana</p>
+          <h1 id="t-hero-title" style={{ margin: '26px 0 0', fontFamily: DISPLAY, fontSize: 'clamp(34px, 9.5vw, 62px)', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.04em', color: '#E8EDE9' }}>
+            <span className="t-nw">Buy now, pay later</span>{' '}
+            <span className="t-nw" style={{ color: '#5EE6AB' }}>
+              for AI agents.
+            </span>
+          </h1>
+          <p style={{ margin: '26px 0 0', maxWidth: 540, fontSize: 'clamp(17px, 1.55vw, 20px)', lineHeight: 1.55, color: '#A3ADA7' }}>
+            Tessera is the credit layer for agentic commerce. Your agents buy over x402 now, and the main agent pays for the whole tab at once.
+          </p>
+          <div style={{ marginTop: 36, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            <a className="t-btn t-btn-primary" href="#demo">
+              <PlayIcon />
+              Watch the demo
+            </a>
+            <a className="t-btn t-btn-ghost" href="#trust">
+              Why agents need trust
+              <DownIcon />
+            </a>
+          </div>
+        </div>
+        <figure className="t-mcard" style={{ flex: '1 1 380px', maxWidth: 500, minWidth: 0, margin: 0, padding: 'clamp(18px, 2vw, 24px)', border: '1px solid #232C28', borderRadius: 24, background: '#101513' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
+            <span className="t-eyeb">Example tab</span>
+            <span className="t-stack" style={{ justifyItems: 'end' }}>
+              <span className="t-pill t-pill-amber t-lab-tab">
+                <span className="t-dotc t-blink" />
+                <span className="t-count" />
+                orders on the tab
+              </span>
+              <span className="t-pill t-pill-mint t-lab-ok">
+                <span className="t-dotc" />
+                Settled in 1 payment
+              </span>
+            </span>
+          </div>
+          <div className="t-mosaic" aria-hidden>
+            {MOSAIC_DELAYS.map((delay, i) => (
+              <span key={i} className="t-tile">
+                <span className="t-on" style={{ animationDelay: `${delay}s` }} />
+                <span className="t-ok" />
+              </span>
             ))}
           </div>
-          <div>
-            <div className="card-night sticky top-24 p-6">
-              <Diagram step={step} />
-              <div className="mono mt-2 flex items-center justify-between text-[0.72rem]" style={{ color: '#8b8a7c' }}>
-                <span>step {step + 1} of 6</span>
-                <span className="flex gap-1.5">
-                  {STEPS.map((_, i) => (
-                    <span key={i} style={{ width: 18, height: 3, borderRadius: 3, background: i <= step ? '#b9f8da' : '#272b21', transition: 'background 0.3s' }} />
-                  ))}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+          <figcaption style={{ marginTop: 18, fontSize: 14, lineHeight: 1.5, color: '#A3ADA7' }}>Each tile is one x402 order. The main agent settles them together, in one payment.</figcaption>
+        </figure>
       </div>
     </section>
   );
 }
 
-function Lanes() {
-  // loop times are for the eye; the labels carry the real numbers
-  const loop = [7, 3.8, 1.9, 0.7];
-  return (
-    <section className="wrap py-24 md:py-32">
-      <Reveal>
-        <div className="eyebrow" style={{ color: '#878371' }}>Settlement at the speed of trust</div>
-        <h2 className="display mt-4 max-w-[17ch] text-[clamp(2.4rem,5.6vw,4.6rem)]">
-          Four tiers. <em>One rule:</em> the longer hold wins.
-        </h2>
-      </Reveal>
-      <div className="mt-12 grid gap-3">
-        {[0, 1, 2, 3].map((t) => (
-          <Reveal key={t} delay={t * 0.08}>
-            <div className="card grid items-center gap-5 p-5 md:grid-cols-[11rem_1fr_15rem]">
-              <div>
-                <TierBadge tier={t} />
-                <div className="mono mt-1.5 text-[0.72rem]" style={{ color: '#878371' }}>
-                  score ≥ {t === 0 ? 0 : MAINNET_TARGET_PARAMS.tierScore[t - 1]} · {t === 0 ? 'any wallet' : `${MAINNET_TARGET_PARAMS.tierPeriods[t - 1]}+ active days`}
-                </div>
-              </div>
-              <div style={{ position: 'relative', height: 26 }}>
-                <div style={{ position: 'absolute', left: 0, right: 0, top: 12, height: 2, background: '#e4ddc8', borderRadius: 2 }} />
-                <motion.div
-                  style={{ position: 'absolute', top: 5, width: 16, height: 16, borderRadius: 16, background: ['#62ad89', '#2f8f66', '#126b4a', '#083d2a'][t] }}
-                  animate={{ left: ['0%', 'calc(100% - 16px)'] }}
-                  transition={{ duration: loop[t], ease: t === 3 ? EASE : 'linear', repeat: Infinity, repeatDelay: 0.7 }}
-                />
-              </div>
-              <div className="mono text-[0.8rem] md:text-right">
-                <span className="display text-[1.7rem]" style={{ letterSpacing: '-0.02em' }}>{duration(MAINNET_TARGET_PARAMS.holdSecs[t]!)}</span>
-                <span style={{ color: '#878371' }}> target · {duration(DEVNET_PARAMS.holdSecs[t]!)} on devnet</span>
-              </div>
-            </div>
-          </Reveal>
-        ))}
-      </div>
-      <Reveal delay={0.1}>
-        <p className="mt-8 max-w-[46rem] text-[1.05rem] leading-relaxed" style={{ color: '#4b483e' }}>
-          An order between a {tierName(3)} merchant and a {tierName(0)} buyer is held as a {tierName(0)} order. Two {tierName(3)} wallets settle in the same transaction as delivery. A buyer with two or more undisputed purchases from the same merchant is treated as {tierName(3)} for that merchant, and any buyer can ask for a longer hold than the tiers call for.
-        </p>
-      </Reveal>
-    </section>
-  );
-}
-
-const PL = paylater.DEVNET_LINE_PARAMS;
-const usdcOf = (u: bigint) => (Number(u) / 1e6).toFixed(2);
-
-function PayLater() {
-  const steps = [
-    ['Buy now', 'The pool pays the escrow order the merchant quoted, in the buyer\'s place. The escrow pays the merchant on delivery, and the buyer keeps its refund and dispute protection. The buyer agent signs; nobody can borrow in its name.'],
-    ['Pay later', 'The buyer repays the price plus a 2% pool fee by the due date, with no interest. A loan the size of its tier limit, repaid on time, raises its limit by 25%, a smaller one by its share of that, up to double.'],
-    ['Or default', 'Miss the due date and its grace period, and anyone can mark the loan in default. The line freezes at zero, in public.'],
-  ];
-  const path = usePath();
-  const ref = useRef<HTMLElement>(null);
-  // #/pay-later opens the home page on this section.
-  useEffect(() => {
-    if (path === '/pay-later') ref.current?.scrollIntoView({ block: 'start' });
-  }, [path]);
-  return (
-    <section data-nav="/pay-later" ref={ref} id="pay-later" className="py-24 md:py-32" style={{ background: '#f4efe0', scrollMarginTop: 68 }}>
-      <div className="wrap">
-        <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-end">
-          <Reveal className="min-w-0">
-            <Stage kind="fix" n={3} label="Pay later for agents · new" />
-            <h2 className="display mt-4 text-[clamp(2.4rem,5vw,4.2rem)]">
-              A good score earns speed. <em>Now it earns credit.</em>
-            </h2>
-          </Reveal>
-          <Reveal delay={0.1} className="min-w-0">
-            <p className="text-[1.08rem] leading-relaxed" style={{ color: '#4b483e' }}>
-              Fund the agent roughly, once. When a purchase costs more than its wallet holds, it can buy now and pay later: a pool pays its escrow order, so the purchase is protected like any other. It can run a tab: buy several things, then settle every loan in one transaction. How much it may borrow comes from the same score that shortens the hold: a wallet with no history gets nothing, and a wallet that earned its tier through real, settled trade gets a credit line.
-            </p>
-            <p className="mono mt-4 text-[0.76rem]" style={{ color: '#878371', overflowWrap: 'anywhere' }}>
-              A second Solana program, on devnet since 27 October 2026 (program LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D, pool GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq): loans there are due in 600 s, with 60 s of grace. Tested on a local validator too (npm run test:paylater; try it by hand with npm run paylater:local, where the term is 60 s). The escrow program is unchanged.
-            </p>
-          </Reveal>
-        </div>
-        <div className="mt-12 grid gap-3 md:grid-cols-3">
-          {steps.map(([title, body], i) => (
-            <Reveal key={title} delay={i * 0.08}>
-              <div className="card h-full p-6">
-                <div className="mono text-[0.72rem]" style={{ color: '#878371' }}>{String(i + 1).padStart(2, '0')}</div>
-                <div className="display mt-2 text-[1.9rem]">{title}</div>
-                <p className="mt-3 text-[0.95rem] leading-relaxed" style={{ color: '#4b483e' }}>{body}</p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-        <Reveal delay={0.1}>
-          <div className="card mt-3 grid gap-4 p-6 md:grid-cols-[1fr_auto] md:items-center">
-            <div className="flex flex-wrap gap-x-8 gap-y-3">
-              {[0, 1, 2, 3].map((t) => (
-                <div key={t} className="flex items-center gap-3">
-                  <TierBadge tier={t} />
-                  <span className="display text-[1.5rem]">{usdcOf(PL.tierLimit[t]!)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mono text-[0.76rem] md:text-right" style={{ color: '#878371' }}>
-              limit at a perfect score, devnet USDC
-              <br />
-              limit = tier limit × score ÷ 1000 × on-time boost
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-function Score() {
-  return (
-    <section data-nav="/formula" className="py-24 md:py-32" style={{ background: '#f4efe0' }}>
-      <div className="wrap">
-        <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-end">
-          <Reveal className="min-w-0">
-            <div className="eyebrow" style={{ color: '#878371' }}>The score</div>
-            <h2 className="display mt-4 text-[clamp(2.4rem,5vw,4.2rem)]">
-              How much is known, <em>times</em> whether it is good.
-            </h2>
-          </Reveal>
-          <Reveal delay={0.1} className="min-w-0">
-            <p className="text-[1.08rem] leading-relaxed" style={{ color: '#4b483e' }}>
-              Every wallet gets a score from 0 to 1000. The higher it is, the sooner it gets paid. It counts how much the wallet has really sold, to how many real buyers, for how long, and how those buyers rated it. Faking any of that costs real money.
-            </p>
-            <Link to="/formula" className="btn btn-ghost mt-6">
-              Read the whole formula
-            </Link>
-          </Reveal>
-        </div>
-        <Reveal delay={0.15} className="mt-12 min-w-0">
-          <Playground />
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-function Rewards() {
-  return (
-    <section data-nav="/review" id="rewards" className="py-24 md:py-32">
-      <div className="wrap">
-        <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-end">
-          <Reveal className="min-w-0">
-            <div className="eyebrow" style={{ color: '#878371' }}>Reviews that pay</div>
-            <h2 className="display mt-4 text-[clamp(2.4rem,5vw,4.2rem)]">
-              Paid to review. <em>Paid more for being right.</em>
-            </h2>
-          </Reveal>
-          <Reveal delay={0.1} className="min-w-0">
-            <p className="text-[1.08rem] leading-relaxed" style={{ color: '#4b483e' }}>
-              A share of every fee goes back to the buyers and merchants who review. The pay never depends on the stars, only on whether the review turned out to be right. The operator pays it from the treasury as a rebate, and anyone can recompute every payout from the chain.
-            </p>
-          </Reveal>
-        </div>
-        <Reveal delay={0.15} className="mt-12 min-w-0">
-          <ReviewRewards />
-        </Reveal>
-        <Reveal delay={0.1} className="min-w-0">
-          <div className="card mt-3 grid gap-6 p-6 md:grid-cols-[1fr_1.3fr]">
-            <div className="min-w-0">
-              <div className="display text-[1.7rem]">How to leave a review</div>
-              <p className="mt-2 text-[0.97rem] leading-relaxed" style={{ color: '#4b483e' }}>
-                No purchase, no review. The receipt is the settled order on Solana, and you sign with the wallet that made the trade. The buyer rates the merchant, and the merchant rates the buyer, once each.
-              </p>
-              <Link to="/review" className="btn btn-ink mt-5">
-                Review an order on the website
-              </Link>
-            </div>
-            <div className="min-w-0">
-              <div className="mono text-[0.72rem]" style={{ color: '#878371' }}>or in the terminal</div>
-              <pre className="mono mt-2 overflow-x-auto rounded-2xl p-4 text-[0.78rem] leading-relaxed" style={{ background: '#14130f', color: '#e9e6d8', margin: 0 }}>
-{[
-  'npm run tessera -- report <order> \\',
-  '  --outcome satisfied --rating 5 \\',
-  '  --comment "fast, as described" \\',
-  '  --keypair ~/my-agent.json --send',
-].join('\n')}
-              </pre>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-function Attacks() {
-  return (
-    <section className="night gridded py-24 md:py-32">
-      <div className="wrap">
-        <Reveal>
-          <div className="eyebrow" style={{ color: '#8b8a7c' }}>Attack lab</div>
-          <h2 className="display mt-4 max-w-[20ch] text-[clamp(2.4rem,5.6vw,4.6rem)]" style={{ color: '#f1eee2' }}>
-            A score people can farm <em>is a liability.</em> So we priced the farming.
-          </h2>
-          <p className="mt-6 max-w-[44rem] text-[1.05rem] leading-relaxed">
-            On-chain data alone cannot tell a bot from a customer spending the same money. What a program can do is make faking cost real money and time, and cap what a fake can then take.
-          </p>
-        </Reveal>
-        <Reveal delay={0.1} className="mt-12">
-          <AttackLab />
-        </Reveal>
-      </div>
-    </section>
-  );
-}
+// ------------------------------------------------------------------ demo
 
 function Demo() {
+  const video = useRef<HTMLVideoElement>(null);
+  // Until the round button is pressed the poster shows and the native controls stay out of the way.
+  const [started, setStarted] = useState(false);
+  const play = () => {
+    setStarted(true);
+    void video.current?.play();
+  };
   return (
-    <section id="demo" className="wrap py-16 md:py-24" style={{ scrollMarginTop: 80 }}>
-      <Reveal>
-        <div className="eyebrow" style={{ color: '#878371' }}>See it in under 3 minutes</div>
-        <h2 className="display mt-3 max-w-[20ch] text-[clamp(2.2rem,5vw,4rem)]">
-          Find a seller, pay, get a refund, <em>then buy now and pay later.</em>
-        </h2>
-      </Reveal>
-      <Reveal delay={0.1} className="mt-10">
-        <video
-          controls
-          preload="metadata"
-          playsInline
-          poster="/videos/tessera-demo-poster.jpg"
-          src="/videos/tessera-demo-paylater.mp4"
-          className="w-full"
-          style={{ borderRadius: 24, border: '1px solid #272b21', background: '#0b0c0a', boxShadow: '0 50px 100px -50px rgba(20,19,15,0.55)' }}
-        />
-        <p className="mono mt-3 text-[0.72rem]" style={{ color: '#878371' }}>
-          Real commands and real output, on a local Solana validator running the real Tessera programs. The first 17 seconds explain why Tessera exists; pay later starts at 2:12.
-        </p>
-      </Reveal>
+    <section id="demo" aria-labelledby="t-demo-title" style={{ padding: 'clamp(72px, 9vw, 120px) 0', borderTop: '1px solid #1A211E', background: '#0E1210' }}>
+      <div className="t-wrap">
+        <div style={{ marginBottom: 36 }}>
+          <p className="t-kicker">Demo</p>
+          <h2 id="t-demo-title" className="t-display" style={{ margin: '18px 0 0', fontSize: 'clamp(32px, 4.2vw, 56px)', lineHeight: 1.04, letterSpacing: '-0.035em' }}>
+            See Tessera in action.
+          </h2>
+        </div>
+        <figure style={{ margin: 0 }}>
+          <div style={{ position: 'relative', aspectRatio: '16 / 9', border: '1px solid #232C28', borderRadius: 'clamp(16px, 2vw, 28px)', overflow: 'hidden', background: '#0A0D0C' }}>
+            <div className="t-gridbg t-gridbg-c" aria-hidden />
+            <video ref={video} className="t-video" poster={VIDEO.poster} preload="metadata" playsInline controls={started} onPlay={() => setStarted(true)}>
+              <source src={VIDEO.src} type="video/mp4" />
+              <track kind="captions" src={VIDEO.captions} srcLang="en" label="English" />
+            </video>
+            {!started && (
+              <>
+                <div style={{ position: 'absolute', left: 'clamp(14px, 2vw, 24px)', top: 'clamp(14px, 2vw, 22px)', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <span className="t-pill t-pill-mint">x402</span>
+                  <span className="t-pill t-pill-amber">Solana</span>
+                </div>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 24, textAlign: 'center' }}>
+                  <button type="button" className="t-play" aria-label="Play the Tessera demo video" onClick={play}>
+                    <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden>
+                      <path d="M8 5v14l11-7z" fill="currentColor" />
+                    </svg>
+                  </button>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#A3ADA7' }}>Tessera 2.0 demo · {VIDEO.length} · on devnet</span>
+                </div>
+              </>
+            )}
+          </div>
+        </figure>
+      </div>
     </section>
   );
 }
 
-const FIND = session('best');
+// ------------------------------------------------------------------ 01 · why trust
 
-const SNIPPETS: { id: string; label: string; file: string; code: string }[] = [
+const X402_STEPS: { who: string; code: string; text: string; pay?: boolean; delay: number }[] = [
+  { who: '1 · Agent to API', code: 'GET /data', text: 'The agent asks for a paid resource.', delay: 0 },
+  { who: '2 · API to agent', code: '402 Payment Required', text: 'The API replies with the price.', delay: 2 },
+  { who: '3 · Agent to API', code: 'Signed payment', text: 'The agent pays from its wallet and asks again. No chargeback once it settles.', pay: true, delay: 4 },
+  { who: '4 · API to agent', code: '200 OK', text: 'The data arrives.', delay: 6 },
+];
+
+/** The example wallet climbing through the tiers, and the hold it waits at each. */
+const TIERS: { name: string; color: string; hold: string; final?: boolean }[] = [
+  { name: 'New', color: '#A3ADA7', hold: 'Hold 3 days' },
+  { name: 'Building', color: '#C9D8D0', hold: 'Hold 24 h' },
+  { name: 'Established', color: '#8FE3BE', hold: 'Hold 60 min' },
+  { name: 'Trusted', color: '#5EE6AB', hold: 'Instant', final: true },
+];
+
+/** Hold bars to scale in hours: 72 h, 24 h, 1 h, and a dot for instant. */
+const HOLDS: { name: string; gate: string; bar?: string; minWidth?: number; value: string }[] = [
+  { name: 'New', gate: 'Each fresh wallet starts here', bar: '100%', value: '3 days' },
+  { name: 'Building', gate: '250+ points, 3 active days', bar: '33.3%', value: '24 h' },
+  { name: 'Established', gate: '500+ points, 14 active days', bar: '1.4%', minWidth: 6, value: '60 min' },
+  { name: 'Trusted', gate: '750+ points, 30 active days', value: 'instant' },
+];
+
+const FACTS: [string, string][] = [
+  ['When an order settles instantly', 'Both sides are Trusted, or the buyer has two or more undisputed orders with that merchant. The merchant must also be within its instant limit.'],
+  ['Instant settlement has a cap', 'An exit scam on instant settlement is capped at the fees the merchant already paid, plus a small base.'],
+  ['Buyers need no SOL', 'The x402 facilitator pays the network fee.'],
+  ['Reviews come from the order', "Only the buyer and the merchant on an order can review each other. A refunded order's review weighs nothing."],
+];
+
+function Trust() {
+  return (
+    <section id="trust" aria-labelledby="t-trust-title" className="t-sec">
+      <div className="t-wrap">
+        <div style={{ maxWidth: 860 }}>
+          <p className="t-kicker">01 · Why trust</p>
+          <h2 id="t-trust-title" className="t-display t-h2">
+            x402 has no chargeback. So agents mostly move small amounts.
+          </h2>
+          <p className="t-lead" style={{ maxWidth: 700 }}>
+            AI agents now pay each other over x402, and most of these payments are micropayments. Once a payment settles, it cannot be pulled back. To x402, a fresh wallet and a wallet with a long, clean record look the same.
+          </p>
+        </div>
+
+        <div className="t-card" style={{ marginTop: 56, padding: 'clamp(20px, 3vw, 36px)' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px 24px', marginBottom: 28 }}>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, lineHeight: 1.3, color: '#E8EDE9' }}>How an x402 payment works today</h3>
+            <span className="t-eyeb">Repeats for each call</span>
+          </div>
+          <div className="t-lane" aria-hidden style={{ marginBottom: 24 }}>
+            <span className="t-end">Your agent</span>
+            <span className="t-track">
+              <span className="t-dot" />
+            </span>
+            <span className="t-end">x402 API</span>
+          </div>
+          <ol className="t-steps" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))' }}>
+            {X402_STEPS.map((s) => (
+              <li key={s.who} className={s.pay ? 't-step t-step-pay' : 't-step'} style={{ animationDelay: `${s.delay}s` }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 500, letterSpacing: '0.08em', color: '#86918B' }}>{s.who}</span>
+                <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 500, color: s.pay ? '#F5BE55' : '#E8EDE9' }}>{s.code}</span>
+                <span style={{ fontSize: 15, lineHeight: 1.5, color: '#A3ADA7' }}>{s.text}</span>
+              </li>
+            ))}
+          </ol>
+          <p style={{ margin: '22px 0 0', fontSize: 15, lineHeight: 1.55, color: '#A3ADA7' }}>There is no hold and no refund window.</p>
+        </div>
+
+        <div style={{ marginTop: 'clamp(72px, 9vw, 112px)', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '24px 64px' }}>
+          <div style={{ flex: '1 1 520px', maxWidth: 660, minWidth: 0 }}>
+            <h3 className="t-display" style={{ margin: 0, fontSize: 'clamp(30px, 3.4vw, 46px)', lineHeight: 1.04, letterSpacing: '-0.03em' }}>
+              Tessera adds a trust layer.
+            </h3>
+            <p style={{ margin: '20px 0 0', fontSize: 'clamp(17px, 1.5vw, 19px)', lineHeight: 1.6, color: '#A3ADA7' }}>
+              Tessera is on-chain credit scoring infrastructure. It scores each wallet and places it in a tier. Each payment waits in a hold, and the buyer's and the merchant's tiers set how long.
+            </p>
+          </div>
+          <p style={{ flex: '1 1 300px', maxWidth: 420, margin: 0, paddingTop: 18, borderTop: '1px solid #303B36', fontFamily: DISPLAY, fontSize: 'clamp(21px, 2vw, 26px)', fontWeight: 600, lineHeight: 1.25, letterSpacing: '-0.015em', color: '#E8EDE9' }}>
+            A fresh wallet waits. Two Trusted wallets can settle instantly.
+          </p>
+        </div>
+
+        <div className="t-card" style={{ marginTop: 40, padding: 'clamp(20px, 3vw, 40px)' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px 40px' }}>
+            <div style={{ minWidth: 0 }}>
+              <p className="t-eyeb">Example wallet</p>
+              <div className="t-stack" style={{ marginTop: 12 }}>
+                {TIERS.map((t, i) => (
+                  <div key={t.name} className={`t-tier t-k${i + 1}${t.final ? ' t-tier-final' : ''}`} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '4px 16px' }}>
+                    <span style={{ fontFamily: DISPLAY, fontSize: 'clamp(34px, 4vw, 52px)', fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.03em', color: t.color }}>{t.name}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 15, color: t.final ? '#5EE6AB' : '#A3ADA7' }}>{t.hold}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+              <p className="t-eyeb">Score</p>
+              <p style={{ margin: '12px 0 0', fontFamily: DISPLAY, fontSize: 'clamp(34px, 4vw, 52px)', fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.02em', color: '#E8EDE9' }}>
+                <span className="t-score" />
+                <span style={{ fontSize: '0.42em', fontWeight: 500, letterSpacing: 0, color: '#86918B' }}> / 1000</span>
+              </p>
+            </div>
+          </div>
+          <div className="t-meter" aria-hidden style={{ margin: '40px 9px 12px 0' }}>
+            <span className="t-tick" style={{ left: '25%' }} />
+            <span className="t-tick" style={{ left: '50%' }} />
+            <span className="t-tick" style={{ left: '75%' }} />
+            <span className="t-fill" />
+          </div>
+          <div aria-hidden style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', marginRight: 9, fontFamily: MONO, fontSize: 12, color: '#86918B' }}>
+            <span>0</span>
+            <span>250</span>
+            <span>500</span>
+            <span>750</span>
+          </div>
+
+          <div style={{ marginTop: 40, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px 24px' }}>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#E8EDE9' }}>How long a payment waits, by tier</p>
+            <p style={{ margin: 0, fontFamily: MONO, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#86918B' }}>Mainnet targets · hours to scale</p>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            {HOLDS.map((h, i) => (
+              <div key={h.name} className={`t-hold t-k${i + 1}`}>
+                <span className="t-hn">
+                  {h.name}
+                  <span className="t-hg">{h.gate}</span>
+                </span>
+                <span className="t-ht" aria-hidden>
+                  {h.bar ? <span className="t-hb" style={{ width: h.bar, ...(h.minWidth ? { minWidth: h.minWidth } : {}) }} /> : <span className="t-hz" />}
+                </span>
+                <span className="t-hv">{h.value}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{ margin: '22px 0 0', fontSize: 14, lineHeight: 1.6, color: '#86918B' }}>
+            Bars are to scale in hours. On devnet the holds are 2 min, 45 s, 10 s and instant. The hold on an order is the longer of the buyer's and the merchant's holds.
+          </p>
+        </div>
+
+        <div className="t-feat" style={{ marginTop: 24 }}>
+          <div style={{ minWidth: 0 }}>
+            <span className="t-lab" style={{ color: '#5EE6AB' }}>
+              Why it is different
+            </span>
+            <h3 className="t-display t-h3" style={{ margin: '14px 0 0' }}>
+              A score anyone can recompute.
+            </h3>
+            <p style={{ margin: '16px 0 0', fontSize: 16, lineHeight: 1.6, color: '#A3ADA7' }}>
+              Each score is computed only from orders that settled on-chain. Anyone can recompute it from on-chain data. No one has to trust Tessera's word for a number.
+            </p>
+          </div>
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="t-eq" aria-label="Evidence equals History plus Tenure plus Diversity">
+              <span className="t-eqb t-e1">History</span>
+              <span className="t-eqo">+</span>
+              <span className="t-eqb t-e2">Tenure</span>
+              <span className="t-eqo">+</span>
+              <span className="t-eqb t-e3">Diversity</span>
+              <span className="t-eqo">=</span>
+              <span className="t-eqb t-e4">Evidence</span>
+            </div>
+            <div className="t-eq" aria-label="Score equals 1000 times Evidence times Rating times Behaviour">
+              <span className="t-eqo">1000 ×</span>
+              <span className="t-eqb t-e4">Evidence</span>
+              <span className="t-eqo">×</span>
+              <span className="t-eqb t-e5">Rating</span>
+              <span className="t-eqo">×</span>
+              <span className="t-eqb t-e6">Behaviour</span>
+              <span className="t-eqo">=</span>
+              <span className="t-eqb t-e7">
+                <span className="t-eqn" />
+              </span>
+            </div>
+            <p style={{ margin: '4px 0 0', fontFamily: MONO, fontSize: 12, lineHeight: 1.6, color: '#86918B' }}>
+              Score = 1000 × Evidence × Rating × Behaviour. Evidence = History + Tenure + Diversity. The example wallet above lands on 910.
+            </p>
+          </div>
+        </div>
+
+        <div className="t-facts" style={{ marginTop: 12 }}>
+          {FACTS.map(([title, body]) => (
+            <div key={title} className="t-fact">
+              <p className="t-fact-t">{title}</p>
+              <p className="t-fact-p">{body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ 02 · search for agents
+
+type Tier = 'Trusted' | 'Established' | 'Building' | 'New';
+/** How a tier shows in a terminal: its text class, its bar colour (mint is the default) and its mainnet target hold. */
+const TIER_STYLE: Record<Tier, { cls: string; bar?: string; hold: string }> = {
+  Trusted: { cls: 't-mint', hold: 'instant' },
+  Established: { cls: 't-est', bar: '#8FE3BE', hold: '60 min' },
+  Building: { cls: 't-bld', bar: '#A9C2B6', hold: '24 h' },
+  New: { cls: 't-dim', bar: '#86918B', hold: '3 days' },
+};
+
+type Merchant = { name: string; sells: string; score: number; tier: Tier };
+/** Example merchants, grouped by category, as the design shows them. Labelled "sample data" on the page. */
+const MERCHANT_GROUPS: { category: string; merchants: Merchant[] }[] = [
   {
-    id: 'find',
-    label: 'Find',
-    file: 'apps/api/src/find.ts',
-    code: [
-      `// An agent chooses who to buy from in one call. Recorded ${recordedAt} (npm run demo:find).`,
-      FIND.command,
-      ...FIND.output,
-      '',
-      '// Over HTTP or MCP it is the same call: GET /v1/merchants?need=text summary',
-      '// Ranked only by on-chain data. Every review behind it cost a real sale.',
-    ].join('\n'),
+    category: 'data',
+    merchants: [
+      { name: 'search.api', sells: 'web search results', score: 912, tier: 'Trusted' },
+      { name: 'prices.api', sells: 'token prices', score: 868, tier: 'Trusted' },
+      { name: 'news.api', sells: 'news headlines', score: 571, tier: 'Established' },
+      { name: 'weather.api', sells: 'forecasts', score: 276, tier: 'Building' },
+      { name: 'scrape.api', sells: 'page extraction', score: 140, tier: 'New' },
+    ],
   },
   {
-    id: 'sell',
-    label: 'Sell',
-    file: 'apps/agents/src/server.ts',
-    code: `// A seller answers with an ordinary 402. One call opens the escrow.
-const quote = await merchant.quote({ buyer, sku, input, resourceUrl });
-
-res.setHeader('PAYMENT-REQUIRED', encodePaymentRequiredHeader(quote.required));
-res.status(402).json({ error: 'payment required' });
-
-// quote.required.accepts[0].payTo is the order account,
-// so an unmodified x402 client pays straight into its vault.`,
+    category: 'inference',
+    merchants: [
+      { name: 'llm.api', sells: 'chat completions', score: 790, tier: 'Trusted' },
+      { name: 'embed.api', sells: 'text embeddings', score: 603, tier: 'Established' },
+    ],
   },
   {
-    id: 'buy',
-    label: 'Buy',
-    file: 'packages/sdk/src/verify.ts',
-    code: `// A buyer reads the chain before it signs. One call, or it refuses.
-const { order, vault } = await verifyOrderForPayment(rpc, {
-  orderId, payTo, mint, amount,
-  buyer: me, merchant,
-});
+    category: 'media',
+    merchants: [
+      { name: 'image.api', sells: 'image rendering', score: 644, tier: 'Established' },
+      { name: 'voice.api', sells: 'text to speech', score: 62, tier: 'New' },
+    ],
+  },
+  { category: 'language', merchants: [{ name: 'translate.api', sells: 'text translation', score: 512, tier: 'Established' }] },
+  {
+    category: 'geo',
+    merchants: [
+      { name: 'maps.api', sells: 'routing', score: 338, tier: 'Building' },
+      { name: 'geocode.api', sells: 'address lookup', score: 455, tier: 'Building' },
+    ],
+  },
+];
+const MERCHANT_COUNT = MERCHANT_GROUPS.reduce((n, g) => n + g.merchants.length, 0);
 
-// Throws unless payTo is this order's escrow, opened for this buyer,
-// this merchant and this amount. Then pay with any x402 client.`,
+/** A column of a terminal line, fixed in characters so nothing shifts when a value is short. */
+function Col({ w, cls, children }: { w?: number; cls?: string; children?: ReactNode }) {
+  return (
+    <span className={cls ? `t-c ${cls}` : 't-c'} style={w ? { width: `${w}ch` } : undefined}>
+      {children}
+    </span>
+  );
+}
+
+function MerchantLine({ m }: { m: Merchant }) {
+  const t = TIER_STYLE[m.tier];
+  return (
+    <span className="t-ln">
+      <Col w={16} cls="t-wht">{m.name}</Col>
+      <Col w={21} cls="t-sells">{m.sells}</Col>
+      <Col w={6} cls="t-wht">{m.score}</Col>
+      <span className="t-sb">
+        <span style={{ width: `${Math.round(m.score / 10)}%`, ...(t.bar ? { background: t.bar } : {}) }} />
+      </span>
+      <Col w={13} cls={t.cls}>{m.tier}</Col>
+      <Col>{t.hold}</Col>
+    </span>
+  );
+}
+
+function TermBar({ note }: { note?: string }) {
+  return (
+    <div className="t-term-bar">
+      <span className="t-term-dots" aria-hidden>
+        <span />
+        <span />
+        <span />
+      </span>
+      <span>tessera · agent shell</span>
+      {note && <span style={{ marginLeft: 'auto' }}>{note}</span>}
+    </div>
+  );
+}
+
+const Prompt = ({ cursor = 't-cur' }: { cursor?: string }) => (
+  <span className="t-ln">
+    <span className="t-ps">$ </span>
+    <span className={cursor} />
+  </span>
+);
+
+function Merchants() {
+  // The list scrolls through two copies of itself, so it never shows an end.
+  const groups = [...MERCHANT_GROUPS, ...MERCHANT_GROUPS];
+  return (
+    <section id="merchants" aria-labelledby="t-mer-title" className="t-sec t-alt">
+      <div className="t-wrap">
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '24px 48px' }}>
+          <div style={{ flex: '1 1 560px', maxWidth: 760, minWidth: 0 }}>
+            <p className="t-kicker">02 · Search for agents</p>
+            <h2 id="t-mer-title" className="t-display t-h2">
+              Every merchant comes with a score.
+            </h2>
+            <p className="t-lead" style={{ maxWidth: 680 }}>
+              Your agent can search for a merchant and see its score, tier and hold before it buys. This is what it looks like in your terminal.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxWidth: 420 }}>
+            <span className="t-pill t-pill-mint">{MERCHANT_COUNT} merchants</span>
+            {MERCHANT_GROUPS.map((g) => (
+              <span key={g.category} className="t-pill t-pill-grey">
+                {g.category} · {g.merchants.length}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <figure className="t-term" style={{ margin: '44px 0 0' }}>
+          <TermBar note="sample data" />
+          <div className="t-term-body" aria-hidden>
+            <span className="t-ln">
+              <span className="t-ps">$ </span>
+              <span className="t-typed t-typeM">tessera merchants --sort score</span>
+              <span className="t-cur t-curM" />
+            </span>
+            <div className="t-out t-oM">
+              <span className="t-ln t-dim">
+                {MERCHANT_COUNT} merchants · {MERCHANT_GROUPS.length} categories · scores from settled orders only
+              </span>
+              <span className="t-ln t-dim">
+                <Col w={16}>MERCHANT</Col>
+                <Col w={21} cls="t-sells">SELLS</Col>
+                <Col w={6}>SCORE</Col>
+                <Col w={12} />
+                <Col w={13}>TIER</Col>
+                <Col>HOLD</Col>
+              </span>
+            </div>
+            <div className="t-oL">
+              <div className="t-mqv">
+                {groups.map((g, k) => (
+                  <Fragment key={`${g.category}-${k}`}>
+                    <span className="t-ln t-mint">
+                      # {g.category} · {g.merchants.length}
+                    </span>
+                    {g.merchants.map((m) => (
+                      <MerchantLine key={m.name} m={m} />
+                    ))}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+            <div className="t-oN">
+              <Prompt />
+            </div>
+          </div>
+          <figcaption style={{ padding: '14px 18px 16px', borderTop: '1px solid #1A211E', fontFamily: "'Geist', ui-sans-serif, system-ui, sans-serif", fontSize: 14, lineHeight: 1.5, color: '#86918B' }}>
+            Example merchants and scores. Hold times are mainnet targets. Scores are computed only from orders that settled on-chain.
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ 03 · pay later
+
+const SHOPPER_STEPS: [string, string][] = [
+  ['A credit check', 'The lender checks that you will pay.'],
+  ['Take it today', 'You get the item straight away.'],
+  ['Pay later', 'You pay for it afterwards.'],
+];
+const AGENT_STEPS: [string, string][] = [
+  ['An on-chain score', 'Tessera scores each wallet from settled orders.'],
+  ['Buy over x402 now', 'The order lands on the tab. The agent gets what it ordered straight away.'],
+  ['The main agent pays once', 'It settles the whole tab in one payment.'],
+];
+
+const PROBLEMS: { icon: ReactNode; call: string; later: string }[] = [
+  {
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
+    call: 'Waits for every payment',
+    later: 'Answers straight away',
   },
   {
-    id: 'score',
-    label: 'Read a score',
-    file: 'packages/sdk/src/score.ts',
-    code: `// Anyone can score any wallet from two public accounts.
-const agent  = await fetchAgent(rpc, await agentPdaOf(wallet));
-const config = await fetchConfig(rpc, await configPda());
-
-const result = score.evaluate(agent.data, config.data.params, now);
-// result.score is 0 to 1000, result.tier is 0 (New) to 3 (Trusted)
-
-// The same integer arithmetic runs in the program. This site
-// shows both numbers side by side on every credit file.`,
+    icon: (
+      <>
+        <path d="M12 3l9 5-9 5-9-5 9-5z" />
+        <path d="M3 13l9 5 9-5" />
+        <path d="M3 17l9 5 9-5" />
+      </>
+    ),
+    call: '1,000 calls, 1,000 payments',
+    later: '1,000 calls, 1 payment',
+  },
+  {
+    icon: (
+      <>
+        <rect x="3" y="6" width="18" height="13" rx="2" />
+        <path d="M3 10h18" />
+        <path d="M15 15h3" />
+      </>
+    ),
+    call: 'One funded wallet per agent',
+    later: 'One wallet pays for all',
+  },
+  {
+    icon: (
+      <>
+        <path d="M12 3l8 3v6c0 4.5-3.2 7.6-8 9-4.8-1.4-8-4.5-8-9V6l8-3z" />
+        <path d="M9.5 9.5l5 5" />
+        <path d="M14.5 9.5l-5 5" />
+      </>
+    ),
+    call: 'No chargeback, no record',
+    later: 'A score on both sides',
   },
 ];
 
-function Developers() {
-  const [tab, setTab] = useState('find');
-  const path = usePath();
-  const ref = useRef<HTMLElement>(null);
-  // #/developers opens the home page on this section.
-  useEffect(() => {
-    if (path === '/developers') ref.current?.scrollIntoView({ block: 'start' });
-  }, [path]);
-  const snippet = SNIPPETS.find((x) => x.id === tab)!;
-  const registered = Object.keys(registry.agents).length;
-  const mirrored = Object.keys(registry.feedback).length;
-  const layers: [string, string, string, boolean][] = [
-    ['Payment', 'x402', 'The exact scheme, unchanged. Two public facilitators.', false],
-    ['Credit', 'Tessera', 'Whether the money waits, and for how long.', true],
-    ['Identity', 'Solana Agent Registry', `ERC-8004 on Solana. ${registered} merchants registered on devnet, ${mirrored} reviews mirrored with proof of payment.`, false],
-  ];
+/**
+ * Example orders on the tab, laid out as `tessera tab` prints them: the escrow
+ * order each loan paid for, shortened, since the chain names no endpoint.
+ * Labelled "sample data" on the page.
+ */
+const TAB_ORDERS: { merchant: string; order: string; amount: string }[] = [
+  { merchant: 'search.api', order: '3kQe…b7Hn', amount: '$0.010' },
+  { merchant: 'prices.api', order: '9wTa…pL2c', amount: '$0.002' },
+  { merchant: 'news.api', order: 'Hf2m…qR8d', amount: '$0.005' },
+  { merchant: 'llm.api', order: 'Vb7n…x3Lp', amount: '$0.040' },
+  { merchant: 'image.api', order: '2cYr…mN9k', amount: '$0.080' },
+  { merchant: 'translate.api', order: 'Qp4s…zT6w', amount: '$0.003' },
+];
+/** A tab is the wallet that owes it, shown short, as the CLI does. */
+const TAB_ID = '7xKp…9fQe';
+const TAB_TOTAL = '$0.140';
+
+function Steps({ label, title, color, steps, lastMint = false }: { label: string; title: string; color: string; steps: [string, string][]; lastMint?: boolean }) {
   return (
-    <section data-nav="/developers" ref={ref} id="developers" className="night gridded py-24 md:py-32" style={{ scrollMarginTop: 68 }}>
-      <div className="wrap">
-        <Reveal>
-          <div className="eyebrow" style={{ color: '#8b8a7c' }}>For developers</div>
-          <h2 className="display mt-4 max-w-[19ch] text-[clamp(2.4rem,5.6vw,4.6rem)]" style={{ color: '#f1eee2' }}>
-            One call to find. One to sell. <em>One check to buy.</em>
+    <div className="t-srow">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '4px 0' }}>
+        <span className="t-lab" style={{ color }}>
+          {label}
+        </span>
+        <span style={{ fontFamily: DISPLAY, fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', color: '#E8EDE9' }}>{title}</span>
+      </div>
+      <div className="t-sgrid">
+        {steps.map(([t, body], i) => (
+          <div key={t} className={`t-node t-s${i + 1}`}>
+            <span className="t-mono" style={{ fontSize: 12, color: '#86918B' }}>
+              {i + 1}
+            </span>
+            <span style={{ fontSize: 17, fontWeight: 600, color: lastMint && i === steps.length - 1 ? '#5EE6AB' : '#E8EDE9' }}>{t}</span>
+            <span style={{ fontSize: 14, lineHeight: 1.5, color: '#A3ADA7' }}>{body}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PayLater() {
+  return (
+    <section id="pay-later" aria-labelledby="t-pl-title" className="t-sec">
+      <div className="t-wrap">
+        <div style={{ maxWidth: 860 }}>
+          <p className="t-kicker">03 · Tessera Pay Later</p>
+          <h2 id="t-pl-title" className="t-display t-h2">
+            People buy now and pay later. Now agents can too.
           </h2>
-          <p className="mt-6 max-w-[44rem] text-[1.05rem] leading-relaxed">
-            No new payment scheme and no custom client. A buying agent asks for the best merchant and gets a ranked answer built from reviews that each cost a real sale. The seller opens an escrow and names it as the address to pay. The buyer checks that address on-chain before it signs.
+          <p className="t-lead" style={{ maxWidth: 700 }}>
+            With buy now, pay later, you take the item today and pay for it afterwards. It works because someone checked that you will pay. Tessera Pay Later brings the same deal to AI agents on x402.
           </p>
-        </Reveal>
-        <Reveal delay={0.1} className="mt-12">
-          <div className="card-night overflow-hidden">
-            <div className="flex flex-wrap items-center gap-2 px-5 pt-5" role="tablist" aria-label="Code sample">
-              {SNIPPETS.map((x) => (
-                <button key={x.id} role="tab" aria-selected={tab === x.id} onClick={() => setTab(x.id)} className="relative rounded-full px-4 py-2 text-[0.9rem]" style={{ color: tab === x.id ? '#0a0b09' : '#c9c6b6', cursor: 'pointer' }}>
-                  {tab === x.id && <motion.span layoutId="dev-pill" style={{ position: 'absolute', inset: 0, borderRadius: 999, background: '#b9f8da' }} transition={{ duration: 0.45, ease: EASE }} />}
-                  <span style={{ position: 'relative' }}>{x.label}</span>
+        </div>
+
+        <div className="t-card" style={{ marginTop: 56, padding: 'clamp(20px, 3vw, 36px)', display: 'grid', gap: 16 }}>
+          <Steps label="People" title="Shoppers" color="#86918B" steps={SHOPPER_STEPS} />
+          <Steps label="Agents" title="On Tessera" color="#5EE6AB" steps={AGENT_STEPS} lastMint />
+          <p style={{ margin: '6px 0 0', fontSize: 15, lineHeight: 1.55, color: '#A3ADA7' }}>Paying later only works when you can tell who will pay. On Tessera, the on-chain score is that check.</p>
+        </div>
+
+        <div className="t-card" style={{ marginTop: 24, padding: 'clamp(20px, 3vw, 36px)' }}>
+          <h3 className="t-display t-h3">Pay per call has four problems.</h3>
+          <p style={{ margin: '10px 0 28px', fontSize: 16, lineHeight: 1.6, color: '#A3ADA7' }}>Tessera Pay Later fixes each one.</p>
+          <div className="t-cmp-head" aria-hidden>
+            <span />
+            <span>
+              <span className="t-pill t-pill-amber">
+                <span className="t-dotc" />
+                Pay per call
+              </span>
+            </span>
+            <span />
+            <span>
+              <span className="t-pill t-pill-mint">
+                <span className="t-dotc" />
+                Tessera Pay Later
+              </span>
+            </span>
+          </div>
+          {PROBLEMS.map((p, i) => (
+            <div key={p.call} className={`t-cmp-row t-p${i + 1}`}>
+              <span className="t-pri" aria-hidden>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {p.icon}
+                </svg>
+              </span>
+              <span className="t-cmp-a">
+                <span className="t-cmp-x" aria-hidden>
+                  <Cross />
+                </span>
+                <span className="t-sr">Pay per call: </span>
+                {p.call}
+              </span>
+              <span className="t-cmp-arrow" aria-hidden>
+                <Arrow />
+              </span>
+              <span className="t-cmp-b">
+                <span className="t-cmp-ok" aria-hidden>
+                  <Tick />
+                </span>
+                <span className="t-sr">Tessera Pay Later: </span>
+                {p.later}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 'clamp(56px, 7vw, 88px)', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px 48px' }}>
+          <div style={{ flex: '1 1 480px', maxWidth: 700, minWidth: 0 }}>
+            <h3 className="t-display t-h3">A tab, in your terminal.</h3>
+            <p style={{ margin: '12px 0 0', fontSize: 16, lineHeight: 1.6, color: '#A3ADA7' }}>Six orders land on the tab. One settle call pays them all.</p>
+          </div>
+          <span className="t-pill t-pill-amber">
+            <span className="t-dotc t-blink" />
+            Pay later
+          </span>
+        </div>
+        <figure className="t-term" style={{ margin: '24px 0 0' }}>
+          <TermBar note="sample data" />
+          <div className="t-term-body" aria-hidden>
+            <span className="t-ln">
+              <span className="t-ps">$ </span>
+              <span className="t-typed t-typeA">tessera tab</span>
+              <span className="t-cur t-curA" />
+            </span>
+            <div className="t-out t-oA">
+              <span className="t-ln t-dim">tab {TAB_ID} · open · pay later · devnet USDC</span>
+              <span className="t-ln t-dim">
+                <Col w={7}>#</Col>
+                <Col w={16}>MERCHANT</Col>
+                <Col w={12}>ORDER</Col>
+                <Col w={9}>AMOUNT</Col>
+                <Col>STATUS</Col>
+              </span>
+              {TAB_ORDERS.map((o, i) => (
+                <span key={o.merchant} className="t-ln">
+                  <Col w={7} cls="t-dim">#{i + 1}</Col>
+                  <Col w={16} cls="t-wht">{o.merchant}</Col>
+                  <Col w={12} cls="t-dim">{o.order}</Col>
+                  <Col w={9} cls="t-wht">{o.amount}</Col>
+                  <Col cls="t-amb">on tab</Col>
+                </span>
+              ))}
+            </div>
+            <div className="t-out t-oB">
+              <span className="t-ln">
+                <span className="t-hr" />
+              </span>
+              <span className="t-ln">
+                <Col w={7} cls="t-dim">TOTAL</Col>
+                <Col w={28}>{TAB_ORDERS.length} orders</Col>
+                <Col w={9} cls="t-wht">{TAB_TOTAL}</Col>
+                <Col cls="t-amb">unpaid</Col>
+              </span>
+            </div>
+            <div className="t-out t-oC">
+              <span className="t-ln">
+                <span className="t-ps">$ </span>
+                <span className="t-typed t-typeB">tessera settle</span>
+                <span className="t-cur t-curB" />
+              </span>
+            </div>
+            <div className="t-out t-oD">
+              <span className="t-ln t-dim">
+                tab {TAB_ID} · {TAB_ORDERS.length} orders · unpaid
+              </span>
+              <span className="t-ln">settling {TAB_ORDERS.length} orders in 1 payment</span>
+              <span className="t-ln">
+                <span className="t-pb">
+                  <span style={{ width: '100%', animation: 'none' }} />
+                </span>
+                <span className="t-wht" style={{ marginLeft: '1ch' }}>
+                  100%
+                </span>
+              </span>
+              <span className="t-ln t-mint">
+                <Check />
+                settled · 1 signature · main agent
+              </span>
+              <span className="t-ln t-dim">{TAB_ORDERS.length} orders closed · 1 payment on-chain</span>
+              <Prompt />
+            </div>
+          </div>
+          <figcaption style={{ padding: '14px 18px 16px', borderTop: '1px solid #1A211E', fontFamily: "'Geist', ui-sans-serif, system-ui, sans-serif", fontSize: 14, lineHeight: 1.5, color: '#86918B' }}>
+            Example orders. The main agent pays the whole tab later, in one payment.
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ 04 · settle once
+
+const CALLS = [10, 100, 1000];
+/** The signed calls scrolling past in the "x402 today" card: eight, shown twice. */
+const SIGNED = ['search.api /query', 'prices.api /sol-usd', 'news.api /latest', 'llm.api /chat', 'image.api /render', 'translate.api /text', 'maps.api /route', 'search.api /query'];
+
+function Settle() {
+  const [calls, setCalls] = useState(100);
+  const n = calls.toLocaleString('en-GB');
+  return (
+    <section id="settle" aria-labelledby="t-settle-title" className="t-sec t-alt">
+      <div className="t-wrap">
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '32px 48px' }}>
+          <div style={{ flex: '1 1 560px', maxWidth: 760, minWidth: 0 }}>
+            <p className="t-kicker">04 · Settle once</p>
+            <h2 id="t-settle-title" className="t-display t-h2">
+              Many orders on one tab. One payment settles it.
+            </h2>
+            <p className="t-lead" style={{ maxWidth: 640 }}>
+              Pay per call means one on-chain payment for each request. With Tessera Pay Later, the main agent settles the whole tab in a single payment.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <span className="t-eyeb">Orders on the tab</span>
+            <div className="t-seg" role="group" aria-label="Orders on the tab">
+              {CALLS.map((c) => (
+                <button key={c} type="button" aria-pressed={calls === c} onClick={() => setCalls(c)}>
+                  {c.toLocaleString('en-GB')}
                 </button>
               ))}
-              <a className="mono link ml-auto text-[0.72rem]" style={{ color: '#8b8a7c' }} href={`${REPO}/blob/main/${snippet.file}`} target="_blank" rel="noreferrer">
-                {snippet.file} ↗
-              </a>
             </div>
-            <AnimatePresence mode="wait">
-              <motion.pre
-                key={tab}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.35, ease: EASE }}
-                className="mono m-0 overflow-x-auto p-5 text-[0.82rem] leading-[1.85] md:p-7 md:text-[0.9rem]"
-                style={{ color: '#e9e6d8' }}
-              >
-                {snippet.code.split('\n').map((line, i) => (
-                  <span key={i} style={{ display: 'block', color: line.trimStart().startsWith('//') ? '#7d7c6f' : undefined }}>
-                    {line || ' '}
-                  </span>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 44, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(440px, 100%), 1fr))', gap: 24 }}>
+          <div className="t-card" style={{ padding: 'clamp(20px, 3vw, 32px)' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span className="t-eyeb">x402 today</span>
+              <span className="t-pill t-pill-amber">Pay per call</span>
+            </div>
+            <p style={{ margin: '26px 0 0', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '6px 14px' }}>
+              <span style={{ fontFamily: DISPLAY, fontSize: 'clamp(52px, 6vw, 84px)', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.04em', color: '#F5BE55' }}>{n}</span>
+              <span style={{ fontSize: 20, fontWeight: 500, color: '#E8EDE9' }}>payments</span>
+            </p>
+            <p style={{ margin: '10px 0 0', fontSize: 15, lineHeight: 1.55, color: '#A3ADA7' }}>{n} signatures. One for each call.</p>
+            <div className="t-mq" aria-hidden style={{ marginTop: 24 }}>
+              <div className="t-mq-in">
+                {[...SIGNED, ...SIGNED].map((s, i) => (
+                  <div key={i} className="t-mq-row">
+                    <span className="t-dotc" style={{ color: '#F5BE55' }} />
+                    <span>{s}</span>
+                    <span>signed</span>
+                  </div>
                 ))}
-              </motion.pre>
-            </AnimatePresence>
-          </div>
-        </Reveal>
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {layers.map(([tag, name, what, ours], i) => (
-            <Reveal key={tag} delay={0.08 * i}>
-              <div className="h-full rounded-2xl p-5" style={{ border: `1px solid ${ours ? '#4fd19a' : '#22261d'}`, background: ours ? '#121a14' : '#10120e' }}>
-                <div className="eyebrow" style={{ color: ours ? '#b9f8da' : '#8b8a7c' }}>{tag}</div>
-                <div className="display mt-2 text-[1.7rem]" style={{ color: ours ? '#b9f8da' : '#f1eee2' }}>{name}</div>
-                <p className="mt-2 text-[0.9rem] leading-relaxed" style={{ color: '#c9c6b6' }}>{what}</p>
               </div>
-            </Reveal>
-          ))}
+            </div>
+          </div>
+          <div style={{ border: '1px solid rgba(94,230,171,0.35)', borderRadius: 24, background: '#0F1513', padding: 'clamp(20px, 3vw, 32px)' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span className="t-eyeb" style={{ color: '#5EE6AB' }}>
+                Tessera Pay Later
+              </span>
+              <span className="t-pill t-pill-mint">Settle once</span>
+            </div>
+            <p style={{ margin: '26px 0 0', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '6px 14px' }}>
+              <span style={{ fontFamily: DISPLAY, fontSize: 'clamp(52px, 6vw, 84px)', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.04em', color: '#5EE6AB' }}>1</span>
+              <span style={{ fontSize: 20, fontWeight: 500, color: '#E8EDE9' }}>payment</span>
+            </p>
+            <p style={{ margin: '10px 0 0', fontSize: 15, lineHeight: 1.55, color: '#A3ADA7' }}>1 signature, from the main agent.</p>
+            <div className="t-term" aria-hidden style={{ marginTop: 24 }}>
+              <TermBar />
+              <div className="t-term-body">
+                <span className="t-ln">
+                  <span className="t-ps">$ </span>
+                  <span className="t-typed t-typeC">tessera settle</span>
+                  <span className="t-cur t-curC" />
+                </span>
+                <div className="t-out t-oE">
+                  <span className="t-ln t-dim">
+                    tab {TAB_ID} · {n} orders · unpaid
+                  </span>
+                  <span className="t-ln">settling {n} orders in 1 payment</span>
+                </div>
+                <div className="t-out t-oF">
+                  <span className="t-ln">
+                    <span className="t-pb">
+                      <span />
+                    </span>
+                    <span className="t-wht" style={{ marginLeft: '1ch' }}>
+                      <span className="t-pct" />
+                    </span>
+                  </span>
+                </div>
+                <div className="t-out t-oG">
+                  <span className="t-ln t-mint">
+                    <Check />
+                    settled · 1 signature · main agent
+                  </span>
+                  <span className="t-ln t-dim">{n} orders closed · 1 payment on-chain</span>
+                  <Prompt />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <p className="mono mt-5 text-[0.74rem]" style={{ color: '#5d5c52' }}>
-          For agents: <a className="link" href="./llms.txt">llms.txt</a> · the API, MCP, skill and CLI: <a className="link" href={`${REPO}/blob/main/docs/AGENT-API.md`} target="_blank" rel="noreferrer">docs/AGENT-API.md</a> · how the registry bridge works, and what it does not do: <a className="link" href={`${REPO}/blob/main/docs/ERC-8004.md`} target="_blank" rel="noreferrer">docs/ERC-8004.md</a>
-        </p>
       </div>
     </section>
   );
 }
 
-function Proof() {
-  const { config } = useChain();
-  const { profiles } = useProfiles();
-  const rows: [string, string][] = [
-    ['395 / 395', 'checks pass against the real program on a local validator, each account compared field by field with a reference model'],
-    ['55 / 55', 'formula and reward tests pass: every guarantee on this page is a test'],
-    ['94 / 94', 'checks pass across the four ways in for agents (HTTP API, MCP, skill, CLI), from finding a merchant to a refund'],
-    ['0 SOL', 'spent by the buyer on a purchase paid through the x402 facilitator on devnet (balance identical before and after)'],
-    [`${((snapshot.measured.facilitatorSettleMsMedian ?? 0) / 1000).toFixed(1)} s`, `median time for the x402 facilitator to settle a payment into escrow on devnet (${snapshot.measured.viaFacilitator} payments measured)`],
-  ];
+// ------------------------------------------------------------------ close and footer
+
+/** The 24 tiles of the closing grid: [delay in seconds, amber]. */
+const CLOSE_TILES: [number, boolean][] = [
+  [0, false], [2.4, false], [1.2, false], [3.6, true], [0.6, false], [4.2, false], [1.8, false], [3, false], [4.6, false], [0.4, true], [2.2, false], [3.4, false],
+  [1.4, false], [3.8, false], [0.8, false], [2.8, false], [4.4, true], [1, false], [2, false], [4, false], [0.2, false], [3.2, true], [1.6, false], [2.6, false],
+];
+
+function Close() {
   return (
-    <section className="wrap py-24 md:py-32">
-      <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr]">
-        <Reveal>
-          <div className="eyebrow" style={{ color: '#878371' }}>What exists today</div>
-          <h2 className="display mt-4 text-[clamp(2.4rem,5vw,4.2rem)]">
-            Built, deployed, <em>and checked.</em>
+    <section aria-labelledby="t-cta-title" style={{ position: 'relative', padding: 'clamp(88px, 11vw, 150px) 0', borderTop: '1px solid #1A211E' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 clamp(16px, 4vw, 32px)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '48px 64px' }}>
+        <div style={{ flex: '1 1 520px', maxWidth: 640, minWidth: 0 }}>
+          <h2 id="t-cta-title" className="t-display" style={{ margin: 0, fontSize: 'clamp(40px, 5.6vw, 76px)', lineHeight: 1, letterSpacing: '-0.04em' }}>
+            Every payment matters.
           </h2>
-          <p className="mt-6 text-[1.02rem] leading-relaxed" style={{ color: '#4b483e' }}>
-            The program is on devnet. Right now it holds <strong>{profiles.length}</strong> agent credit files and has settled{' '}
-            <strong>{String(config?.ordersSettled ?? 0)}</strong> orders worth <strong>{compactUsd(config?.volumeSettled ?? 0n)}</strong>, with{' '}
-            <strong>{compactUsd(config?.feesCollected ?? 0n)}</strong> in protocol fees. Those numbers are read from the chain as you look at them.
+          <p style={{ margin: '24px 0 0', maxWidth: 520, fontSize: 'clamp(17px, 1.5vw, 19px)', lineHeight: 1.6, color: '#A3ADA7' }}>
+            Tessera is the credit layer for agentic commerce. Agents buy now, and the main agent pays once.
           </p>
-          <p className="mt-4 text-[0.92rem] leading-relaxed" style={{ color: '#878371' }}>
-            What is not real yet: the traffic comes from this project's own agents using recycled test USDC, time on devnet is compressed, the arbiter is one key, and the program is unaudited. The limits are listed in the repo.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a className="btn btn-ink" href={REPO} target="_blank" rel="noreferrer">
-              Source on GitHub
+          <div style={{ marginTop: 34, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            <a className="t-btn t-btn-primary" href="#demo">
+              <PlayIcon />
+              Watch the demo
             </a>
-            <a className="btn btn-ghost" href={explorerAddress(PROGRAM)} target="_blank" rel="noreferrer">
-              Program on Explorer
+            <a className="t-btn t-btn-ghost" href={DOCS} target="_blank" rel="noreferrer">
+              Read the docs
             </a>
           </div>
-        </Reveal>
-        <div className="grid gap-3">
-          {rows.map(([big, text], i) => (
-            <Reveal key={big} delay={i * 0.08}>
-              <div className="card grid items-center gap-5 p-6" style={{ gridTemplateColumns: 'minmax(7.5rem, auto) 1fr' }}>
-                <div className="display text-[2.6rem] leading-none">{big}</div>
-                <div className="text-[0.98rem] leading-relaxed" style={{ color: '#4b483e' }}>{text}</div>
-              </div>
-            </Reveal>
+        </div>
+        <div className="t-twg" aria-hidden style={{ flex: '0 1 360px', minWidth: 0, maxWidth: 360, width: '100%' }}>
+          {CLOSE_TILES.map(([delay, amber], i) => (
+            <span key={i} className={amber ? 't-tw t-tw-a' : 't-tw'} style={{ animationDelay: `${delay}s` }} />
           ))}
         </div>
       </div>
@@ -953,6 +973,47 @@ function Proof() {
   );
 }
 
+function LandingFooter() {
+  return (
+    <footer style={{ borderTop: '1px solid #1A211E' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px clamp(16px, 4vw, 32px) 40px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '20px 40px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 16px' }}>
+          <a href="#top" aria-label="Tessera, back to top" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minHeight: 44, color: '#E8EDE9', textDecoration: 'none' }}>
+            <Mark size={22} />
+            <span style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Tessera</span>
+          </a>
+          <span style={{ fontSize: 14, color: '#86918B' }}>The credit layer for agentic commerce.</span>
+        </div>
+        <nav className="t-nav" aria-label="Footer">
+          <a href="#trust">Why trust</a>
+          <a href="#merchants">Merchants</a>
+          <a href="#pay-later">Pay Later</a>
+          <a href={DOCS} target="_blank" rel="noreferrer">
+            Docs
+          </a>
+          <a href={REPO} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+        </nav>
+        <span style={{ fontSize: 13, color: '#86918B' }}>© 2026 Tessera · Built on Solana and x402</span>
+      </div>
+      {/* The site's live pages, which read devnet in the browser. A row of their own, so the design's row stays as it is. */}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 clamp(16px, 4vw, 32px) 28px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 24px' }}>
+        <span className="t-lab" style={{ color: '#86918B' }}>
+          Live on devnet
+        </span>
+        <nav className="t-nav" aria-label="Live pages">
+          <Link to="/network">Live network</Link>
+          <Link to="/agents">Agents</Link>
+          <Link to="/market">Market</Link>
+          <Link to="/formula">The score</Link>
+        </nav>
+      </div>
+    </footer>
+  );
+}
+
+/** The footer of the other pages (agents, market, formula, review), unchanged. */
 export function Footer({ dark = false }: { dark?: boolean }) {
   return (
     <footer className={dark ? 'night' : ''} style={{ borderTop: `1px solid ${dark ? '#272b21' : '#ded7c2'}` }}>
@@ -969,7 +1030,7 @@ export function Footer({ dark = false }: { dark?: boolean }) {
           <a className="link" href={`mailto:${CONTACT}?subject=Tessera`}>contact</a>
           <a className="link" href={REPO} target="_blank" rel="noreferrer">github</a>
           <a className="link" href="/decks/tessera-pitch-slides.html" target="_blank" rel="noreferrer">slides</a>
-          <a className="link" href="/videos/tessera-demo-paylater.mp4" target="_blank" rel="noreferrer">demo video</a>
+          <a className="link" href={VIDEO.src} target="_blank" rel="noreferrer">demo video</a>
           <a className="link" href="/videos/tessera-demo.mp4" target="_blank" rel="noreferrer">website walkthrough</a>
         </span>
       </div>
@@ -977,63 +1038,27 @@ export function Footer({ dark = false }: { dark?: boolean }) {
   );
 }
 
-function Close() {
-  return (
-    <section id="waitlist" className="night py-28 text-center" style={{ scrollMarginTop: 80 }}>
-      <div className="wrap">
-        <Reveal>
-          <div className="mx-auto flex w-fit gap-2">
-            {TIER_DARK.map((c, i) => (
-              <motion.span key={c} style={{ width: 10, height: 10, borderRadius: 10, background: c }} animate={{ y: [0, -7, 0] }} transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }} />
-            ))}
-          </div>
-          <h2 className="display mx-auto mt-8 max-w-[15ch] text-[clamp(2.8rem,7vw,6rem)]" style={{ color: '#f1eee2' }}>
-            Micropayments were the easy part. <em>Every payment matters.</em>
-          </h2>
-          <div className="mt-10 flex flex-wrap justify-center gap-3">
-            <Link to="/market" className="btn btn-mint">
-              Buy from an agent
-            </Link>
-            <Link to="/network" className="btn btn-ghost">
-              Watch the network
-            </Link>
-          </div>
-          <p className="mx-auto mt-12 max-w-[32rem] text-[1.08rem] leading-relaxed">
-            Building an AI agent that buys or sells? Get early access to Tessera.
-          </p>
-          <div className="mt-6">
-            <Waitlist dark />
-          </div>
-          <p className="mt-4 text-[0.95rem]" style={{ color: '#8b8a7c' }}>
-            Questions? <a className="link" href={`mailto:${CONTACT}?subject=Tessera`}>{CONTACT}</a>
-          </p>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
 export function Landing() {
+  const path = usePath();
+  const first = useRef(true);
+  // "#/pay-later" from the shared nav, and a "#trust"-style anchor on a fresh load, open the page at that
+  // section with a jump. Once the page is up, an anchor click is the browser's own smooth scroll.
+  useEffect(() => {
+    const id = path === '/pay-later' ? 'pay-later' : path.startsWith('/') ? '' : path;
+    if (id && (first.current || path === '/pay-later')) document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'instant' });
+    first.current = false;
+  }, [path]);
   return (
-    <div>
-      <Nav />
+    <div id="top" className="t-root" data-motion="on" style={{ background: '#0B0E0D', color: '#E8EDE9', fontFamily: "'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif", fontSize: 16, lineHeight: 1.6, overflowX: 'clip' }}>
+      <Header />
       <Hero />
-      <Problem />
-      <CreditLayer />
-      <Threats />
-      <WhyEscrow />
-      <HowItWorks />
-      <Lanes />
-      <TopUp />
-      <PayLater />
       <Demo />
-      <Developers />
-      <Score />
-      <Rewards />
-      <Attacks />
-      <Proof />
+      <Trust />
+      <Merchants />
+      <PayLater />
+      <Settle />
       <Close />
-      <Footer dark />
+      <LandingFooter />
     </div>
   );
 }

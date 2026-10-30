@@ -198,7 +198,7 @@ export async function findMerchants(i: {
       missedDeliveries: c.agent.asMerchant.expired,
       penaltyBps: Number(score.currentPenalty(c.agent, p, now)),
       service: c.skill
-        ? { id: c.skill.id, name: c.skill.name, description: c.skill.description, price: c.skill.price === null ? null : money(c.skill.price, cfg.decimals), x402: c.skill.x402 }
+        ? { id: c.skill.id, name: c.skill.name, description: c.skill.description, tags: c.skill.tags, price: c.skill.price === null ? null : money(c.skill.price, cfg.decimals), x402: c.skill.x402 }
         : null,
       match: Math.round(c.match * 100) / 100,
       decision: d.decision,
