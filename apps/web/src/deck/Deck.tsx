@@ -62,8 +62,10 @@ export function Deck({ slides, title }: { slides: Slide[]; title: string }) {
   // `#/deck/pitch?i=4` jumps to slide 5, also when the deck is already open.
   useEffect(() => {
     const on = () => {
-      const n = Number(new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('i'));
-      if (Number.isFinite(n)) setI(Math.max(0, Math.min(slides.length - 1, n)));
+      // Only a hash that names a slide moves the deck; any other change leaves it where it is.
+      const raw = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('i');
+      const n = Number(raw);
+      if (raw !== null && Number.isFinite(n)) setI(Math.max(0, Math.min(slides.length - 1, n)));
     };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);

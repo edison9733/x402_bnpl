@@ -18,8 +18,8 @@ import './landing.css';
 const REPO = 'https://github.com/edison9733/x402_bnpl';
 /** The docs start at the README on GitHub. */
 const DOCS = `${REPO}#readme`;
-/** The Tessera 2.0 demo of 28 October 2026, rendered on devnet (apps/web/public/videos). */
-const VIDEO = { src: '/videos/tessera-2.0-demo.mp4', poster: '/videos/tessera-2.0-demo-poster.jpg', captions: '/videos/tessera-2.0-demo.vtt', length: '2:54' };
+/** The Tessera 2.0 demo of 31 October 2026, rendered on devnet (apps/web/public/videos). */
+const VIDEO = { src: '/videos/tessera-2.0-demo.mp4', poster: '/videos/tessera-2.0-demo-poster.jpg', captions: '/videos/tessera-2.0-demo.vtt', length: '3:17' };
 
 const DISPLAY = "'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif";
 const MONO = "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
@@ -1031,7 +1031,6 @@ export function Footer({ dark = false }: { dark?: boolean }) {
           <a className="link" href={REPO} target="_blank" rel="noreferrer">github</a>
           <a className="link" href="/decks/tessera-pitch-slides.html" target="_blank" rel="noreferrer">slides</a>
           <a className="link" href={VIDEO.src} target="_blank" rel="noreferrer">demo video</a>
-          <a className="link" href="/videos/tessera-demo.mp4" target="_blank" rel="noreferrer">website walkthrough</a>
         </span>
       </div>
     </footer>

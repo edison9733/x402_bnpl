@@ -21,6 +21,7 @@ Point your credit file's uri at your A2A agent card (set_profile). List your ski
 - HTTP API: npm run api (default http://127.0.0.1:4030). Index GET /v1, schema GET /v1/openapi.json, this summary GET /llms.txt.
 - MCP (Streamable HTTP): npm run mcp, then: claude mcp add --transport http tessera http://127.0.0.1:4040/mcp
 - Skill: https://github.com/edison9733/x402_bnpl/blob/main/skills/tessera/SKILL.md
+- No key on this machine: npm run tessera -- ask <merchant agent url> <skill> --owner <owner wallet> opens an escrow order in the owner's name and prints a link to /#/approve/<order> on the website, where the owner's own wallet checks the order on-chain and pays it; npm run tessera -- collect <merchant agent url> <order> --claim <claim> then collects the delivery and checks it against the hash on-chain. Never ask anyone for a key, seed phrase or card.
 - CLI: npm run tessera -- find text summary --sort fastest. Also: merchants (every merchant with its score, tier and hold), tab <wallet> (the orders a wallet still owes on credit), settle --keypair PATH (pay the whole tab in one payment); each takes --json.
 
 ## Rules

@@ -3,7 +3,7 @@
 Track: **Best Use of x402 on Solana**. Every rule below is quoted from the
 [hackathon page](https://www.encodeclub.com/programmes/solana-hackathon-2026), read on 22 October 2026.
 Code facts point to files in this repository. Written 22 October 2026; 17 days to the deadline.
-Ticked items carry the date they were done. Last update: 28 October 2026. **The escrow on devnet is
+Ticked items carry the date they were done. Last update: 31 October 2026 (the block below); the rest was written on 28 October. **The escrow on devnet is
 the repository's source, deployed on 28 Oct at a new address, `tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry`,
 with an upgrade key we hold. So on devnet B13 and B16 are fixed and disputes are resolved by the arbiter.
 The version 1 escrow `TessSeP5…` is retired: its keys are lost, so it can never be upgraded. Pay later
@@ -11,6 +11,36 @@ is on devnet (27 Oct), upgraded the same day to the build with the CPI fix (`611
 on 28 Oct to the build where `buy_now` requires the merchant's signature and carries the agreed price
 (`1bd11be`, slot 515766612), and later on 28 Oct to the build that names the new escrow (`eca65b0`,
 slot 515961295).**
+
+## State on 31 October 2026 (audit before the mid-submission)
+
+- **Live site redeployed.** `main` is `38e68ee` (PR #3, v2 merged 31 Oct). Vercel built it the same day (`last-modified`
+  07:53 UTC): the public site is the 2.0 build with the new home page and the approval page. Earlier commits from this
+  Mac were refused by Vercel for an unverifiable author email; the repository's git config now uses the GitHub
+  no-reply address.
+- **New since the video: the approval link.** An agent with no key asks (`npm run tessera -- ask`), the owner approves on
+  `/#/approve/<order>` from their own wallet, `tessera collect` fetches the delivery and checks its hash (README, "No
+  key? Ask your owner to pay"; TRY-IT section D). Verified on devnet through the public site on 31 Oct: pixel opened
+  order `8nLQ1wKU7N3a5fTLAFVuzC9yKzH7NMc46CY8Epi99tqW` (0.15 USDC) for an owner wallet, the owner paid from the site's
+  built-in test wallet ([pay tx](https://explorer.solana.com/tx/MoZnUirYBgxFELSRE6zRhMXMjrsBQRDTk4EZyNptGS1vRye5xcoNu4PVkrgp23mKXDqdbK47Zv8xuwbeS1RDicq?cluster=devnet)),
+  pixel delivered and `collect` found the sha256 equal to the hash on-chain, and the owner released early: merchant
+  0.1485, fee 0.0015. Not yet tried with Phantom or Solflare on a phone.
+- **The demo video re-rendered, 3:17.** The 28 Oct video predated the home page (`6081764`) and the approval page
+  (`dca1b0c`). Re-rendered on 31 Oct from the deck (`node scripts/render-deck.mjs demo --floor checkout,approve`, against a
+  static build of the site on :5174 with `VITE_AGENTS_URL` set, the agents server allowing that origin): the title is now
+  the live home page, and a new slide after the website purchase shows an owner approving an agent's order from the
+  approval page, paid from the built-in test wallet and collected with the claim, a real devnet purchase performed by the
+  slide. The stack slide was dropped to keep the length down (its content is in the README and the pitch deck's honest
+  limits). 3:17 is inside Encode's 2–4 minutes and over the 3:00 we kept to before. The HTML deck and PDF
+  (`apps/web/public/decks/tessera-demo-*`) were rebuilt to the same ten slides. Known cause of two failed takes: a deck
+  opened in another tab keeps opening quotes on each hot reload until the merchant's per-client cap (5 unpaid) refuses
+  the purchase; the crank clears them after the payment window.
+- **Still only Edison can do:** make the repository public (it answers 404 to anyone else; `gh` on this Mac is logged in,
+  so `gh repo edit edison9733/x402_bnpl --visibility public --accept-visibility-change-consequences` does it); host the
+  agents server (RAILWAY.md) and set `VITE_AGENTS_URL` on Vercel, without which the public Market page says the
+  merchants are offline; upload the video and fill in the form by 1 Nov.
+- **Checked 31 Oct:** `npm run typecheck` (7 projects), `test:formula`, `test:cli` and `build:web` pass; both programs on
+  devnet are at the slots recorded in `deployments/devnet.json`; deployer 10.8 SOL, server 0.26 SOL, pool 8.021 USDC.
 
 ## 0. Dates
 
@@ -172,7 +202,8 @@ Only work done from now to 8 November is judged.
   video of about 2:50 fits both. Show a 402 response, the payment verified or settled
   on Solana (open the transaction in the devnet explorer), the delivery, one failed-payment case, and the
   2.0 feature.
-  Done: the demo video is 2:54 (`7355b8a`), committed as
+  Done 28 Oct at 2:54 (`7355b8a`), re-rendered 31 Oct at 3:17 with the live home page and the approval link (see the
+  31 October block at the top), committed as
   [`apps/web/public/videos/tessera-2.0-demo.mp4`](../apps/web/public/videos/tessera-2.0-demo.mp4) with
   its captions. It shows a real 402 from a merchant on devnet (three `accepts`), the 2.0 flow, Nova's
   run on credit on the new escrow and Charlie's refusal, that `buy_now` transaction read back from

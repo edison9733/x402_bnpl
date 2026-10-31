@@ -1,8 +1,8 @@
-<section class="center" data-document-role="page" data-label="Title" data-speaker-notes="Tessera: agents pay each other over x402 into an escrow on Solana, and with 2.0 they can buy now, pay later.">
+<section class="center" data-document-role="page" data-label="Title" data-speaker-notes="Tessera: agents pay each other over x402 into an escrow on Solana, and with 2.0 they can buy now, pay later. This is the live site, reading devnet in the browser.">
   <div class="pop">{{logo:84}}</div>
   <h1 style="font-size: 110px; margin-top: 28px;">How Tessera works</h1>
   <p style="font-size: 32px; max-width: 40ch; margin: 26px 0 0; line-height: 1.35;">Two Solana programs, two open protocols, and a website that reads the chain directly.</p>
-  <p class="mono mint" style="font-size: 22px; margin: 40px 0 0;">2.0 · pay later over x402, into the escrow · live on devnet</p>
+  <p class="mono mint" style="font-size: 22px; margin: 40px 0 0;">2.0 · pay later over x402, into the escrow · an owner approves an agent's purchase · live on devnet</p>
 </section>
 
 <section data-document-role="page" data-label="The design decision" data-speaker-notes="The x402 exact scheme on Solana allows only a plain token transfer. So the merchant quotes the escrow order’s account as pay-to: the money lands in its vault, and the program trusts that balance, not anyone’s word.">
@@ -131,32 +131,15 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
   </div>
 </section>
 
+<section class="paper" data-document-role="page" data-label="An owner approves" data-speaker-notes="New this week: an agent that holds no key can still buy. It asks, and its owner approves on this page from their own wallet. The page reads the order from the chain and checks it against the link before paying into escrow. The agent collects the delivery, and the owner keeps the right to dispute." style="padding: 70px 110px;">
+  <p class="kicker">New · an agent with no key asks, and its owner's wallet pays</p>
+  <div class="shot kb" style="width: 1700px; height: 760px; background: #fbf8ef;"><img src="img/approve.png" alt="The approval page: the order read from devnet, paid from the owner's wallet into escrow, delivered, held" style="object-fit: contain; object-position: top;"></div>
+  <div class="caption anim" style="left: 150px; right: 150px; bottom: 60px; font-size: 27px;"><span class="mono">tessera ask &lt;merchant&gt; &lt;skill&gt; --owner &lt;wallet&gt;</span> prints the link. The page reads the order from the chain, checks it against the link, and the owner's wallet pays into escrow; the agent collects the delivery with its claim and checks the hash.</div>
+</section>
+
 <section class="paper" data-document-role="page" data-label="A credit file" data-speaker-notes="Every wallet has a credit file anyone can read: the score, what it is made of, and every review with the weight it carried." style="padding: 70px 110px;">
   <p class="kicker">A merchant's credit file</p>
   <div class="shot kb" style="width: 1700px; height: 760px; background: #fbf8ef;"><img src="img/credit-file.png" alt="Quill's credit file: Trusted, score 905" style="object-fit: contain;"></div>
   <div class="caption anim" style="left: 150px; right: 150px; bottom: 60px; font-size: 27px;">Score, evidence, instant limit and every review with its weight are fields of public accounts.</div>
 </section>
 
-<section data-document-role="page" data-label="Stack, and what is not done" data-speaker-notes="Anchor, Solana Kit, x402 and A2A, with an API, an MCP server and a CLI for agents. Devnet only, and unaudited.">
-  <p class="kicker">Stack, and what is not done</p>
-  <div class="row" style="gap: 60px; margin-top: 34px;">
-    <div class="col" style="flex: 1; gap: 0;">
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Programs</span><span class="mono" style="font-size: 20px;">Anchor 1.1.2 · escrow (479 KB) + pay-later · devnet</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Clients</span><span class="mono" style="font-size: 20px;">@solana/kit 8 · Codama-generated</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Payments</span><span class="mono" style="font-size: 20px;">x402 v2 exact, two facilitators · tessera-paylater, settled by the merchant</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Agents</span><span class="mono" style="font-size: 20px;">A2A JSON-RPC · a2a-x402 extension v0.2</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Identity</span><span class="mono" style="font-size: 20px;">Solana Agent Registry (ERC-8004) · reviews mirrored</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">For agents</span><span class="mono" style="font-size: 20px;">HTTP API · MCP · skill · CLI · find_merchants ranks sellers</span></div>
-      <div style="display: flex; padding: 13px 0; border-top: 1px solid #272b21; font-size: 25px;"><span class="white" style="width: 170px; flex: none;">Website</span><span class="mono" style="font-size: 20px;">React · Motion · reads the chain directly</span></div>
-    </div>
-    <div class="col" style="flex: 1; gap: 0;">
-      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Devnet only, with test USDC; the demo traffic is our own agents</span></div>
-      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Time is compressed: a period is a minute, a loan term 600 s</span></div>
-      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Single keys: the upgrade authorities, the arbiter and the pool&#x27;s authority</span></div>
-      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>The version 1 escrow, TessSeP5…, lost its keys and is retired; its accounts stay on devnet as history</span></div>
-      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>An escrow refund goes to the buyer; the loan stays owed</span></div>
-      <div style="display: flex; padding: 14px 0; border-top: 1px solid #272b21; font-size: 24px;"><span class="warn" style="width: 34px; flex: none;">○</span><span>Unaudited; the A2A endpoint is hand-rolled, not yet run against the official test kit</span></div>
-    </div>
-  </div>
-  <div class="row" style="gap: 16px; margin-top: 46px; align-items: center;">{{logo:36}}<span class="mono" style="font-size: 22px;">github.com/edison9733/x402_bnpl</span></div>
-</section>

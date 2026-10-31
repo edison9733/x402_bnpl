@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { fetchMaybeToken } from '@solana-program/token';
-import { findAta, USDC_DEVNET } from '@tessera/sdk';
+import { approvalLink, findAta, USDC_DEVNET } from '@tessera/sdk';
 import { EASE, Logo } from '../components/ui';
 import { loadBurner } from '../lib/burner';
 import { AGENTS_URL, readRpc } from '../lib/client';
@@ -77,6 +77,74 @@ const waitFor = async (doc: Document, test: () => boolean, ms: number) => {
   while (Date.now() < until && !test()) await sleep(400);
   void doc;
 };
+
+/** The home page, read from the top: the hero, then the demo and the trust section. */
+async function homeTour(doc: Document) {
+  await sleep(6000);
+  doc.getElementById('trust')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  await sleep(4300);
+  doc.getElementById('merchants')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/**
+ * The approval slide's order: pixel opens it in the test wallet's name, as
+ * `tessera ask` would for an agent that holds no key, and the slide shows the
+ * link's page. Opened as soon as the deck is funded, so the slide spends its
+ * time on the approval; the payment window is five minutes.
+ */
+type PendingApproval = { route: string; order: string; claim: string; openedAt: number };
+let pendingApproval: Promise<PendingApproval | null> = Promise.resolve(null);
+
+async function openApprovalOrder(): Promise<PendingApproval | null> {
+  try {
+    const burner = await loadBurner();
+    const input = { seed: 'owner-approved' };
+    const res = await fetch(`${AGENTS_URL}/api/orders`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ merchant: 'pixel', sku: 'identicon', input, buyer: burner.address }),
+    });
+    if (!res.ok) return null;
+    const { terms, claim } = (await res.json()) as { terms: { order: string }; claim: string };
+    // the link's path, as `tessera ask` prints it, without the site
+    return { route: approvalLink('', terms.order, { sku: 'identicon', input }).replace(/^\/#/, ''), order: terms.order, claim, openedAt: Date.now() };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The owner approves from the built-in test wallet and pays into escrow; then
+ * the slide plays the agent too, collecting the delivery with the claim as
+ * `tessera collect` does. A real devnet purchase.
+ */
+const approveTour = (p: PendingApproval) => async (doc: Document, win: Window) => {
+  await waitFor(doc, () => /Approve and pay/.test(doc.body.innerText), 12_000);
+  win.scrollTo({ top: 250, behavior: 'smooth' });
+  await waitFor(doc, () => press(doc, 'Use this browser'), 15_000);
+  await sleep(1200);
+  await waitFor(doc, () => press(doc, 'Approve and pay'), 10_000);
+  await waitFor(doc, () => /Paid into escrow/.test(doc.body.innerText) && !/Approve and pay \$/.test(doc.body.innerText), 40_000);
+  await fetch(`${AGENTS_URL}/api/orders/${p.order}/fulfil`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ claim: p.claim }) });
+  await waitFor(doc, () => /Committed hash/.test(doc.body.innerText), 30_000);
+};
+
+function ApproveScene() {
+  const [pending, setPending] = useState<PendingApproval | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      let p = await pendingApproval;
+      // a deck read slowly by hand reaches this slide after the window: open a fresh order
+      if (!p || Date.now() - p.openedAt > 200_000) p = await openApprovalOrder();
+      if (!cancelled && p) setPending(p);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return pending ? <Live route={pending.route} run={approveTour(pending)} /> : null;
+}
 
 /**
  * Buy an identicon with the built-in test wallet, then confirm receipt. A real
@@ -299,17 +367,13 @@ function FailedScene() {
 export const DEMO: Slide[] = [
   {
     id: 'title',
-    seconds: 4,
-    say: 'Tessera: agents pay each other over x402 into an escrow on Solana, and with 2.0 they can buy now, pay later.',
+    seconds: 10,
+    say: 'Tessera: agents pay each other over x402 into an escrow on Solana, and with 2.0 they can buy now, pay later. This is the live site, reading devnet in the browser.',
     render: () => (
-      <Frame center>
-        <Logo size={84} invert />
-        <Big size={110} delay={0.3} color={white}>How Tessera works</Big>
-        <Body delay={0.8} size={32} max="40ch">Two Solana programs, two open protocols, and a website that reads the chain directly.</Body>
-        <Rise delay={1.2} style={{ marginTop: 40 }}>
-          <span className="mono" style={{ fontSize: 22, color: mint }}>2.0 · pay later over x402, into the escrow · live on devnet</span>
-        </Rise>
-      </Frame>
+      <>
+        <Live route="/" run={homeTour} />
+        <Caption>Two Solana programs, two open protocols, and a website that reads the chain directly. 2.0: pay later over x402, into the escrow. Devnet only, unaudited. github.com/edison9733/x402_bnpl</Caption>
+      </>
     ),
   },
   {
@@ -372,13 +436,25 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
   },
   {
     id: 'checkout',
-    seconds: 48,
+    seconds: 42,
     surface: 'paper',
     say: 'A person can buy from the same agents on the website, with a built-in devnet test wallet. The merchant opens the escrow, and the browser checks it on-chain before paying into its vault. The merchant delivers and commits a hash, and the browser checks what arrived against it. This buyer is new, so the money is held until it confirms receipt.',
     render: () => (
       <>
         <Live route="/market" run={buyTour} />
         <Caption side>A real purchase on devnet, performed by this slide: escrow opened, verified in the browser, paid, delivered, hash checked.</Caption>
+      </>
+    ),
+  },
+  {
+    id: 'approve',
+    seconds: 36,
+    surface: 'paper',
+    say: 'New this week: an agent that holds no key can still buy. It asks, and its owner approves on this page from their own wallet. The page reads the order from the chain and checks it against the link before paying into escrow. The agent collects the delivery, and the owner keeps the right to dispute.',
+    render: () => (
+      <>
+        <ApproveScene />
+        <Caption>An agent with no key asked; its owner approves here, from the built-in test wallet. Read from the chain, checked against the link, paid into escrow, delivered: a real devnet purchase, performed by this slide.</Caption>
       </>
     ),
   },
@@ -392,57 +468,6 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
         <ProfileScene />
         <Caption>A merchant's credit file. Score, evidence, instant limit and every review with its weight are fields of public accounts.</Caption>
       </>
-    ),
-  },
-  {
-    id: 'stack',
-    seconds: 11,
-    say: 'Anchor, Solana Kit, x402 and A2A, with an API, an MCP server and a CLI for agents. Devnet only, and unaudited.',
-    render: () => (
-      <Frame pad={84}>
-        <Kicker>Stack, and what is not done</Kicker>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 44, marginTop: 34 }}>
-          <div>
-            {[
-              ['Programs', 'Anchor 1.1.2 · escrow (479 KB) + pay-later · devnet'],
-              ['Clients', '@solana/kit 8 · Codama-generated'],
-              ['Payments', 'x402 v2 exact, two facilitators · tessera-paylater, settled by the merchant'],
-              ['Agents', 'A2A JSON-RPC · a2a-x402 extension v0.2'],
-              ['Identity', 'Solana Agent Registry (ERC-8004) · reviews mirrored'],
-              ['For agents', 'HTTP API · MCP · skill · CLI · find_merchants ranks sellers'],
-              ['Website', 'React · Motion · reads the chain directly'],
-            ].map(([k, v], i) => (
-              <Rise key={k} delay={0.3 + i * 0.12}>
-                <div style={{ display: 'grid', gridTemplateColumns: '170px 1fr', padding: '13px 0', borderTop: '1px solid #272b21', fontSize: 25 }}>
-                  <span style={{ color: white }}>{k}</span>
-                  <span className="mono" style={{ fontSize: 20 }}>{v}</span>
-                </div>
-              </Rise>
-            ))}
-          </div>
-          <div>
-            {[
-              'Devnet only, with test USDC; the demo traffic is our own agents',
-              'Time is compressed: a period is a minute, a loan term 600 s',
-              "Single keys: the upgrade authorities, the arbiter and the pool's authority",
-              'The version 1 escrow, TessSeP5…, lost its keys and is retired; its accounts stay on devnet as history',
-              'An escrow refund goes to the buyer; the loan stays owed',
-              'Unaudited; the A2A endpoint is hand-rolled, not yet run against the official test kit',
-            ].map((t, i) => (
-              <Rise key={t} delay={0.5 + i * 0.12}>
-                <div style={{ display: 'grid', gridTemplateColumns: '34px 1fr', padding: '12px 0', borderTop: '1px solid #272b21', fontSize: 22, lineHeight: 1.35 }}>
-                  <span style={{ color: '#ec835a' }}>○</span>
-                  <span>{t}</span>
-                </div>
-              </Rise>
-            ))}
-          </div>
-        </div>
-        <Rise delay={1.4} style={{ marginTop: 40, display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Logo size={36} invert />
-          <span className="mono" style={{ fontSize: 22 }}>github.com/edison9733/x402_bnpl</span>
-        </Rise>
-      </Frame>
     ),
   },
 ];
@@ -463,11 +488,13 @@ function usePrefund() {
         } catch {
           // A rate-limited read says nothing about the balance; ask anyway; the faucet drips once per wallet.
         }
-        if (funded) return;
-        await fetch(`${AGENTS_URL}/api/faucet`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: burner.address }) });
+        if (!funded) {
+          await fetch(`${AGENTS_URL}/api/faucet`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: burner.address }) });
+        }
       } catch {
         // the purchase slide asks for funds itself if this did not work
       }
+      pendingApproval = openApprovalOrder();
     })();
   }, []);
 }

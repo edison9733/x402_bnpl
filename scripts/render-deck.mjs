@@ -121,6 +121,11 @@ const page = await context.newPage();
 const opened = Date.now();
 await page.goto(`${site}/#/deck/${name}?auto=1&clean=1&wait=1&t=${slides.map((s) => s.hold).join(',')}`);
 page.on('pageerror', (e) => console.warn(`  page error: ${e.message.slice(0, 200)}`));
+// A reload or a dev-server hot update restarts the deck: say so, with the time, if it happens.
+page.on('load', () => console.log(`  page loaded at ${((Date.now() - opened) / 1000).toFixed(1)} s`));
+page.on('console', (m) => {
+  if (/\[vite\]/.test(m.text())) console.log(`  browser at ${((Date.now() - opened) / 1000).toFixed(1)} s: ${m.text().slice(0, 160)}`);
+});
 let startedAt;
 let shown = -1;
 for (;;) {
