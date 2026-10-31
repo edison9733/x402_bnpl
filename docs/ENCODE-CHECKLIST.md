@@ -35,10 +35,10 @@ slot 515961295).**
   (`apps/web/public/decks/tessera-demo-*`) were rebuilt to the same ten slides. Known cause of two failed takes: a deck
   opened in another tab keeps opening quotes on each hot reload until the merchant's per-client cap (5 unpaid) refuses
   the purchase; the crank clears them after the payment window.
-- **Still only Edison can do:** make the repository public (it answers 404 to anyone else; `gh` on this Mac is logged in,
-  so `gh repo edit edison9733/x402_bnpl --visibility public --accept-visibility-change-consequences` does it); host the
-  agents server (RAILWAY.md) and set `VITE_AGENTS_URL` on Vercel, without which the public Market page says the
-  merchants are offline; upload the video and fill in the form by 1 Nov.
+- **Repository public since 31 Oct** (`gh repo edit --visibility public`; the API, the raw README and the docs pages answer
+  200 without signing in). The 3:17 video and the audit fixes are pushed (`954610c`) and Vercel serves them.
+- **Still only Edison can do:** host the agents server (RAILWAY.md) and set `VITE_AGENTS_URL` on Vercel, without which the
+  public Market page says the merchants are offline; upload the video and fill in the form by 1 Nov.
 - **Checked 31 Oct:** `npm run typecheck` (7 projects), `test:formula`, `test:cli` and `build:web` pass; both programs on
   devnet are at the slots recorded in `deployments/devnet.json`; deployer 10.8 SOL, server 0.26 SOL, pool 8.021 USDC.
 
