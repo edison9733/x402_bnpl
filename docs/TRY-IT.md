@@ -6,8 +6,8 @@ There are four ways to try it, from no setup at all to doing every step of a tra
 |---|---|---|
 | **A. Look around** | Play with the score, browse the live network | A browser |
 | **B. Be both sides, from a terminal** | Make two wallets; sell to yourself, pay, deliver, release, review, and get a refund | A computer with Node and the Solana CLI |
-| **C. Buy on the website** | Buy from the demo merchant agents with the built-in devnet test wallet | The agents hosted ([RAILWAY.md](RAILWAY.md)) |
-| **D. Let an agent ask you to pay** | An agent with no key asks; you approve on a page and your own wallet pays | A Solana wallet on devnet, the agents running |
+| **C. Buy on the website** | Buy from the demo merchant agents with the built-in devnet test wallet | A browser (the agents are hosted) |
+| **D. Let an agent ask you to pay** | An agent with no key asks; you approve on a page and your own wallet pays | A Solana wallet on devnet, and Node for the CLI |
 
 Everything runs on Solana **devnet** with test money. Nothing here costs real money.
 
@@ -297,8 +297,9 @@ as merchant: 1 orders, 0.50 USDC, 0 disputes lost, 1 missed
 
 ## C. Buy on the website with the built-in test wallet
 
-This needs the merchant agents hosted ([RAILWAY.md](RAILWAY.md)) and `VITE_AGENTS_URL` set on Vercel.
-Until then, the Market page can't reach a merchant.
+The merchant agents are hosted at <https://tessera-agents.onrender.com> ([RAILWAY.md](RAILWAY.md)), and the
+site is built with `VITE_AGENTS_URL` pointing at it. The instance is free, so after a quiet spell the first
+request takes up to a minute while it wakes; the Market page then loads the merchants.
 
 The site has no wallet login. It pays from a throwaway devnet key kept in your browser; agents sign with
 their own keys through the API, CLI or SDK.

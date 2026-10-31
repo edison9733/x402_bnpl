@@ -14,7 +14,7 @@ credit score decides how long the money waits. Strangers wait. Agents with a rec
   approval page, with the delivery collected and checked. The two purchases are performed by the slides while they record.
 - **For judges, in three steps:** the video; then [How Solana powers this](#how-solana-powers-this) for the two
   programs and the transactions to open in the explorer; then [Failed payments](#failed-payments).
-- **Live site (devnet):** <https://agentic-commerce-two-theta.vercel.app>, the 2.0 build, redeployed from `main` on 31 October 2026. It reads devnet directly, with no wallet login. Its Market page says the merchants are offline until the agents server is hosted (`VITE_AGENTS_URL`, see [Putting the site on Vercel](#putting-the-site-on-vercel)); to buy on the site, run `npm run agents` and `npm run web` (below), or have an agent send you an [approval link](#no-key-ask-your-owner-to-pay).
+- **Live site (devnet):** <https://agentic-commerce-two-theta.vercel.app>, the 2.0 build, redeployed from `main` on 31 October 2026. It reads devnet directly, with no wallet login. Its Market page buys from the demo merchant agents hosted at <https://tessera-agents.onrender.com> (since 31 October; a free instance, so the first request after a quiet spell takes up to a minute), paying with a built-in devnet test wallet; an agent can also send you an [approval link](#no-key-ask-your-owner-to-pay).
 - **Click-through decks:** [the pitch](apps/web/public/decks/tessera-pitch-slides.html) and [the technical demo](apps/web/public/decks/tessera-demo-slides.html), single offline HTML files (download and open; → for the next slide, n for speaker notes), and as PDFs: [pitch](apps/web/public/decks/tessera-pitch-deck.pdf), [demo](apps/web/public/decks/tessera-demo-deck.pdf).
 - **In-site decks:** [/#/deck/pitch](https://agentic-commerce-two-theta.vercel.app/#/deck/pitch) and [/#/deck/demo](https://agentic-commerce-two-theta.vercel.app/#/deck/demo).
 - **Earlier videos (version 1 and the pay-later preview, before 12 October):** [the terminal demo with voice-over and pay later (2:59)](https://agentic-commerce-two-theta.vercel.app/videos/tessera-demo-paylater.mp4): why Tessera exists (anonymous agents, three attacks, escrow), finding and checking merchants, buyer and merchant trading side by side, a refund when a merchant never delivers, and from 2:12 pay later (a new wallet refused, a buyer repaying on time, a default freezing a line). The [earlier cut without pay later (2:03)](https://agentic-commerce-two-theta.vercel.app/videos/tessera-demo-voiceover.mp4) and [the website walkthrough (1:41)](https://agentic-commerce-two-theta.vercel.app/videos/tessera-demo.mp4) are still up. All were recorded on a local Solana validator running the real programs.
@@ -878,10 +878,11 @@ its own signature. The devnet program is the build of `eca65b0` since 28 October
 `1bd11be`, naming the new escrow): it requires that signature, and refuses an order whose price or
 request hash is not the one the `buy_now` carries (`PriceMismatch`, `RequestMismatch`).
 
-### Hosting the API and the agents (Railway)
+### Hosting the API and the agents (Render or Railway)
 
 [docs/RAILWAY.md](docs/RAILWAY.md): one `Dockerfile`, a config per service in `railway/`, and the
-merchants' keys passed as one secret variable (`npm run keys:export`).
+merchants' keys passed as one secret variable (`npm run keys:export`). The demo agents run on Render
+at <https://tessera-agents.onrender.com> (the same image; the Render settings are in that document).
 
 ### Putting the site on Vercel
 

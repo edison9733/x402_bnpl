@@ -37,8 +37,13 @@ slot 515961295).**
   the purchase; the crank clears them after the payment window.
 - **Repository public since 31 Oct** (`gh repo edit --visibility public`; the API, the raw README and the docs pages answer
   200 without signing in). The 3:17 video and the audit fixes are pushed (`954610c`) and Vercel serves them.
-- **Still only Edison can do:** host the agents server (RAILWAY.md) and set `VITE_AGENTS_URL` on Vercel, without which the
-  public Market page says the merchants are offline; upload the video and fill in the form by 1 Nov.
+- **Agents hosted, 31 Oct (night).** Render free instance at <https://tessera-agents.onrender.com> (Railway refused
+  sign-ups): health, six cards, CORS for the site checked; a devnet purchase went through it from the public approval
+  page, delivered and hash-checked. `setup:devnet` re-pointed the merchants' on-chain cards at it, so `find text summary`
+  works from a fresh clone. `VITE_AGENTS_URL` set on Vercel and redeployed: the live Market page lists the merchants.
+  Limits of the free tier: sleeps after ~15 min idle (first request up to a minute), no disk (open quotes lost on
+  restart). The lockfile needed regenerating with npm 10 for the image's `npm ci` (`1d6a5e4`).
+- **Still only Edison can do:** upload the video and fill in the form by 1 Nov.
 - **Checked 31 Oct:** `npm run typecheck` (7 projects), `test:formula`, `test:cli` and `build:web` pass; both programs on
   devnet are at the slots recorded in `deployments/devnet.json`; deployer 10.8 SOL, server 0.26 SOL, pool 8.021 USDC.
 - **Fresh clone, 31 Oct (evening).** `git clone` of the public repo, `npm install` (9 s on Node 26), `typecheck`,
