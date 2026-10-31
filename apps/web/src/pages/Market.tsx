@@ -95,17 +95,18 @@ function usePayer() {
   }, [burner]);
 }
 
-function useBalances(owner?: Address) {
+/** A wallet's SOL and its balance of `mint` (devnet USDC unless the escrow's config names another). */
+export function useBalances(owner?: Address, mint: Address = USDC_DEVNET) {
   const [b, setB] = useState<{ sol: bigint; usdc: bigint } | null>(null);
   const load = useCallback(async () => {
     if (!owner) return;
     try {
-      const [sol, token] = await Promise.all([readRpc.getBalance(owner).send(), fetchMaybeToken(readRpc, await findAta(owner, USDC_DEVNET))]);
+      const [sol, token] = await Promise.all([readRpc.getBalance(owner).send(), fetchMaybeToken(readRpc, await findAta(owner, mint))]);
       setB({ sol: sol.value, usdc: token.exists ? token.data.amount : 0n });
     } catch {
       // keep the last known balances
     }
-  }, [owner]);
+  }, [owner, mint]);
   useEffect(() => {
     setB(null);
     void load();

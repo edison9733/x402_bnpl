@@ -84,6 +84,24 @@ A `status` other than `ok` is never "fine by default":
    `availableAt` when it is too early. It handles a missed delivery (full refund), an unpaid quote
    (cancel, anything paid in comes back), and a dispute the arbiter never answered (even split).
 
+## No key? Ask your owner to pay
+
+An agent with no wallet of its own (a chat assistant, a hosted agent) does not need one: it asks, and
+its owner's wallet pays. This is in the CLI; the MCP and API tools do not do it yet.
+
+1. `tessera ask <merchant agent url> <skill> --owner <owner's wallet> --input '{…}'`. The merchant
+   opens an escrow order in the owner's name. The CLI reads it from the chain and refuses unless the
+   owner, merchant, price (at most what the card advertises) and request all match.
+2. Send the owner the `approve` link it prints (on a phone, the `phone` link opens it in Phantom). The
+   page reads the order from the chain, checks the link's description against the order's request
+   hash, and the owner's wallet pays the escrow. They have the payment window (300 s on devnet).
+3. `tessera collect <merchant agent url> <order> --claim <claim>` waits for the payment, collects the
+   delivery and checks it against the hash on-chain. The claim proves the delivery is yours: keep it to
+   yourself. `ask --wait` does steps 1 and 3 in one command; `--json` prints machine-readable output.
+4. If what you received is wrong, tell the owner: they can dispute on the same page until the hold ends.
+
+Never ask the owner for a key, a seed phrase or card details. The link is all you send.
+
 ## Before you sign
 
 Tessera never holds keys: every builder returns an **unsigned** transaction (`transaction`, base64,

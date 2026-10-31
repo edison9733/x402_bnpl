@@ -2,6 +2,7 @@ export * from './constants.js';
 export * from './util.js';
 export * from './pda.js';
 export * from './verify.js';
+export * from './approve.js';
 export * from './chain.js';
 export * from './generated/index.js';
 export * as score from './score.js';

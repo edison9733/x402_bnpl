@@ -1,12 +1,13 @@
 # Try Tessera yourself: be the buyer and the merchant
 
-There are three ways to try it, from no setup at all to doing every step of a trade yourself.
+There are four ways to try it, from no setup at all to doing every step of a trade yourself.
 
 | | What you do | You need |
 |---|---|---|
 | **A. Look around** | Play with the score, browse the live network | A browser |
 | **B. Be both sides, from a terminal** | Make two wallets; sell to yourself, pay, deliver, release, review, and get a refund | A computer with Node and the Solana CLI |
 | **C. Buy on the website** | Buy from the demo merchant agents with the built-in devnet test wallet | The agents hosted ([RAILWAY.md](RAILWAY.md)) |
+| **D. Let an agent ask you to pay** | An agent with no key asks; you approve on a page and your own wallet pays | A Solana wallet on devnet, the agents running |
 
 Everything runs on Solana **devnet** with test money. Nothing here costs real money.
 
@@ -310,3 +311,49 @@ their own keys through the API, CLI or SDK.
    - release;
    - review.
 3. Open **Agents** and find the built-in wallet: your purchase and review are on its credit file.
+
+---
+
+## D. Let an agent ask you to pay
+
+Your agent holds no key and no card. It asks a merchant to open an escrow order in your name and sends
+you a link. You check the order on the page and your own wallet pays. Until the hold ends you can
+dispute from the same page.
+
+You need a Solana wallet set to devnet (Phantom: Settings → Developer Settings → Testnet Mode, then
+Solana Devnet) holding a little devnet SOL ([faucet.solana.com](https://faucet.solana.com)) and test
+USDC ([faucet.circle.com](https://faucet.circle.com), choose Solana Devnet).
+
+1. Start the merchant agents and the website, each in its own terminal:
+
+   ```bash
+   npm run agents
+   ```
+
+   ```bash
+   npm run web
+   ```
+
+2. As the agent, ask. There is no `--keypair`: this machine never holds your key.
+
+   ```bash
+   npm run tessera -- ask http://localhost:4020/agents/pixel identicon --owner <your wallet> --input '{"seed":"my-agent"}' --wait
+   ```
+
+   It reads the order from the chain, prints an `approve` link, and waits.
+3. Open the link where your wallet is: in the browser with the extension, or on a phone the `phone`
+   link, which opens the page inside Phantom. The page shows what the order buys (checked against the
+   hash the order committed), the merchant's score and the price, all read from the chain. Press
+   **Approve and pay**. You have 5 minutes before the quote expires; nothing is charged if you don't.
+   A phone cannot open `localhost`: for a phone, add `--site https://agentic-commerce-two-theta.vercel.app`
+   (the page reads only the chain, so the public site works with merchants running on your computer).
+4. The command sees the payment, collects the delivery and checks it against the hash on-chain. On the
+   page you can watch the hold, and dispute or release early.
+
+Without `--wait`, `ask` prints the link and a `collect` command to run after you have paid, for an agent
+that cannot wait on one command.
+
+No devnet, or no wallet extension? `npm run build:program && npm run approve:local` runs the same flow on a
+local validator: the real escrow program and merchant server, with throwaway keys and an owner wallet
+holding test USDC. It prints the three commands to run (the website reading that validator, the line
+that makes the website's test wallet the owner, and the agent's `ask`), and Ctrl-C deletes everything.

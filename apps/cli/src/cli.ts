@@ -63,6 +63,7 @@ import {
   verifyOrderForPayment,
 } from '@tessera/sdk';
 import { OUTCOMES, ROLES, TOOLS, type ToolName } from '@tessera/api/contract';
+import { ASK_COMMANDS, ASK_HELP, askCommands } from './ask.js';
 import { PAYLATER_COMMANDS, PAYLATER_HELP, payLater } from './paylater.js';
 import { TAB_COMMANDS, TAB_HELP, tabCommands } from './tab.js';
 
@@ -88,6 +89,8 @@ After payment
 ${PAYLATER_HELP}
 
 ${TAB_HELP}
+
+${ASK_HELP}
 
 Options
   --api URL        Tessera API (default $TESSERA_API_URL or http://127.0.0.1:4030)
@@ -136,6 +139,10 @@ const { values: flags, positionals } = parseArgs({
     network: { type: 'string' },
     tab: { type: 'string' },
     wallet: { type: 'string' },
+    owner: { type: 'string' },
+    claim: { type: 'string' },
+    site: { type: 'string' },
+    wait: { type: 'boolean' },
     'dry-run': { type: 'boolean' },
     yes: { type: 'boolean' },
     'no-color': { type: 'boolean' },
@@ -575,6 +582,23 @@ if (PAYLATER_COMMANDS.has(cmd)) {
     die,
   }).catch((e: Error) => die(`${cmd} failed: ${e.message} (RPC ${new URL(rpcUrl).host})`));
   process.exit(0);
+}
+
+if (ASK_COMMANDS.has(cmd)) {
+  const rpcUrl = endpoint(String(flags.rpc ?? ((process.env.TESSERA_RPC_URLS ?? '').split(',')[0]!.trim() || 'https://api.devnet.solana.com')), flags.rpc ? '--rpc' : 'TESSERA_RPC_URLS');
+  await askCommands(cmd, a1, a2, {
+    rpcUrl,
+    owner: flags.owner as string | undefined,
+    claim: flags.claim as string | undefined,
+    site: flags.site as string | undefined,
+    input: json(flags.input as string, '--input'),
+    minHoldSecs: int(flags['min-hold'] as string | undefined, '--min-hold'),
+    wait: Boolean(flags.wait),
+    json: Boolean(flags.json),
+    endpoint,
+    die,
+  }).catch((e: Error) => die(`${cmd} failed: ${e.message} (RPC ${new URL(rpcUrl).host})`));
+  process.exit();
 }
 
 if (TAB_COMMANDS.has(cmd)) {

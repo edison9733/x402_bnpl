@@ -1,88 +1,20 @@
 import { motion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import {
-  address,
-  appendTransactionMessageInstructions,
-  compileTransaction,
-  createNoopSigner,
-  createTransactionMessage,
-  getBase64EncodedWireTransaction,
-  getSignatureFromTransaction,
-  getTransactionDecoder,
-  getTransactionEncoder,
-  isAddress,
-  pipe,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  type Address,
-  type KeyPairSigner,
-} from '@solana/kit';
+import { address, isAddress, type KeyPairSigner } from '@solana/kit';
 import { fetchMaybeOrder, getSubmitReviewInstructionAsync, OrderState, pairPdaOf, toHex, type Order } from '@tessera/sdk';
-import { getWallets } from '@wallet-standard/app';
 import { Footer } from './Landing';
 import { clip200 } from './Market';
 import { Nav } from '../components/Nav';
 import { EASE, Reveal } from '../components/ui';
-import { loadBurner, sendSigned, sendWith } from '../lib/burner';
+import { loadBurner } from '../lib/burner';
 import { NETWORK, readRpc } from '../lib/client';
 import { ago, duration, explorerAddress, explorerTx, short, usd } from '../lib/format';
 import { left, ordersOf, SETTLED, windowText } from '../lib/reviewable';
 import { go, Link } from '../lib/router';
 import { refresh, useChain } from '../lib/store';
-
-// ------------------------------------------------------------ wallet standard
-
-type StdWallet = ReturnType<ReturnType<typeof getWallets>['get']>[number];
-type StdAccount = StdWallet['accounts'][number];
-type ConnectFeature = { connect: (input?: { silent?: boolean }) => Promise<{ accounts: readonly StdAccount[] }> };
-type SignTxFeature = {
-  supportedTransactionVersions?: readonly (number | 'legacy')[];
-  signTransaction: (...inputs: { account: StdAccount; transaction: Uint8Array; chain?: string }[]) => Promise<readonly { signedTransaction: Uint8Array }[]>;
-};
-
-const CHAIN = 'solana:devnet';
-
-/** A wallet this page can use: it connects, signs a Solana transaction, and speaks a Solana chain. */
-const usable = (w: StdWallet) => 'standard:connect' in w.features && 'solana:signTransaction' in w.features && w.chains.some((c) => c.startsWith('solana:'));
-
-function useWallets(): StdWallet[] {
-  const [list, setList] = useState<StdWallet[]>([]);
-  useEffect(() => {
-    const api = getWallets();
-    const update = () => setList(api.get().filter(usable));
-    update();
-    const offRegister = api.on('register', update);
-    const offUnregister = api.on('unregister', update);
-    return () => {
-      offRegister();
-      offUnregister();
-    };
-  }, []);
-  return list;
-}
-
-type Signer = { kind: 'wallet'; address: Address; wallet: StdWallet; account: StdAccount } | { kind: 'burner'; address: Address; signer: KeyPairSigner };
+import { connectWallet, declined, errText, sendAs, useWallets, type Signer, type StdWallet } from '../lib/wallet';
 
 // ------------------------------------------------------------------- helpers
-
-/** Every string inside an error, so a program error name or code can be matched. */
-function errText(e: unknown): string {
-  const parts: string[] = [];
-  const seen = new Set<object>();
-  const walk = (v: unknown, depth: number): void => {
-    if (v == null || depth > 8) return;
-    if (typeof v !== 'object') return void parts.push(String(v));
-    if (seen.has(v as object)) return;
-    seen.add(v as object);
-    if (v instanceof Error) {
-      parts.push(v.name, v.message);
-      walk(v.cause, depth + 1);
-    }
-    for (const val of Object.values(v as Record<string, unknown>)) walk(val, depth + 1);
-  };
-  walk(e, 0);
-  return parts.join(' | ');
-}
 
 /** A failed review in plain words. Program errors are matched by name, hex or decimal code. */
 function explain(e: unknown): string {
@@ -123,7 +55,7 @@ function Check({ on }: { on: boolean }) {
   );
 }
 
-function Row({ label, children, verified = true }: { label: string; children: ReactNode; verified?: boolean }) {
+export function Row({ label, children, verified = true }: { label: string; children: ReactNode; verified?: boolean }) {
   return (
     <div className="grid gap-1 py-3 sm:grid-cols-[11rem_1fr] sm:gap-4" style={{ borderTop: '1px solid #ebe4d0' }}>
       <div className="eyebrow pt-0.5" style={{ color: '#878371' }}>{label}</div>
@@ -211,12 +143,9 @@ export function Review({ order: param }: { order?: string }) {
     setError(null);
     setConnecting(w.name);
     try {
-      const { accounts } = await (w.features['standard:connect'] as ConnectFeature).connect();
-      const account = accounts[0] ?? w.accounts[0];
-      if (!account) throw new Error('The wallet shared no account.');
-      setSigner({ kind: 'wallet', address: address(account.address), wallet: w, account });
+      setSigner(await connectWallet(w));
     } catch (e) {
-      setError(/reject|denied|declin|cancel|4001/i.test(errText(e)) ? 'You cancelled the connection in your wallet.' : `Could not connect to ${w.name}: ${(e as Error).message}`);
+      setError(declined(e) ? 'You cancelled the connection in your wallet.' : `Could not connect to ${w.name}: ${(e as Error).message}`);
     } finally {
       setConnecting(null);
     }
@@ -229,30 +158,9 @@ export function Review({ order: param }: { order?: string }) {
     try {
       const orderAddr = address(param);
       const pair = await pairPdaOf(order.buyer, order.merchant);
-      let signature: string;
-      if (signer.kind === 'burner') {
-        const ix = await getSubmitReviewInstructionAsync({ order: orderAddr, subject: role.subject, pair, reviewer: signer.signer, payer: signer.signer, rating, text });
-        signature = await sendWith(signer.signer, [ix]);
-      } else {
-        // The page builds the transaction; only the wallet holds the key.
-        const noop = createNoopSigner(signer.address);
-        const ix = await getSubmitReviewInstructionAsync({ order: orderAddr, subject: role.subject, pair, reviewer: noop, payer: noop, rating, text });
-        const feature = signer.wallet.features['solana:signTransaction'] as SignTxFeature;
-        const version = !feature.supportedTransactionVersions || feature.supportedTransactionVersions.includes(0) ? 0 : 'legacy';
-        const { value: latest } = await readRpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
-        const message = pipe(
-          createTransactionMessage({ version }),
-          (m) => setTransactionMessageFeePayerSigner(noop, m),
-          (m) => setTransactionMessageLifetimeUsingBlockhash(latest, m),
-          (m) => appendTransactionMessageInstructions([ix], m),
-        );
-        const bytes = new Uint8Array(getTransactionEncoder().encode(compileTransaction(message)));
-        const [out] = await feature.signTransaction({ account: signer.account, transaction: bytes, chain: CHAIN });
-        if (!out) throw new Error('The wallet returned no signed transaction.');
-        const signed = getTransactionDecoder().decode(out.signedTransaction);
-        signature = await sendSigned(getBase64EncodedWireTransaction(signed), getSignatureFromTransaction(signed));
-      }
-      setPosted({ signature, subject: role.subject });
+      const subject = role.subject;
+      const signature = await sendAs(signer, async (as) => [await getSubmitReviewInstructionAsync({ order: orderAddr, subject, pair, reviewer: as, payer: as, rating, text })]);
+      setPosted({ signature, subject });
       setText('');
       await load(true);
       void refresh();
@@ -500,7 +408,7 @@ export function Review({ order: param }: { order?: string }) {
                       />
                       <div className="mono text-right text-[0.7rem]" style={{ color: '#878371' }}>{new TextEncoder().encode(text).length} / 200 bytes</div>
                       <button className="btn btn-ink justify-center py-3.5" disabled={busy || !open} onClick={() => void submit()}>
-                        {busy ? 'Waiting for the wallet and {NETWORK}…' : 'Sign and post the review'}
+                        {busy ? `Waiting for the wallet and ${NETWORK}…` : 'Sign and post the review'}
                       </button>
                       {!open && <div className="text-[0.84rem]" style={{ color: '#878371' }}>{settled ? 'The review window has closed.' : 'Reviews open once the order settles.'}</div>}
                     </div>
@@ -538,7 +446,7 @@ export function Review({ order: param }: { order?: string }) {
   );
 }
 
-function Notice({ tone, children }: { tone: 'ok' | 'warn' | 'bad'; children: ReactNode }) {
+export function Notice({ tone, children }: { tone: 'ok' | 'warn' | 'bad'; children: ReactNode }) {
   const c = { ok: ['#e7f4ec', '#bfdccb', '#14130f'], warn: ['#fdf4e0', '#f0d9a6', '#5c4307'], bad: ['#fdecea', '#f3c4bf', '#7a1f1f'] }[tone];
   return (
     <div className="mt-4 rounded-2xl p-4 text-[0.92rem] leading-relaxed" style={{ background: c[0], border: `1px solid ${c[1]}`, color: c[2] }}>
