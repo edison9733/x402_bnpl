@@ -47,7 +47,9 @@ slot 515961295).**
   Approve) now use the home page's design: its dark palette, Bricolage Grotesque headings with the accent in mint, the
   four-tile mark in the nav and footer; the home page's menu and hero link to the Market. Done by remapping every
   paper-era colour in `apps/web/src` to the palette in `landing.css` and restyling the shared classes in `styles.css`;
-  the serif font is no longer loaded. The demo video's footage of those pages is the old look until it is re-rendered.
+  the serif font is no longer loaded. The demo video was re-rendered right after, from the live site against the hosted
+  agents (`node scripts/render-deck.mjs demo --floor checkout,approve --url https://agentic-commerce-two-theta.vercel.app`),
+  still 3:17, and the HTML deck's three live-page shots are frames of it.
 - **Still only Edison can do:** upload the video and fill in the form by 1 Nov.
 - **Checked 31 Oct:** `npm run typecheck` (7 projects), `test:formula`, `test:cli` and `build:web` pass; both programs on
   devnet are at the slots recorded in `deployments/devnet.json`; deployer 10.8 SOL, server 0.26 SOL, pool 8.021 USDC.
