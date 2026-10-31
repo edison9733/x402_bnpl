@@ -12,7 +12,7 @@ import type { FeedEvent, Profile } from '../lib/store';
 type Node = { x: number; y: number; vx: number; vy: number; r: number; p: Profile; pulse: number };
 type Flight = { from: string; to: string; t0: number; ms: number; from_t: number; to_t: number; color: string; trail: boolean };
 
-const COIN = { quoted: '#8b8a7c', escrow: '#fab219', paid: '#b9f8da', back: '#ec835a', dispute: '#d03b3b' };
+const COIN = { quoted: '#86918B', escrow: '#fab219', paid: '#b9f8da', back: '#ec835a', dispute: '#d03b3b' };
 
 export function Graph({
   profiles,
@@ -189,7 +189,7 @@ export function Graph({
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.quadraticCurveTo(2 * mx - (a.x + b.x) / 2, 2 * my - (a.y + b.y) / 2, b.x, b.y);
-        ctx.strokeStyle = pr.disputes > 0 ? `rgba(208,59,59,${alpha})` : `rgba(201,198,182,${alpha})`;
+        ctx.strokeStyle = pr.disputes > 0 ? `rgba(208,59,59,${alpha})` : `rgba(163,173,167,${alpha})`;
         ctx.lineWidth = hot ? 1.4 : 1;
         ctx.stroke();
       }
@@ -268,7 +268,7 @@ export function Graph({
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.lineWidth = 2;
-        ctx.strokeStyle = '#0a0b09';
+        ctx.strokeStyle = '#0B0E0D';
         ctx.stroke();
         if (n.p.agent.penaltyBps > 0) {
           ctx.beginPath();
@@ -279,9 +279,9 @@ export function Graph({
         if (showLabels) {
           ctx.font = '500 11.5px "Geist Mono", ui-monospace, monospace';
           ctx.textAlign = 'center';
-          ctx.fillStyle = '#e9e6d8';
+          ctx.fillStyle = '#E8EDE9';
           ctx.fillText(n.p.name, n.x, n.y + n.r + 16);
-          ctx.fillStyle = '#8b8a7c';
+          ctx.fillStyle = '#86918B';
           ctx.font = '10.5px "Geist Mono", ui-monospace, monospace';
           ctx.fillText(String(n.p.eval.score), n.x, n.y + n.r + 29);
         }
@@ -346,20 +346,20 @@ export function Graph({
             left: hover.x,
             top: hover.y,
             transform: 'translate(-50%, -100%)',
-            background: '#181b15',
-            border: '1px solid #272b21',
+            background: '#1A211E',
+            border: '1px solid #232C28',
             borderRadius: 10,
             padding: '8px 10px',
             fontSize: 11.5,
             lineHeight: 1.55,
-            color: '#e9e6d8',
+            color: '#E8EDE9',
             pointerEvents: 'none',
             whiteSpace: 'nowrap',
             zIndex: 5,
           }}
         >
           <div style={{ fontWeight: 500 }}>{hover.p.name}</div>
-          <div style={{ color: '#8b8a7c' }}>
+          <div style={{ color: '#86918B' }}>
             score {hover.p.eval.score} · {tierName(hover.p.eval.tier)} · {hover.p.orders} orders
           </div>
         </div>
@@ -377,9 +377,9 @@ export function GraphLegend() {
   );
   const dot = (c: string, square = false) => <span style={{ width: 9, height: 9, borderRadius: square ? 2 : 9, background: c, display: 'inline-block' }} />;
   return (
-    <div className="mono flex flex-wrap gap-x-5 gap-y-2 text-[0.7rem]" style={{ color: '#8b8a7c' }}>
-      {item(dot('#c9c6b6', true), 'merchant')}
-      {item(dot('#c9c6b6'), 'buyer')}
+    <div className="mono flex flex-wrap gap-x-5 gap-y-2 text-[0.7rem]" style={{ color: '#86918B' }}>
+      {item(dot('#A3ADA7', true), 'merchant')}
+      {item(dot('#A3ADA7'), 'buyer')}
       {TIER_DARK.map((c, i) => (
         <span key={c} className="inline-flex items-center gap-2">
           {dot(c)}

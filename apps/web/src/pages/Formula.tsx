@@ -11,11 +11,11 @@ const REPO = 'https://github.com/edison9733/x402_bnpl';
 
 function Term({ name, math, children }: { name: string; math: string; children: React.ReactNode }) {
   return (
-    <div className="grid gap-3 py-6 md:grid-cols-[11rem_1fr]" style={{ borderTop: '1px solid #ded7c2' }}>
+    <div className="grid gap-3 py-6 md:grid-cols-[11rem_1fr]" style={{ borderTop: '1px solid #232C28' }}>
       <div className="display text-[1.8rem] leading-none">{name}</div>
       <div className="min-w-0">
-        <pre className="mono overflow-x-auto rounded-xl px-4 py-3 text-[0.8rem]" style={{ background: '#f4efe0', margin: 0 }}>{math}</pre>
-        <p className="mt-3 text-[0.98rem] leading-relaxed" style={{ color: '#4b483e' }}>{children}</p>
+        <pre className="mono overflow-x-auto rounded-xl px-4 py-3 text-[0.8rem]" style={{ background: '#101513', margin: 0 }}>{math}</pre>
+        <p className="mt-3 text-[0.98rem] leading-relaxed" style={{ color: '#A3ADA7' }}>{children}</p>
       </div>
     </div>
   );
@@ -44,7 +44,7 @@ function ParamTable({ live }: { live: Params | null }) {
     <div className="card overflow-x-auto p-2 md:p-4">
       <table className="w-full min-w-[640px] text-[0.9rem]" style={{ borderCollapse: 'collapse' }}>
         <thead>
-          <tr className="eyebrow text-left" style={{ color: '#878371' }}>
+          <tr className="eyebrow text-left" style={{ color: '#86918B' }}>
             <th className="py-3 font-normal">Parameter</th>
             <th className="py-3 font-normal">Devnet {live ? '(read from chain)' : ''}</th>
             <th className="py-3 font-normal">Mainnet target</th>
@@ -52,7 +52,7 @@ function ParamTable({ live }: { live: Params | null }) {
         </thead>
         <tbody>
           {rows.map(([k, a, b]) => (
-            <tr key={k} style={{ borderTop: '1px solid #ebe4d0' }}>
+            <tr key={k} style={{ borderTop: '1px solid #1A211E' }}>
               <td className="py-2.5 pr-4">{k}</td>
               <td className="mono py-2.5 pr-4 text-[0.82rem]">{a}</td>
               <td className="mono py-2.5 text-[0.82rem]">{b}</td>
@@ -88,17 +88,17 @@ export function Formula() {
       <Nav />
       <main className="wrap pb-24 pt-12" style={{ width: 'min(980px, 100% - 2.5rem)' }}>
         <Reveal>
-          <div className="eyebrow" style={{ color: '#878371' }}>The score</div>
+          <div className="eyebrow" style={{ color: '#86918B' }}>The score</div>
           <h1 className="display mt-3 text-[clamp(2.8rem,7vw,5.6rem)]">
             Every rule, <em>in the open.</em>
           </h1>
-          <p className="mt-5 max-w-[44rem] text-[1.08rem] leading-relaxed" style={{ color: '#4b483e' }}>
+          <p className="mt-5 max-w-[44rem] text-[1.08rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
             A credit score that decides when people get paid has to be checkable by the people it decides for. Tessera's is integer arithmetic over public accounts. The program computes it, the SDK computes it, and this page computes it, with the same code.
           </p>
         </Reveal>
 
         <Reveal delay={0.05}>
-          <pre className="mono mt-10 overflow-x-auto rounded-2xl p-6 text-[0.9rem] leading-[1.9]" style={{ background: '#14130f', color: '#e9e6d8' }}>
+          <pre className="mono mt-10 overflow-x-auto rounded-2xl p-6 text-[0.9rem] leading-[1.9]" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28' }}>
 {`score    = 1000 × Evidence × Rating × Behaviour
 Evidence = 0.45 History + 0.30 Tenure + 0.25 Diversity
 
@@ -133,11 +133,11 @@ hold     = max( hold[merchant tier], hold[buyer tier] )`}
               {[0, 1, 2, 3].map((t) => (
                 <div key={t} className="card grid items-center gap-4 p-5 md:grid-cols-[10rem_1fr_auto]">
                   <TierBadge tier={t} />
-                  <span className="text-[0.95rem]" style={{ color: '#4b483e' }}>
+                  <span className="text-[0.95rem]" style={{ color: '#A3ADA7' }}>
                     {['Any wallet. Its orders wait the longest, and it counts for 10% as a counterparty or reviewer.', 'A few clean orders over a few periods. Counts for 40%.', 'A real record across several counterparties. Counts for 80%.', 'A long, clean, well-rated record. Counts in full, and may settle instantly inside its limit.'][t]}
                   </span>
                   <span className="mono text-[0.82rem]">
-                    {duration(MAINNET_TARGET_PARAMS.holdSecs[t]!)} <span style={{ color: '#878371' }}>· devnet {duration((config?.params ?? DEVNET_PARAMS).holdSecs[t]!)}</span>
+                    {duration(MAINNET_TARGET_PARAMS.holdSecs[t]!)} <span style={{ color: '#86918B' }}>· devnet {duration((config?.params ?? DEVNET_PARAMS).holdSecs[t]!)}</span>
                   </span>
                 </div>
               ))}
@@ -150,7 +150,7 @@ hold     = max( hold[merchant tier], hold[buyer tier] )`}
               ].map(([h, b]) => (
                 <div key={h} className="card p-5">
                   <div className="text-[1rem] font-medium">{h}</div>
-                  <p className="mt-2 text-[0.9rem] leading-relaxed" style={{ color: '#4b483e' }}>{b}</p>
+                  <p className="mt-2 text-[0.9rem] leading-relaxed" style={{ color: '#A3ADA7' }}>{b}</p>
                 </div>
               ))}
             </div>
@@ -167,7 +167,7 @@ hold     = max( hold[merchant tier], hold[buyer tier] )`}
         <section id="rewards" className="mt-14">
           <Reveal>
             <h2 className="display text-[2.6rem]">Reviews that pay</h2>
-            <p className="mt-3 max-w-[44rem] text-[0.98rem] leading-relaxed" style={{ color: '#4b483e' }}>
+            <p className="mt-3 max-w-[44rem] text-[0.98rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
               A share of every fee goes back to reviewers: the same for 1 star or 5, scaled by whether the review proved right. The rules are in docs/REWARDS.md and run in the browser below.
             </p>
             <div className="mt-6"><ReviewRewards /></div>
@@ -177,7 +177,7 @@ hold     = max( hold[merchant tier], hold[buyer tier] )`}
         <section className="mt-14">
           <Reveal>
             <h2 className="display text-[2.6rem]">The numbers</h2>
-            <p className="mt-3 max-w-[44rem] text-[0.98rem] leading-relaxed" style={{ color: '#4b483e' }}>
+            <p className="mt-3 max-w-[44rem] text-[0.98rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
               Devnet runs the same rules with time and amounts compressed, so a wallet's whole journey can be watched in under an hour with a few test dollars. The mainnet column is a target, not a deployment.
             </p>
             <div className="mt-6"><ParamTable live={config?.params ?? null} /></div>
@@ -187,15 +187,15 @@ hold     = max( hold[merchant tier], hold[buyer tier] )`}
         <section className="mt-14">
           <Reveal>
             <h2 className="display text-[2.6rem]">What is guaranteed</h2>
-            <p className="mt-3 max-w-[44rem] text-[0.98rem] leading-relaxed" style={{ color: '#4b483e' }}>
+            <p className="mt-3 max-w-[44rem] text-[0.98rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
               Each line is a test in the repository. “Formula” tests run the arithmetic; “on-chain” tests send the attack as a real transaction to the real program and require it to fail.
             </p>
             <ul className="mt-6 grid gap-2" style={{ listStyle: 'none', padding: 0 }}>
               {GUARANTEES.map(([g, where]) => (
                 <li key={g} className="card grid items-center gap-x-4 gap-y-1 px-5 py-3.5 text-[0.95rem]" style={{ gridTemplateColumns: '1.4rem minmax(0, 1fr)' }}>
-                  <span style={{ color: '#126b4a' }} aria-hidden>✓</span>
+                  <span style={{ color: '#5EE6AB' }} aria-hidden>✓</span>
                   <span>{g}</span>
-                  <span className="mono text-[0.7rem]" style={{ color: '#878371', gridColumn: 2, overflowWrap: 'anywhere' }}>{where}</span>
+                  <span className="mono text-[0.7rem]" style={{ color: '#86918B', gridColumn: 2, overflowWrap: 'anywhere' }}>{where}</span>
                 </li>
               ))}
             </ul>
@@ -205,7 +205,7 @@ hold     = max( hold[merchant tier], hold[buyer tier] )`}
         <section className="mt-14 grid gap-6 md:grid-cols-2">
           <Reveal>
             <h2 className="display text-[2.2rem]">What it cannot do</h2>
-            <ul className="mt-4 grid gap-3 text-[0.95rem] leading-relaxed" style={{ color: '#4b483e', paddingLeft: '1.1rem' }}>
+            <ul className="mt-4 grid gap-3 text-[0.95rem] leading-relaxed" style={{ color: '#A3ADA7', paddingLeft: '1.1rem' }}>
               <li>Tell a bot from a customer who spends the same money. It prices faking; it does not detect it.</li>
               <li>Stop one person running many wallets. It makes each one earn its own record, and caps what a record can take.</li>
               <li>Protect an instant order after the fact, beyond the merchant's limit and the buyer's rating. Instant means no hold to dispute in.</li>
@@ -214,7 +214,7 @@ hold     = max( hold[merchant tier], hold[buyer tier] )`}
           </Reveal>
           <Reveal delay={0.08}>
             <h2 className="display text-[2.2rem]">Where the ideas come from</h2>
-            <ul className="mt-4 grid gap-3 text-[0.95rem] leading-relaxed" style={{ color: '#4b483e', paddingLeft: '1.1rem' }}>
+            <ul className="mt-4 grid gap-3 text-[0.95rem] leading-relaxed" style={{ color: '#A3ADA7', paddingLeft: '1.1rem' }}>
               <li><strong>ERC-8004 (Trustless Agents)</strong> proposes identity, reputation and validation registries for agents. Tessera is not an implementation of it; the agent account, the review accounts and the delivery hash play the corresponding roles on Solana.</li>
               <li><strong>Visa Compelling Evidence 3.0</strong> treats earlier undisputed purchases as evidence a later one is legitimate. The pair account is that evidence, kept by the program.</li>
               <li><strong>x402 and A2A</strong> carry the payment and the conversation unchanged. The only thing Tessera changes is where <span className="mono text-[0.86rem]">payTo</span> points.</li>

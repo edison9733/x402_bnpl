@@ -46,13 +46,13 @@ function Ring() {
           { y: 250, label: 'Building' },
         ]}
       />
-      <div className="grid content-start gap-4 text-[0.92rem] leading-relaxed" style={{ color: '#c9c6b6' }}>
+      <div className="grid content-start gap-4 text-[0.92rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
         <p>
           A ring is one person running many wallets that only trade with each other and rate each other five stars. It is the cheapest way to farm a reputation, so it is the one to price. The honest merchant here has 25 real customers who are themselves Trusted.
         </p>
         <table className="mono w-full text-[0.76rem]" style={{ borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ color: '#8b8a7c', textAlign: 'left' }}>
+            <tr style={{ color: '#86918B', textAlign: 'left' }}>
               <th className="py-1.5 font-normal">wallets</th>
               <th className="py-1.5 font-normal">Trusted on</th>
               <th className="py-1.5 font-normal text-right">fees burned</th>
@@ -61,7 +61,7 @@ function Ring() {
           </thead>
           <tbody>
             {rings.map(({ wallets, r }) => (
-              <tr key={wallets} style={{ borderTop: '1px solid #22261d', color: '#e9e6d8' }}>
+              <tr key={wallets} style={{ borderTop: '1px solid #232C28', color: '#E8EDE9' }}>
                 <td className="py-1.5">{wallets}</td>
                 <td className="py-1.5">{r.trustedAt ? `day ${r.trustedAt}` : 'never'}</td>
                 <td className="py-1.5 text-right">{dollars(r.fees)}</td>
@@ -70,7 +70,7 @@ function Ring() {
             ))}
           </tbody>
         </table>
-        <p style={{ color: '#8b8a7c' }} className="text-[0.84rem]">
+        <p style={{ color: '#86918B' }} className="text-[0.84rem]">
           Small rings stall: wallets nobody else trades with count for little, and each pair is capped. A ring big enough to reach Trusted needs at least {P.tierPeriods[2]} active days
           {honestTrusted ? ` (an honest merchant with real customers gets there on day ${honestTrusted})` : ''}, and what it can then take without a hold is the fees it already burned plus ${Number(P.instantBase / USDC)} per wallet.
         </p>
@@ -90,7 +90,7 @@ function ExitScam() {
       <div className="grid gap-6">
         {rows.map((r) => (
           <div key={String(r.fees)}>
-            <div className="mono mb-2 text-[0.74rem]" style={{ color: '#8b8a7c' }}>
+            <div className="mono mb-2 text-[0.74rem]" style={{ color: '#86918B' }}>
               merchant that has paid {dollars(r.sunk)} in fees
             </div>
             <Bars
@@ -101,20 +101,20 @@ function ExitScam() {
                 { label: 'Already burned to get there', value: Number(r.sunk), color: SERIES[0] },
               ]}
             />
-            <div className="mono mt-1.5 text-[0.76rem]" style={{ color: '#e9e6d8' }}>
+            <div className="mono mt-1.5 text-[0.76rem]" style={{ color: '#E8EDE9' }}>
               net of the scam: {dollars(r.net)}
             </div>
           </div>
         ))}
       </div>
-      <div className="grid content-start gap-4 text-[0.92rem] leading-relaxed" style={{ color: '#c9c6b6' }}>
+      <div className="grid content-start gap-4 text-[0.92rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
         <p>
           Instant settlement is the one place a buyer has no hold to dispute in. So the program caps it: a merchant may carry instant volume that buyers have not accepted only up to the protocol fees it has paid, plus ${Number(P.instantBase / USDC)}.
         </p>
         <p>
           Fees are gone for good. Whatever a merchant can take and run with, it has already spent, less the ${Number(P.instantBase / USDC)} base. And an order a buyer rates one or two stars never stops counting against the cap, so the scam cannot be repeated.
         </p>
-        <p className="mono text-[0.78rem]" style={{ color: '#8b8a7c' }}>
+        <p className="mono text-[0.78rem]" style={{ color: '#86918B' }}>
           net = (base + fees) − fees = base, at any size
         </p>
       </div>
@@ -163,24 +163,24 @@ function FriendlyFraud() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, ease: EASE, delay: i * 0.12 }}
             className="grid gap-1 rounded-2xl p-4"
-            style={{ background: '#151812', border: '1px solid #22261d', gridTemplateColumns: '2rem 1fr' }}
+            style={{ background: '#1A211E', border: '1px solid #232C28', gridTemplateColumns: '2rem 1fr' }}
           >
-            <span className="mono text-[0.8rem]" style={{ color: '#8b8a7c' }}>{String(i + 1).padStart(2, '0')}</span>
+            <span className="mono text-[0.8rem]" style={{ color: '#86918B' }}>{String(i + 1).padStart(2, '0')}</span>
             <span>
-              <span style={{ color: '#f1eee2' }}>{title}</span>
-              <span className="mt-1 block text-[0.86rem] leading-relaxed" style={{ color: '#8b8a7c' }}>{body}</span>
+              <span style={{ color: '#E8EDE9' }}>{title}</span>
+              <span className="mt-1 block text-[0.86rem] leading-relaxed" style={{ color: '#86918B' }}>{body}</span>
             </span>
           </motion.li>
         ))}
       </ol>
-      <div className="grid content-start gap-4 text-[0.92rem] leading-relaxed" style={{ color: '#c9c6b6' }}>
+      <div className="grid content-start gap-4 text-[0.92rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
         <p>
           Friendly fraud is a buyer who got what it paid for and disputes anyway. Card networks answer it with evidence: Visa's Compelling Evidence 3.0 lets a merchant win a fraud dispute by showing two earlier undisputed purchases by the same buyer, 120 to 365 days old.
         </p>
         <p>
           On-chain that evidence does not have to be assembled. Every pair of wallets has an account that records their settled orders and disputes. The program reads it when it prices the next order, and the arbiter reads it when a dispute is opened.
         </p>
-        <p className="text-[0.8rem]" style={{ color: '#8b8a7c' }}>
+        <p className="text-[0.8rem]" style={{ color: '#86918B' }}>
           Source for the Visa rule: Checkout.com, “Visa Compelling Evidence 3.0: New rules explained”, 30 October 2025.
         </p>
       </div>
@@ -207,13 +207,13 @@ export function AttackLab() {
             aria-selected={tab === id}
             onClick={() => setTab(id)}
             className="relative rounded-full px-4 py-2 text-[0.9rem]"
-            style={{ color: tab === id ? '#0a0b09' : '#c9c6b6', cursor: 'pointer' }}
+            style={{ color: tab === id ? '#0B0E0D' : '#A3ADA7', cursor: 'pointer' }}
           >
             {tab === id && <motion.span layoutId="attack-pill" style={{ position: 'absolute', inset: 0, borderRadius: 999, background: '#b9f8da' }} transition={{ duration: 0.45, ease: EASE }} />}
             <span style={{ position: 'relative' }}>{label}</span>
           </button>
         ))}
-        <span className="mono ml-auto text-[0.7rem]" style={{ color: '#5d5c52' }}>
+        <span className="mono ml-auto text-[0.7rem]" style={{ color: '#86918B' }}>
           computed in your browser · mainnet target parameters
         </span>
       </div>

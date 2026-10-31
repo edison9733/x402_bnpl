@@ -5,13 +5,25 @@ import { explorerAddress, short, TIER_DARK, TIER_LIGHT, tierName } from '../lib/
 
 export const EASE = [0.16, 1, 0.3, 1] as const;
 
+/** The four tiles of the mark: two filled, two outlined. */
+export function Mark({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" aria-hidden>
+      <rect x="1" y="1" width="12" height="12" rx="3" fill="#5EE6AB" />
+      <rect x="15.8" y="1.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" strokeWidth="1.6" />
+      <rect x="1.8" y="15.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" strokeWidth="1.6" />
+      <rect x="15" y="15" width="12" height="12" rx="3" fill="#F5BE55" />
+    </svg>
+  );
+}
+
 export function Logo({ size = 26, invert = false }: { size?: number; invert?: boolean }) {
   // Two halves of one token: the tessera a Roman host and guest each kept.
-  const ink = invert ? '#fbf8ef' : '#14130f';
+  const ink = invert ? '#0B0E0D' : '#E8EDE9';
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden>
       <path d="M8 32a22 22 0 0 1 22-22v44A22 22 0 0 1 8 32z" fill={ink} />
-      <path d="M36 10a22 22 0 0 1 0 44l6-11-6-11 6-11z" fill={invert ? '#b9f8da' : '#2f8f66'} />
+      <path d="M36 10a22 22 0 0 1 0 44l6-11-6-11 6-11z" fill={invert ? '#b9f8da' : '#2f9e73'} />
     </svg>
   );
 }
@@ -81,7 +93,7 @@ export function TierBadge({ tier, dark = false, compact = false }: { tier: numbe
               height: 6,
               borderRadius: 6,
               background: i <= tier ? ramp[tier] : 'transparent',
-              boxShadow: `inset 0 0 0 1px ${i <= tier ? ramp[tier] : dark ? '#3a3f33' : '#cfc8b2'}`,
+              boxShadow: `inset 0 0 0 1px ${i <= tier ? ramp[tier] : dark ? '#303B36' : '#303B36'}`,
             }}
           />
         ))}
@@ -93,8 +105,8 @@ export function TierBadge({ tier, dark = false, compact = false }: { tier: numbe
 
 export function Stars({ value, dark = false }: { value: number; dark?: boolean }) {
   const pct = Math.max(0, Math.min(100, (value / 5) * 100));
-  const off = dark ? '#3a3f33' : '#d8d1bb';
-  const on = dark ? '#c9c6b6' : '#14130f';
+  const off = dark ? '#303B36' : '#303B36';
+  const on = dark ? '#A3ADA7' : '#E8EDE9';
   return (
     <span className="inline-flex items-center gap-1.5" title={`${value.toFixed(2)} of 5`}>
       <span style={{ position: 'relative', display: 'inline-block', color: off, letterSpacing: 1, fontSize: 13, lineHeight: 1 }} aria-hidden>
@@ -115,14 +127,14 @@ export function Addr({ a, n = 4, className }: { a: string; n?: number; className
 }
 
 const STATE: Record<string, { label: string; color: string; icon: string }> = {
-  opened: { label: 'Quoted', color: '#8b8a7c', icon: '○' },
+  opened: { label: 'Quoted', color: '#86918B', icon: '○' },
   funded: { label: 'Funded', color: '#3987e5', icon: '◐' },
   delivered: { label: 'Held', color: '#fab219', icon: '◔' },
-  released: { label: 'Released', color: '#0ca30c', icon: '●' },
-  instant: { label: 'Instant', color: '#0ca30c', icon: '⚡' },
+  released: { label: 'Released', color: '#5EE6AB', icon: '●' },
+  instant: { label: 'Instant', color: '#5EE6AB', icon: '⚡' },
   refunded: { label: 'Refunded', color: '#ec835a', icon: '↩' },
   disputed: { label: 'Disputed', color: '#d03b3b', icon: '!' },
-  resolved: { label: 'Resolved', color: '#8b8a7c', icon: '⚖' },
+  resolved: { label: 'Resolved', color: '#86918B', icon: '⚖' },
 };
 
 export function StateChip({ kind }: { kind: string }) {
@@ -155,8 +167,8 @@ export function ScoreGauge({ e, size = 220, dark = false, thresholds = [250, 500
     return `M ${x0} ${y0} A ${r} ${r} 0 ${(sweep * v) / 1000 > Math.PI ? 1 : 0} 1 ${x1} ${y1}`;
   };
   const ramp = dark ? TIER_DARK : TIER_LIGHT;
-  const track = dark ? '#272b21' : '#e4ddc8';
-  const ink = dark ? '#f1eee2' : '#14130f';
+  const track = dark ? '#232C28' : '#232C28';
+  const ink = dark ? '#E8EDE9' : '#E8EDE9';
   const len = (sweep * r * e.score) / 1000;
   const [shown, setShown] = useState(e.score);
   useEffect(() => {
@@ -184,8 +196,8 @@ export function ScoreGauge({ e, size = 220, dark = false, thresholds = [250, 500
         const [lx, ly] = at(t, r + 20);
         return (
           <g key={t}>
-            <line x1={x0} y1={y0} x2={x1} y2={y1} stroke={dark ? '#0a0b09' : '#fbf8ef'} strokeWidth={3} />
-            <text x={lx} y={ly} fontSize={9} textAnchor="middle" dominantBaseline="middle" fill={dark ? '#8b8a7c' : '#878371'} className="mono">
+            <line x1={x0} y1={y0} x2={x1} y2={y1} stroke={dark ? '#0B0E0D' : '#0B0E0D'} strokeWidth={3} />
+            <text x={lx} y={ly} fontSize={9} textAnchor="middle" dominantBaseline="middle" fill={dark ? '#86918B' : '#86918B'} className="mono">
               {t}
             </text>
           </g>
@@ -194,7 +206,7 @@ export function ScoreGauge({ e, size = 220, dark = false, thresholds = [250, 500
       <text x={cx} y={cy - 2} textAnchor="middle" fontSize={size * 0.27} fill={ink} style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
         {Math.round(shown)}
       </text>
-      <text x={cx} y={cy + size * 0.13} textAnchor="middle" fontSize={11} fill={dark ? '#8b8a7c' : '#878371'} className="mono">
+      <text x={cx} y={cy + size * 0.13} textAnchor="middle" fontSize={11} fill={dark ? '#86918B' : '#86918B'} className="mono">
         {tierName(e.tier).toUpperCase()}
       </text>
     </svg>
@@ -210,15 +222,15 @@ export function Breakdown({ e, dark = false }: { e: Evaluation; dark?: boolean }
     ['Rating', e.rating / 1000, 'volume-weighted stars from counterparties'],
     ['Behaviour', e.behaviour / 10_000, 'falls when a dispute is lost or a delivery is missed'],
   ];
-  const fill = dark ? '#4fd19a' : '#126b4a';
+  const fill = dark ? '#4fd19a' : '#5EE6AB';
   return (
     <div className="grid gap-2.5">
       {rows.map(([label, v, hint], i) => (
         <div key={label} title={hint} className="grid items-center gap-3" style={{ gridTemplateColumns: '5.2rem 1fr 2.6rem' }}>
-          <span className="text-[0.82rem]" style={{ color: dark ? '#c9c6b6' : '#4b483e' }}>
+          <span className="text-[0.82rem]" style={{ color: dark ? '#A3ADA7' : '#A3ADA7' }}>
             {label}
           </span>
-          <span style={{ height: 6, borderRadius: 6, background: dark ? '#272b21' : '#e4ddc8', overflow: 'hidden' }}>
+          <span style={{ height: 6, borderRadius: 6, background: dark ? '#232C28' : '#232C28', overflow: 'hidden' }}>
             <motion.span
               style={{ display: 'block', height: '100%', borderRadius: 6, background: fill, transformOrigin: 'left' }}
               initial={{ scaleX: 0 }}

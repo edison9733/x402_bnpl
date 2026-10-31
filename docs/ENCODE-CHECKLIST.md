@@ -43,6 +43,11 @@ slot 515961295).**
   works from a fresh clone. `VITE_AGENTS_URL` set on Vercel and redeployed: the live Market page lists the merchants.
   Limits of the free tier: sleeps after ~15 min idle (first request up to a minute), no disk (open quotes lost on
   restart). The lockfile needed regenerating with npm 10 for the image's `npm ci` (`1d6a5e4`).
+- **One design, 1 Nov (00:30 UTC+8).** The inner pages (Market, Agents, credit files, Live network, The score, Review,
+  Approve) now use the home page's design: its dark palette, Bricolage Grotesque headings with the accent in mint, the
+  four-tile mark in the nav and footer; the home page's menu and hero link to the Market. Done by remapping every
+  paper-era colour in `apps/web/src` to the palette in `landing.css` and restyling the shared classes in `styles.css`;
+  the serif font is no longer loaded. The demo video's footage of those pages is the old look until it is re-rendered.
 - **Still only Edison can do:** upload the video and fill in the form by 1 Nov.
 - **Checked 31 Oct:** `npm run typecheck` (7 projects), `test:formula`, `test:cli` and `build:web` pass; both programs on
   devnet are at the slots recorded in `deployments/devnet.json`; deployer 10.8 SOL, server 0.26 SOL, pool 8.021 USDC.

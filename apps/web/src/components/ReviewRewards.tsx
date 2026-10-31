@@ -4,12 +4,12 @@ import { tierName } from '../lib/format';
 import { afterwards, cap, comment, fees, LABELS, recordedAt, reproduce, rows } from '../lib/rewardsDemo';
 import { Choice, Control, Range } from './Playground';
 
-const INK = '#14130f';
-const MUTED = '#4b483e';
-const FAINT = '#878371';
-const LINE = '#ded7c2';
-const GOOD = '#126b4a';
-const BAD = '#b4532a';
+const INK = '#E8EDE9';
+const MUTED = '#A3ADA7';
+const FAINT = '#86918B';
+const LINE = '#232C28';
+const GOOD = '#5EE6AB';
+const BAD = '#ec835a';
 const tone = (t: 'good' | 'bad' | 'plain') => (t === 'good' ? GOOD : t === 'bad' ? BAD : MUTED);
 const RP = rewards.MAINNET_REWARD_PARAMS;
 const dollars = (units: bigint) => {
@@ -65,7 +65,7 @@ function Calculator() {
           <Choice label="Then the merchant" value={failed ? 1 : 0} set={(v) => setFailed(v === 1)} cols="grid-cols-2" options={[[0, 'stayed good'], [1, 'lost a dispute or missed a delivery']]} />
         </Control>
       </div>
-      <div className="grid gap-4 rounded-3xl p-6 lg:sticky lg:top-24" style={{ background: '#f4efe0' }}>
+      <div className="grid gap-4 rounded-3xl p-6 lg:sticky lg:top-24" style={{ background: '#101513' }}>
         <div className="eyebrow" style={{ color: FAINT }}>Your review earns</div>
         <div className="display text-[3.4rem] leading-none">{dollars(out.reward)}</div>
         <div className="flex items-baseline gap-3">
@@ -99,7 +99,7 @@ export function ReviewRewards({ calculator = true }: { calculator?: boolean }) {
         <div className="min-w-0">
           <span className="font-medium">{cap(r.reviewer)}</span>
           <span style={{ color: '#c98500' }}> {'★'.repeat(r.rating)}</span>
-          <span style={{ color: '#d8d1bb' }}>{'★'.repeat(5 - r.rating)}</span>
+          <span style={{ color: '#303B36' }}>{'★'.repeat(5 - r.rating)}</span>
           {comment(r.reviewer, r.subject) && <span className="text-[0.88rem]" style={{ color: FAINT }}> “{comment(r.reviewer, r.subject)}”</span>}
         </div>
         <div className="mono text-right text-[0.95rem]" style={{ color: r.reward === '0.00' || Number(r.reward) === 0 ? BAD : INK }}>${r.reward}</div>

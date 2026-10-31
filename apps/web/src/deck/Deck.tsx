@@ -126,19 +126,19 @@ export function Deck({ slides, title }: { slides: Slide[]; title: string }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.99 }}
             transition={{ duration: 0.55, ease: EASE }}
-            style={{ position: 'absolute', inset: 0, background: night ? undefined : '#fbf8ef', color: night ? '#c9c6b6' : '#14130f' }}
+            style={{ position: 'absolute', inset: 0, background: night ? undefined : '#0B0E0D', color: night ? '#A3ADA7' : '#E8EDE9' }}
           >
             {s.render({ active: true })}
           </motion.div>
         </AnimatePresence>
         {!clean && (
-          <div className="mono" style={{ position: 'absolute', left: 28, bottom: 18, fontSize: 13, color: night ? '#5d5c52' : '#878371' }}>
+          <div className="mono" style={{ position: 'absolute', left: 28, bottom: 18, fontSize: 13, color: night ? '#86918B' : '#86918B' }}>
             {title} · {i + 1} / {slides.length} · {auto ? 'autoplay' : '→ next · n notes · a autoplay'} · {Math.floor(total / 60)}:{String(total % 60).padStart(2, '0')} total
           </div>
         )}
-        <div style={{ position: 'absolute', left: 0, bottom: 0, height: 3, width: `${((i + 1) / slides.length) * 100}%`, background: night ? '#4fd19a' : '#126b4a', transition: 'width 0.5s' }} />
+        <div style={{ position: 'absolute', left: 0, bottom: 0, height: 3, width: `${((i + 1) / slides.length) * 100}%`, background: night ? '#4fd19a' : '#5EE6AB', transition: 'width 0.5s' }} />
         {notes && (
-          <div style={{ position: 'absolute', left: 60, right: 60, bottom: 54, padding: '18px 24px', borderRadius: 16, background: 'rgba(10,11,9,0.92)', color: '#f1eee2', fontSize: 24, lineHeight: 1.45, border: '1px solid #272b21' }}>
+          <div style={{ position: 'absolute', left: 60, right: 60, bottom: 54, padding: '18px 24px', borderRadius: 16, background: 'rgba(11,14,13,0.92)', color: '#E8EDE9', fontSize: 24, lineHeight: 1.45, border: '1px solid #232C28' }}>
             {s.say}
           </div>
         )}
@@ -156,7 +156,7 @@ export const Frame = ({ children, center = false, pad = 96 }: { children: ReactN
 );
 
 export const Kicker = ({ children, color }: { children: ReactNode; color?: string }) => (
-  <motion.div className="eyebrow" style={{ fontSize: 17, color: color ?? '#8b8a7c' }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>
+  <motion.div className="eyebrow" style={{ fontSize: 17, color: color ?? '#86918B' }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>
     {children}
   </motion.div>
 );
@@ -175,7 +175,7 @@ export const Body = ({ children, delay = 0.5, size = 34, max = '34ch', color }: 
 
 /** Where a number came from. Every external figure on a slide carries one. */
 export const Source = ({ children, dark = true }: { children: ReactNode; dark?: boolean }) => (
-  <motion.div className="mono" style={{ position: 'absolute', left: 96, bottom: 58, fontSize: 15, color: dark ? '#5d5c52' : '#878371' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1, duration: 0.8 }}>
+  <motion.div className="mono" style={{ position: 'absolute', left: 96, bottom: 58, fontSize: 15, color: dark ? '#86918B' : '#86918B' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1, duration: 0.8 }}>
     {children}
   </motion.div>
 );

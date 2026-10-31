@@ -34,5 +34,5 @@ export const explorerAddress = (a: string) => `https://explorer.solana.com/addre
 export const explorerTx = (s: string) => `https://explorer.solana.com/tx/${s}?cluster=devnet`;
 
 export const TIER_DARK = ['#35705a', '#2f9e73', '#4fd19a', '#b9f8da'] as const;
-export const TIER_LIGHT = ['#62ad89', '#2f8f66', '#126b4a', '#083d2a'] as const;
+export const TIER_LIGHT = ['#35705a', '#2f9e73', '#5EE6AB', '#b9f8da'] as const;
 export const SERIES = ['#3987e5', '#d95926', '#199e70', '#c98500'] as const;

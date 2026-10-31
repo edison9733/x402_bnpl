@@ -46,7 +46,7 @@ function Check({ on }: { on: boolean }) {
   return (
     <span
       className="mono grid h-5 w-5 shrink-0 place-items-center rounded-full text-[0.66rem]"
-      style={{ background: on ? '#126b4a' : '#ebe4d0', color: on ? '#fff' : '#878371' }}
+      style={{ background: on ? '#5EE6AB' : '#1A211E', color: on ? '#03140C' : '#86918B' }}
       title={on ? 'Read from the order account on-chain' : 'Not verified'}
       aria-label={on ? 'verified on-chain' : 'not verified'}
     >
@@ -57,8 +57,8 @@ function Check({ on }: { on: boolean }) {
 
 export function Row({ label, children, verified = true }: { label: string; children: ReactNode; verified?: boolean }) {
   return (
-    <div className="grid gap-1 py-3 sm:grid-cols-[11rem_1fr] sm:gap-4" style={{ borderTop: '1px solid #ebe4d0' }}>
-      <div className="eyebrow pt-0.5" style={{ color: '#878371' }}>{label}</div>
+    <div className="grid gap-1 py-3 sm:grid-cols-[11rem_1fr] sm:gap-4" style={{ borderTop: '1px solid #1A211E' }}>
+      <div className="eyebrow pt-0.5" style={{ color: '#86918B' }}>{label}</div>
       <div className="flex min-w-0 items-start gap-2.5">
         <Check on={verified} />
         <div className="min-w-0 text-[0.94rem]" style={{ overflowWrap: 'anywhere' }}>{children}</div>
@@ -194,7 +194,7 @@ export function Review({ order: param }: { order?: string }) {
         </button>
       )}
       {wallets.length === 0 && (
-        <p className="text-[0.88rem]" style={{ color: '#878371' }}>
+        <p className="text-[0.88rem]" style={{ color: '#86918B' }}>
           No browser wallet found. A Solana wallet extension that supports Wallet Standard and devnet will show up here.
         </p>
       )}
@@ -202,7 +202,7 @@ export function Review({ order: param }: { order?: string }) {
   );
 
   const connected = signer && (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl px-3.5 py-2.5" style={{ background: '#f4efe0' }}>
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl px-3.5 py-2.5" style={{ background: '#101513' }}>
       <span className="text-[0.88rem]">
         {signer.kind === 'wallet' ? signer.wallet.name : 'Devnet test wallet'} · <span className="mono">{short(signer.address, 6)}</span>
       </span>
@@ -217,29 +217,29 @@ export function Review({ order: param }: { order?: string }) {
       <Nav />
       <main className="wrap pb-24 pt-12">
         <Reveal>
-          <div className="eyebrow" style={{ color: '#878371' }}>Review with a receipt · {NETWORK}</div>
+          <div className="eyebrow" style={{ color: '#86918B' }}>Review with a receipt · {NETWORK}</div>
           <h1 className="display mt-3 text-[clamp(2.6rem,6vw,5rem)]">
             No purchase, no review. <em>The receipt is on-chain.</em>
           </h1>
-          <p className="mt-5 max-w-[44rem] text-[1.05rem] leading-relaxed" style={{ color: '#4b483e' }}>
+          <p className="mt-5 max-w-[44rem] text-[1.05rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
             A review here needs two things. A receipt: the settled order account, which records the buyer, the merchant, the amount, when it settled and the hash of what was delivered. And a signature: the wallet that made the trade signs the review, and the program checks it is that order's buyer or merchant. Anyone else is refused, and each side can review an order once.
           </p>
         </Reveal>
 
         <form onSubmit={onLookup} className="card mt-8 flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
           <label className="block min-w-0 flex-1">
-            <span className="eyebrow" style={{ color: '#878371' }}>Order address</span>
+            <span className="eyebrow" style={{ color: '#86918B' }}>Order address</span>
             <input className="field mono mt-1.5 text-[0.86rem]" value={input} onChange={(e) => setInput(e.target.value)} placeholder="The order account, for example from your checkout or a credit file" spellCheck={false} autoComplete="off" />
           </label>
           <button type="submit" className="btn btn-ink justify-center py-3.5">Check the receipt</button>
         </form>
 
         {loaded.status === 'idle' && (
-          <p className="mt-5 text-[0.95rem]" style={{ color: '#4b483e' }}>
+          <p className="mt-5 text-[0.95rem]" style={{ color: '#A3ADA7' }}>
             Paste the address of an order you bought or sold, or connect the wallet you traded with below to list its orders. Orders are also listed on the <Link to="/network" className="link">live network</Link> page and on each <Link to="/agents" className="link">credit file</Link>.
           </p>
         )}
-        {loaded.status === 'loading' && <p className="mono mt-5 text-[0.84rem]" style={{ color: '#878371' }}>Reading the order from {NETWORK}…</p>}
+        {loaded.status === 'loading' && <p className="mono mt-5 text-[0.84rem]" style={{ color: '#86918B' }}>Reading the order from {NETWORK}…</p>}
         {loaded.status === 'invalid' && <Notice tone="bad">That is not a Solana address. Check it and try again.</Notice>}
         {loaded.status === 'missing' && (
           <Notice tone="bad">No Tessera order at this address on {NETWORK}. It may be a different kind of account, or the order was closed after settlement and its rent returned.</Notice>
@@ -249,13 +249,13 @@ export function Review({ order: param }: { order?: string }) {
         <section className="card mt-6 p-6" aria-label="Your orders">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="display text-[2rem]">Your orders</h2>
-            <span className="mono text-[0.72rem]" style={{ color: '#878371' }}>
+            <span className="mono text-[0.72rem]" style={{ color: '#86918B' }}>
               review window on {NETWORK}: {reviewSecs !== null ? duration(reviewSecs) : '…'} after settlement
             </span>
           </div>
           {!signer ? (
             <>
-              <p className="mt-2 text-[0.95rem] leading-relaxed" style={{ color: '#4b483e' }}>
+              <p className="mt-2 text-[0.95rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
                 Connect the wallet you traded with to see which of its orders can still be reviewed.
               </p>
               {picker}
@@ -263,21 +263,21 @@ export function Review({ order: param }: { order?: string }) {
           ) : (
             <>
               {connected}
-              <p className="mt-3 text-[0.88rem]" style={{ color: '#878371' }}>
+              <p className="mt-3 text-[0.88rem]" style={{ color: '#86918B' }}>
                 On {NETWORK} the window is {reviewSecs !== null ? duration(reviewSecs) : '…'} after an order settles (14 days at the mainnet target), so review soon after a trade.
               </p>
               {mine.length === 0 ? (
-                <p className="mt-3 text-[0.92rem] leading-relaxed" style={{ color: '#4b483e' }}>
+                <p className="mt-3 text-[0.92rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
                   No Tessera orders for this wallet yet. Make a trade first: buy on the <Link to="/market" className="link">Market</Link> page while the demo merchants are online, or trade from a terminal with two wallets of your own (<a className="link" href="https://github.com/edison9733/x402_bnpl/blob/main/docs/TRY-IT.md" target="_blank" rel="noreferrer">docs/TRY-IT.md</a>). Then come back within the window.
                 </p>
               ) : (
                 <ul className="mt-3 grid" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                   {mine.slice(0, 8).map((m) => (
-                    <li key={m.address} className="grid gap-2 py-3 sm:grid-cols-[1fr_auto] sm:items-center" style={{ borderTop: '1px solid #ebe4d0' }}>
+                    <li key={m.address} className="grid gap-2 py-3 sm:grid-cols-[1fr_auto] sm:items-center" style={{ borderTop: '1px solid #1A211E' }}>
                       <div className="min-w-0 text-[0.92rem]">
                         <span className="font-medium">{m.side === 'buyer' ? 'Bought from' : 'Sold to'}</span> <Wallet w={m.side === 'buyer' ? m.order.merchant : m.order.buyer} />
                         <span className="mono ml-2">{usd(m.order.amount)} USDC</span>
-                        <div className="mono mt-0.5 text-[0.74rem]" style={{ color: '#878371' }}>
+                        <div className="mono mt-0.5 text-[0.74rem]" style={{ color: '#86918B' }}>
                           {short(m.address, 6)} · {STATE_NAME[m.order.state] ?? 'Unknown'} · {windowText(m, now)}{m.done ? ' · you reviewed it' : ''}
                         </div>
                       </div>
@@ -289,7 +289,7 @@ export function Review({ order: param }: { order?: string }) {
                 </ul>
               )}
               {mine.length > 8 && (
-                <p className="mono mt-2 text-[0.74rem]" style={{ color: '#878371' }}>
+                <p className="mono mt-2 text-[0.74rem]" style={{ color: '#86918B' }}>
                   {mine.length - 8} more on <a className="link" href={`#/agents/${signer.address}`}>this wallet's credit file</a>.
                 </p>
               )}
@@ -302,7 +302,7 @@ export function Review({ order: param }: { order?: string }) {
             <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }} className="card p-6" aria-label="Verified receipt">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="display text-[2rem]">Verified receipt</h2>
-                <span className="mono text-[0.72rem]" style={{ color: '#878371' }}>read from the order account on {NETWORK}</span>
+                <span className="mono text-[0.72rem]" style={{ color: '#86918B' }}>read from the order account on {NETWORK}</span>
               </div>
               <div className="mt-4">
                 <Row label="Order">
@@ -313,7 +313,7 @@ export function Review({ order: param }: { order?: string }) {
                 <Row label="Amount">
                   <span className="mono">{usd(order.amount)} USDC</span>
                   {settled && (
-                    <span className="mono block text-[0.76rem]" style={{ color: '#878371' }}>
+                    <span className="mono block text-[0.76rem]" style={{ color: '#86918B' }}>
                       to the merchant {usd(order.paidMerchant, 4)} · fee {usd(order.paidFee, 4)} · back to the buyer {usd(order.refunded, 4)}
                     </span>
                   )}
@@ -322,25 +322,25 @@ export function Review({ order: param }: { order?: string }) {
                 <Row label="Settled" verified={settled}>
                   {settled ? (
                     <span>
-                      {new Date(Number(order.settledAt) * 1000).toLocaleString('en-GB')} <span style={{ color: '#878371' }}>({ago(Number(order.settledAt), now)})</span>
+                      {new Date(Number(order.settledAt) * 1000).toLocaleString('en-GB')} <span style={{ color: '#86918B' }}>({ago(Number(order.settledAt), now)})</span>
                     </span>
                   ) : (
-                    <span style={{ color: '#878371' }}>Not settled yet</span>
+                    <span style={{ color: '#86918B' }}>Not settled yet</span>
                   )}
                 </Row>
                 <Row label="Delivery hash" verified={delivered}>
                   {delivered ? (
                     <span className="mono" title={deliveryHex}>{deliveryHex.slice(0, 16)}…{deliveryHex.slice(-8)}</span>
                   ) : (
-                    <span style={{ color: '#878371' }}>No delivery was committed</span>
+                    <span style={{ color: '#86918B' }}>No delivery was committed</span>
                   )}
-                  {delivered && <span className="block text-[0.78rem]" style={{ color: '#878371' }}>sha256 of the delivery, committed by the merchant</span>}
+                  {delivered && <span className="block text-[0.78rem]" style={{ color: '#86918B' }}>sha256 of the delivery, committed by the merchant</span>}
                 </Row>
                 <Row label="Review window" verified={settled && reviewSecs !== null}>
                   {!settled ? (
-                    <span style={{ color: '#878371' }}>Opens when the order settles</span>
+                    <span style={{ color: '#86918B' }}>Opens when the order settles</span>
                   ) : remaining === null ? (
-                    <span style={{ color: '#878371' }}>Reading the config…</span>
+                    <span style={{ color: '#86918B' }}>Reading the config…</span>
                   ) : open ? (
                     <span><span className="mono">{left(remaining)}</span> left</span>
                   ) : (
@@ -357,7 +357,7 @@ export function Review({ order: param }: { order?: string }) {
 
             <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE, delay: 0.08 }} className="card p-6" aria-label="Sign your review">
               <h2 className="display text-[2rem]">Sign your review</h2>
-              <p className="mt-2 text-[0.95rem] leading-relaxed" style={{ color: '#4b483e' }}>Sign your review with the wallet that made this trade.</p>
+              <p className="mt-2 text-[0.95rem] leading-relaxed" style={{ color: '#A3ADA7' }}>Sign your review with the wallet that made this trade.</p>
 
               {!signer && picker}
               {connected}
@@ -371,12 +371,12 @@ export function Review({ order: param }: { order?: string }) {
                   <div className="text-[1rem] font-medium">
                     {role.side === 'merchant' ? 'You sold to this buyer: rate the buyer' : 'You bought from this merchant: rate the merchant'}
                   </div>
-                  <div className="mono mt-0.5 text-[0.78rem]" style={{ color: '#878371' }}>
+                  <div className="mono mt-0.5 text-[0.78rem]" style={{ color: '#86918B' }}>
                     reviewing <Wallet w={role.subject} />
                   </div>
 
                   {posted ? (
-                    <div className="mt-4 rounded-2xl p-4 text-[0.92rem]" style={{ background: '#e7f4ec', border: '1px solid #bfdccb' }}>
+                    <div className="mt-4 rounded-2xl p-4 text-[0.92rem]" style={{ background: '#12241C', border: '1px solid #2A4A3A' }}>
                       Your review is on-chain.{' '}
                       <a className="mono link" href={explorerTx(posted.signature)} target="_blank" rel="noreferrer">{short(posted.signature, 8)}</a>
                       <div className="mt-1.5">
@@ -391,11 +391,11 @@ export function Review({ order: param }: { order?: string }) {
                     <div className="mt-4 grid gap-3">
                       <div className="flex items-center gap-1" role="radiogroup" aria-label="Rating">
                         {[1, 2, 3, 4, 5].map((n) => (
-                          <button key={n} type="button" role="radio" aria-checked={rating === n} onClick={() => setRating(n)} style={{ fontSize: 28, lineHeight: 1, cursor: 'pointer', color: n <= rating ? '#14130f' : '#c9c2ac' }} aria-label={`${n} star${n > 1 ? 's' : ''}`}>
+                          <button key={n} type="button" role="radio" aria-checked={rating === n} onClick={() => setRating(n)} style={{ fontSize: 28, lineHeight: 1, cursor: 'pointer', color: n <= rating ? '#E8EDE9' : '#3A4741' }} aria-label={`${n} star${n > 1 ? 's' : ''}`}>
                             ★
                           </button>
                         ))}
-                        <span className="mono ml-2 text-[0.78rem]" style={{ color: '#878371' }}>{rating} of 5</span>
+                        <span className="mono ml-2 text-[0.78rem]" style={{ color: '#86918B' }}>{rating} of 5</span>
                       </div>
                       <textarea
                         className="field"
@@ -406,25 +406,25 @@ export function Review({ order: param }: { order?: string }) {
                         value={text}
                         onChange={(e) => setText(clip200(e.target.value))}
                       />
-                      <div className="mono text-right text-[0.7rem]" style={{ color: '#878371' }}>{new TextEncoder().encode(text).length} / 200 bytes</div>
+                      <div className="mono text-right text-[0.7rem]" style={{ color: '#86918B' }}>{new TextEncoder().encode(text).length} / 200 bytes</div>
                       <button className="btn btn-ink justify-center py-3.5" disabled={busy || !open} onClick={() => void submit()}>
                         {busy ? `Waiting for the wallet and ${NETWORK}…` : 'Sign and post the review'}
                       </button>
-                      {!open && <div className="text-[0.84rem]" style={{ color: '#878371' }}>{settled ? 'The review window has closed.' : 'Reviews open once the order settles.'}</div>}
+                      {!open && <div className="text-[0.84rem]" style={{ color: '#86918B' }}>{settled ? 'The review window has closed.' : 'Reviews open once the order settles.'}</div>}
                     </div>
                   )}
                 </div>
               )}
 
-              {error && <div className="mono mt-4 rounded-xl p-3 text-[0.8rem]" role="alert" style={{ background: '#fdecea', color: '#7a1f1f', wordBreak: 'break-word' }}>{error}</div>}
+              {error && <div className="mono mt-4 rounded-xl p-3 text-[0.8rem]" role="alert" style={{ background: '#2A1512', color: '#F0A08F', wordBreak: 'break-word' }}>{error}</div>}
             </motion.section>
           </div>
         )}
 
         <section className="mt-6 grid gap-4 lg:grid-cols-[1.15fr_1fr]">
           <div className="card p-6">
-            <div className="eyebrow" style={{ color: '#878371' }}>How a review counts</div>
-            <ul className="mt-3 grid gap-2 text-[0.92rem] leading-relaxed" style={{ color: '#4b483e', paddingLeft: '1.1rem', listStyle: 'disc' }}>
+            <div className="eyebrow" style={{ color: '#86918B' }}>How a review counts</div>
+            <ul className="mt-3 grid gap-2 text-[0.92rem] leading-relaxed" style={{ color: '#A3ADA7', paddingLeft: '1.1rem', listStyle: 'disc' }}>
               <li>On a released order, a merchant's review counts only after the buyer has reviewed the same order.</li>
               <li>A review of a refunded order weighs 0.</li>
               <li>
@@ -435,9 +435,9 @@ export function Review({ order: param }: { order?: string }) {
             </ul>
           </div>
           <div className="card p-6">
-            <div className="eyebrow" style={{ color: '#878371' }}>The same from a terminal</div>
-            <pre className="mono mt-3 overflow-x-auto rounded-xl p-4 text-[0.78rem] leading-relaxed" style={{ background: '#14130f', color: '#e9e6d8', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{cmd}</pre>
-            <p className="mt-2 text-[0.84rem]" style={{ color: '#878371' }}>Signs locally with your keypair file and sends through the Tessera API.</p>
+            <div className="eyebrow" style={{ color: '#86918B' }}>The same from a terminal</div>
+            <pre className="mono mt-3 overflow-x-auto rounded-xl p-4 text-[0.78rem] leading-relaxed" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{cmd}</pre>
+            <p className="mt-2 text-[0.84rem]" style={{ color: '#86918B' }}>Signs locally with your keypair file and sends through the Tessera API.</p>
           </div>
         </section>
       </main>
@@ -447,7 +447,7 @@ export function Review({ order: param }: { order?: string }) {
 }
 
 export function Notice({ tone, children }: { tone: 'ok' | 'warn' | 'bad'; children: ReactNode }) {
-  const c = { ok: ['#e7f4ec', '#bfdccb', '#14130f'], warn: ['#fdf4e0', '#f0d9a6', '#5c4307'], bad: ['#fdecea', '#f3c4bf', '#7a1f1f'] }[tone];
+  const c = { ok: ['#12241C', '#2A4A3A', '#E8EDE9'], warn: ['#2A2110', '#5A4A1E', '#F5BE55'], bad: ['#2A1512', '#5A2A24', '#F0A08F'] }[tone];
   return (
     <div className="mt-4 rounded-2xl p-4 text-[0.92rem] leading-relaxed" style={{ background: c[0], border: `1px solid ${c[1]}`, color: c[2] }}>
       {children}

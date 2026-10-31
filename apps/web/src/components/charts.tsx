@@ -10,9 +10,9 @@ import { EASE } from './ui';
  */
 export type Series = { name: string; color: string; points: { x: number; y: number }[]; dashed?: boolean };
 
-const INK = '#e9e6d8';
-const MUTED = '#8b8a7c';
-const GRID = '#22261d';
+const INK = '#E8EDE9';
+const MUTED = '#86918B';
+const GRID = '#232C28';
 
 export function LineChart({
   series,
@@ -90,7 +90,7 @@ export function LineChart({
         ))}
         {bands.map((b) => (
           <g key={b.label}>
-            <line x1={pad.l} x2={W - pad.r} y1={sy(b.y)} y2={sy(b.y)} stroke="#5d5c52" strokeWidth={1} strokeDasharray="2 4" />
+            <line x1={pad.l} x2={W - pad.r} y1={sy(b.y)} y2={sy(b.y)} stroke="#86918B" strokeWidth={1} strokeDasharray="2 4" />
             <text x={pad.l + 6} y={sy(b.y) - 5} fontSize={9.5} fill={MUTED} className="mono">
               {b.label}
             </text>
@@ -127,10 +127,10 @@ export function LineChart({
         ))}
         {hoverX !== null && (
           <g pointerEvents="none">
-            <line x1={sx(hoverX)} x2={sx(hoverX)} y1={pad.t} y2={H - pad.b} stroke="#5d5c52" strokeWidth={1} />
+            <line x1={sx(hoverX)} x2={sx(hoverX)} y1={pad.t} y2={H - pad.b} stroke="#86918B" strokeWidth={1} />
             {series.map((s) => {
               const p = nearest(s, hoverX);
-              return <circle key={s.name} cx={sx(p.x)} cy={sy(p.y)} r={4} fill={s.color} stroke="#10120e" strokeWidth={2} />;
+              return <circle key={s.name} cx={sx(p.x)} cy={sy(p.y)} r={4} fill={s.color} stroke="#101513" strokeWidth={2} />;
             })}
           </g>
         )}
@@ -171,8 +171,8 @@ export function Bars({
   dark?: boolean;
 }) {
   const top = max ?? Math.max(...rows.map((r) => r.value), 1e-9);
-  const ink = dark ? INK : '#14130f';
-  const muted = dark ? MUTED : '#878371';
+  const ink = dark ? INK : '#E8EDE9';
+  const muted = dark ? MUTED : '#86918B';
   return (
     <div className="grid gap-3">
       {rows.map((r, i) => (
@@ -184,7 +184,7 @@ export function Bars({
               {r.note && <span style={{ color: muted }}> · {r.note}</span>}
             </span>
           </div>
-          <div style={{ height: 10, borderRadius: 4, background: dark ? '#1c1f18' : '#e4ddc8', overflow: 'hidden' }}>
+          <div style={{ height: 10, borderRadius: 4, background: dark ? '#1A211E' : '#232C28', overflow: 'hidden' }}>
             <motion.div
               style={{ height: '100%', borderRadius: 4, background: r.color ?? color, transformOrigin: 'left' }}
               initial={{ scaleX: 0 }}

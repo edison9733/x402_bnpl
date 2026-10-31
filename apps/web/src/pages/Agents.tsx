@@ -45,9 +45,9 @@ export function Agents() {
   }, [profiles, sort, role]);
 
   const Th = ({ k, children, right }: { k?: SortKey; children: React.ReactNode; right?: boolean }) => (
-    <th className={`eyebrow py-3 font-normal ${right ? 'text-right' : 'text-left'}`} style={{ color: '#878371' }} aria-sort={k && sort === k ? 'descending' : undefined}>
+    <th className={`eyebrow py-3 font-normal ${right ? 'text-right' : 'text-left'}`} style={{ color: '#86918B' }} aria-sort={k && sort === k ? 'descending' : undefined}>
       {k ? (
-        <button onClick={() => setSort(k)} style={{ cursor: 'pointer', textTransform: 'inherit', letterSpacing: 'inherit', color: sort === k ? '#14130f' : 'inherit' }}>
+        <button onClick={() => setSort(k)} style={{ cursor: 'pointer', textTransform: 'inherit', letterSpacing: 'inherit', color: sort === k ? '#E8EDE9' : 'inherit' }}>
           {children}
           {sort === k ? ' ↓' : ''}
         </button>
@@ -62,23 +62,23 @@ export function Agents() {
       <Nav />
       <main className="wrap pb-24 pt-12">
         <Reveal>
-          <div className="eyebrow" style={{ color: '#878371' }}>Credit files · read from Solana devnet</div>
+          <div className="eyebrow" style={{ color: '#86918B' }}>Credit files · read from Solana devnet</div>
           <h1 className="display mt-3 text-[clamp(2.6rem,6vw,5rem)]">
             Every agent, <em>and what it has earned.</em>
           </h1>
-          <p className="mt-5 max-w-[42rem] text-[1.05rem] leading-relaxed" style={{ color: '#4b483e' }}>
+          <p className="mt-5 max-w-[42rem] text-[1.05rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
             One account per wallet. The score is recomputed in your browser from that account, so it is what the program would compute right now, not what a server says.
           </p>
         </Reveal>
 
         <div className="mt-10 flex flex-wrap items-center gap-2">
           {(['all', 'merchant', 'buyer'] as const).map((r) => (
-            <button key={r} onClick={() => setRole(r)} className="relative rounded-full px-4 py-2 text-[0.9rem]" style={{ cursor: 'pointer', color: role === r ? '#fbf8ef' : '#4b483e' }} aria-pressed={role === r}>
-              {role === r && <motion.span layoutId="role-pill" style={{ position: 'absolute', inset: 0, borderRadius: 999, background: '#14130f' }} transition={{ duration: 0.4, ease: EASE }} />}
+            <button key={r} onClick={() => setRole(r)} className="relative rounded-full px-4 py-2 text-[0.9rem]" style={{ cursor: 'pointer', color: role === r ? '#0B0E0D' : '#A3ADA7' }} aria-pressed={role === r}>
+              {role === r && <motion.span layoutId="role-pill" style={{ position: 'absolute', inset: 0, borderRadius: 999, background: '#E8EDE9' }} transition={{ duration: 0.4, ease: EASE }} />}
               <span style={{ position: 'relative' }}>{r === 'all' ? 'Everyone' : r === 'merchant' ? 'Merchants' : 'Buyers'}</span>
             </button>
           ))}
-          <span className="mono ml-auto text-[0.74rem]" style={{ color: '#878371' }}>{rows.length} accounts</span>
+          <span className="mono ml-auto text-[0.74rem]" style={{ color: '#86918B' }}>{rows.length} accounts</span>
         </div>
 
         <div className="card mt-4 overflow-x-auto p-2 md:p-4">
@@ -103,16 +103,16 @@ export function Agents() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: EASE, delay: Math.min(i, 12) * 0.03 }}
                   onClick={() => go(`/agents/${p.wallet}`)}
-                  style={{ borderTop: '1px solid #ebe4d0', cursor: 'pointer' }}
+                  style={{ borderTop: '1px solid #1A211E', cursor: 'pointer' }}
                   className="hover:bg-black/[0.03]"
                 >
                   <td className="py-3.5">
                     <div className="flex items-center gap-3">
-                      <span style={{ width: 12, height: 12, borderRadius: p.role === 'merchant' || p.role === 'both' ? 3 : 12, background: ['#62ad89', '#2f8f66', '#126b4a', '#083d2a'][p.eval.tier] }} aria-hidden />
+                      <span style={{ width: 12, height: 12, borderRadius: p.role === 'merchant' || p.role === 'both' ? 3 : 12, background: ['#35705a', '#2f9e73', '#5EE6AB', '#b9f8da'][p.eval.tier] }} aria-hidden />
                       <span>
                         <span className="text-[1rem] font-medium">{p.name}</span>
-                        <span className="mono ml-2 text-[0.72rem]" style={{ color: '#878371' }}>{p.role}</span>
-                        {REGISTRY.has(p.wallet) && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#126b4a' }} title="Also registered in the Solana Agent Registry (ERC-8004 on Solana)">◆ 8004</span>}
+                        <span className="mono ml-2 text-[0.72rem]" style={{ color: '#86918B' }}>{p.role}</span>
+                        {REGISTRY.has(p.wallet) && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#5EE6AB' }} title="Also registered in the Solana Agent Registry (ERC-8004 on Solana)">◆ 8004</span>}
                         {p.agent.penaltyBps > 0 && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#d03b3b' }} title="Standing penalty from a lost dispute or missed delivery">! penalty</span>}
                       </span>
                     </div>
@@ -127,9 +127,9 @@ export function Agents() {
               ))}
             </tbody>
           </table>
-          {rows.length === 0 && <div className="mono p-8 text-center text-[0.86rem]" style={{ color: '#878371' }}>{status === 'loading' ? 'Reading accounts from devnet…' : 'No accounts yet.'}</div>}
+          {rows.length === 0 && <div className="mono p-8 text-center text-[0.86rem]" style={{ color: '#86918B' }}>{status === 'loading' ? 'Reading accounts from devnet…' : 'No accounts yet.'}</div>}
         </div>
-        <p className="mono mt-4 text-[0.72rem]" style={{ color: '#878371' }}>
+        <p className="mono mt-4 text-[0.72rem]" style={{ color: '#86918B' }}>
           “Settles in” is the hold when the other party is at least as trusted. Squares are merchants, circles are buyers.
         </p>
       </main>
@@ -150,11 +150,11 @@ function RoleStats({ title, s }: { title: string; s: Profile['agent']['asBuyer']
   ];
   return (
     <div className="card p-6">
-      <div className="eyebrow" style={{ color: '#878371' }}>{title}</div>
+      <div className="eyebrow" style={{ color: '#86918B' }}>{title}</div>
       <dl className="mono mt-4 grid grid-cols-[1fr_auto] gap-y-2 text-[0.84rem]">
         {rows.map(([k, v]) => (
           <div key={k} className="contents">
-            <dt style={{ color: '#878371' }}>{k}</dt>
+            <dt style={{ color: '#86918B' }}>{k}</dt>
             <dd className="text-right">{v}</dd>
           </div>
         ))}
@@ -172,7 +172,7 @@ function PayLaterLine({ wallet, tier, score: sc }: { wallet: string; tier: numbe
   const pl = usePayLater(wallet);
   if (pl.status !== 'live' || !pl.pool) {
     return (
-      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2 rounded-2xl p-4 text-[0.9rem]" style={{ background: '#eef6f0', border: '1px solid #cfe5d6', color: '#14130f' }}>
+      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2 rounded-2xl p-4 text-[0.9rem]" style={{ background: '#12241C', border: '1px solid #2A4A3A', color: '#E8EDE9' }}>
         <span>
           <strong>Pay-later limit:</strong>{' '}
           {(Number(paylater.limit(paylater.NO_LINE, paylater.PREVIEW_LINE_PARAMS, tier, sc)) / 1e6).toFixed(2)} test USDC
@@ -189,7 +189,7 @@ function PayLaterLine({ wallet, tier, score: sc }: { wallet: string; tier: numbe
   const owed = paylater.owed(pl.loans);
   const now = Date.now() / 1000;
   return (
-    <div className="mt-4 rounded-2xl p-4 text-[0.9rem]" style={{ background: '#eef6f0', border: '1px solid #cfe5d6', color: '#14130f' }}>
+    <div className="mt-4 rounded-2xl p-4 text-[0.9rem]" style={{ background: '#12241C', border: '1px solid #2A4A3A', color: '#E8EDE9' }}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span>
           <strong>Pay later:</strong> limit {usd(limit)} · owes {usd(owed.reduce((n, l) => n + paylater.owedOf(l.data), 0n))}
@@ -197,7 +197,7 @@ function PayLaterLine({ wallet, tier, score: sc }: { wallet: string; tier: numbe
           {pl.line && ` · ${pl.line.loans} loan${pl.line.loans === 1 ? '' : 's'}, ${pl.line.repaidOnTime} on time, ${pl.line.repaidLate} late, ${pl.line.defaults} default${pl.line.defaults === 1 ? '' : 's'}`}
           {line.defaults > 0 && ' · frozen'}
         </span>
-        <span className="mono text-[0.72rem]" style={{ color: '#878371' }}>
+        <span className="mono text-[0.72rem]" style={{ color: '#86918B' }}>
           pool <Addr a={pl.poolAddress!} n={4} /> on {NETWORK_LABEL} · {pl.pool.params.feeBps / 100}% fee · {duration(pl.pool.params.termSecs)} to repay
         </span>
       </div>
@@ -238,7 +238,7 @@ export function AgentProfile({ wallet }: { wallet: string }) {
       <div>
         <Nav />
         <main className="wrap py-24">
-          <div className="mono text-[0.9rem]" style={{ color: '#878371' }}>Reading this wallet's credit file from devnet…</div>
+          <div className="mono text-[0.9rem]" style={{ color: '#86918B' }}>Reading this wallet's credit file from devnet…</div>
           <p className="mt-4 text-[0.95rem]">If nothing appears, this wallet has no Tessera account yet: it scores 0 and is New.</p>
         </main>
       </div>
@@ -258,10 +258,10 @@ export function AgentProfile({ wallet }: { wallet: string }) {
           <Reveal>
             <div className="flex flex-wrap items-center gap-3">
               <TierBadge tier={p.eval.tier} />
-              <span className="mono text-[0.76rem]" style={{ color: '#878371' }}>{p.role} · {kind} · registered {ago(Number(a.registeredAt))}</span>
+              <span className="mono text-[0.76rem]" style={{ color: '#86918B' }}>{p.role} · {kind} · registered {ago(Number(a.registeredAt))}</span>
             </div>
             <h1 className="display mt-3 text-[clamp(3rem,7vw,5.6rem)]">{p.name}</h1>
-            <div className="mono mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[0.8rem]" style={{ color: '#4b483e' }}>
+            <div className="mono mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[0.8rem]" style={{ color: '#A3ADA7' }}>
               <span>wallet <Addr a={p.wallet} n={6} /></span>
               <span>credit file <Addr a={p.address} n={6} /></span>
               {cardUrl(a.uri) && (
@@ -283,14 +283,14 @@ export function AgentProfile({ wallet }: { wallet: string }) {
               ].map(([k, v, hint]) => (
                 <div key={k} className="card p-5">
                   <div className="display text-[2.3rem] leading-none">{v}</div>
-                  <div className="eyebrow mt-2.5" style={{ color: '#878371' }}>{k}</div>
-                  <div className="mt-1 text-[0.78rem]" style={{ color: '#878371' }}>{hint}</div>
+                  <div className="eyebrow mt-2.5" style={{ color: '#86918B' }}>{k}</div>
+                  <div className="mt-1 text-[0.78rem]" style={{ color: '#86918B' }}>{hint}</div>
                 </div>
               ))}
             </div>
             <PayLaterLine wallet={p.wallet} tier={p.eval.tier} score={p.eval.score} />
             {a.penaltyBps > 0 && (
-              <div className="mt-4 rounded-2xl p-4 text-[0.9rem]" style={{ background: '#fdecea', border: '1px solid #f3c4bf', color: '#7a1f1f' }}>
+              <div className="mt-4 rounded-2xl p-4 text-[0.9rem]" style={{ background: '#2A1512', border: '1px solid #5A2A24', color: '#F0A08F' }}>
                 <strong>Standing penalty:</strong> {(a.penaltyBps / 100).toFixed(0)}% off the score from a lost dispute or missed delivery. It heals by {(params.penaltyDecayBps / 100).toFixed(2)}% per period, and blocks {tierName(3)} until it is gone.
               </div>
             )}
@@ -300,7 +300,7 @@ export function AgentProfile({ wallet }: { wallet: string }) {
               <div className="justify-self-center"><ScoreGauge e={p.eval} size={230} thresholds={params.tierScore} /></div>
               <div>
                 <Breakdown e={p.eval} />
-                <p className="mono mt-4 text-[0.7rem] leading-relaxed" style={{ color: '#878371' }}>
+                <p className="mono mt-4 text-[0.7rem] leading-relaxed" style={{ color: '#86918B' }}>
                   score = 1000 × ({(p.eval.evidence / 1000).toFixed(3)} evidence) × ({(p.eval.rating / 1000).toFixed(3)} rating) × ({(p.eval.behaviour / 10000).toFixed(2)} behaviour) = {p.eval.score}
                   <br />
                   cached on-chain: {a.score} · recomputed here just now
@@ -314,18 +314,18 @@ export function AgentProfile({ wallet }: { wallet: string }) {
           <RoleStats title="As a merchant" s={a.asMerchant} />
           <RoleStats title="As a buyer" s={a.asBuyer} />
           <div className="card p-6">
-            <div className="eyebrow" style={{ color: '#878371' }}>Instant settlement</div>
+            <div className="eyebrow" style={{ color: '#86918B' }}>Instant settlement</div>
             <dl className="mono mt-4 grid grid-cols-[1fr_auto] gap-y-2 text-[0.84rem]">
-              <dt style={{ color: '#878371' }}>protocol fees paid</dt>
+              <dt style={{ color: '#86918B' }}>protocol fees paid</dt>
               <dd className="text-right">{usd(a.feesPaid, 4)}</dd>
-              <dt style={{ color: '#878371' }}>limit (base + fees)</dt>
+              <dt style={{ color: '#86918B' }}>limit (base + fees)</dt>
               <dd className="text-right">{usd(limit, 4)}</dd>
-              <dt style={{ color: '#878371' }}>not yet accepted by buyers</dt>
+              <dt style={{ color: '#86918B' }}>not yet accepted by buyers</dt>
               <dd className="text-right">{usd(a.instantExposure, 4)}</dd>
-              <dt style={{ color: '#878371' }}>eligible</dt>
+              <dt style={{ color: '#86918B' }}>eligible</dt>
               <dd className="text-right">{p.eval.tier === 3 ? 'yes' : `no, needs ${tierName(3)}`}</dd>
             </dl>
-            <p className="mt-4 text-[0.78rem] leading-relaxed" style={{ color: '#878371' }}>
+            <p className="mt-4 text-[0.78rem] leading-relaxed" style={{ color: '#86918B' }}>
               A merchant can take instantly only what it has already paid in fees, plus a small base. That is what bounds an exit scam.
             </p>
           </div>
@@ -334,65 +334,65 @@ export function AgentProfile({ wallet }: { wallet: string }) {
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
           <div className="card p-6">
             <div className="flex items-baseline justify-between">
-              <div className="eyebrow" style={{ color: '#878371' }}>Reviews received</div>
+              <div className="eyebrow" style={{ color: '#86918B' }}>Reviews received</div>
               <span className="flex items-baseline gap-3">
-                <span className="mono text-[0.72rem]" style={{ color: '#878371' }}>{mine.got.length} on-chain</span>
+                <span className="mono text-[0.72rem]" style={{ color: '#86918B' }}>{mine.got.length} on-chain</span>
                 <Link to="/review" className="link text-[0.8rem]">Review an order</Link>
               </span>
             </div>
             <ul className="mt-3 grid" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {mine.got.slice(0, 12).map((r) => (
-                <li key={r.address} className="grid gap-1 py-3.5" style={{ borderTop: '1px solid #ebe4d0' }}>
+                <li key={r.address} className="grid gap-1 py-3.5" style={{ borderTop: '1px solid #1A211E' }}>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <Stars value={r.data.rating} />
                     <Link to={`/agents/${r.data.reviewer}`} className="link text-[0.9rem] font-medium">{name(r.data.reviewer)}</Link>
-                    <span className="mono text-[0.72rem]" style={{ color: '#878371' }}>
+                    <span className="mono text-[0.72rem]" style={{ color: '#86918B' }}>
                       {r.data.reviewerIsBuyer ? 'bought from them' : 'sold to them'} · weight {usd(r.data.weight, 4)}
                       {config && r.data.weight > 0n ? ` · earns ${usd(rewards.baseReward(r.data.weight, config.feeBps, rewards.DEVNET_REWARD_PARAMS), 4)} at 1×` : ''} · {ago(Number(r.data.createdAt))}
                     </span>
                   </div>
-                  <div className="text-[0.95rem]" style={{ color: '#4b483e' }}>{safeText(r.data.text) || <em style={{ color: '#878371' }}>no text</em>}</div>
-                  <a className="mono link text-[0.7rem]" style={{ color: '#878371' }} href={explorerAddress(r.address)} target="_blank" rel="noreferrer">review account {r.address.slice(0, 8)}…</a>
+                  <div className="text-[0.95rem]" style={{ color: '#A3ADA7' }}>{safeText(r.data.text) || <em style={{ color: '#86918B' }}>no text</em>}</div>
+                  <a className="mono link text-[0.7rem]" style={{ color: '#86918B' }} href={explorerAddress(r.address)} target="_blank" rel="noreferrer">review account {r.address.slice(0, 8)}…</a>
                 </li>
               ))}
-              {mine.got.length === 0 && <li className="mono py-6 text-[0.84rem]" style={{ color: '#878371' }}>No reviews yet. An unreviewed wallet is treated as 3 stars.</li>}
+              {mine.got.length === 0 && <li className="mono py-6 text-[0.84rem]" style={{ color: '#86918B' }}>No reviews yet. An unreviewed wallet is treated as 3 stars.</li>}
             </ul>
-            <p className="mt-3 text-[0.78rem] leading-relaxed" style={{ color: '#878371' }}>
+            <p className="mt-3 text-[0.78rem] leading-relaxed" style={{ color: '#86918B' }}>
               A review's weight is the volume that settled on that order, scaled by the reviewer's own tier and capped per pair. A review of a refunded order weighs nothing, a merchant's review counts once the buyer has reviewed the same order, and the side that lost a dispute gets no weight. Each review earns a share of the fee in the <Link to="/formula" className="link">review-reward rebate</Link>: the same for any stars, then scaled by whether it proved right.
             </p>
           </div>
 
           <div className="grid content-start gap-4">
             <div className="card p-6">
-              <div className="eyebrow" style={{ color: '#878371' }}>Relationships</div>
+              <div className="eyebrow" style={{ color: '#86918B' }}>Relationships</div>
               <ul className="mt-3 grid" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {mine.rel.slice(0, 8).map((x) => {
                   const other = x.data.buyer === wallet ? x.data.merchant : x.data.buyer;
                   const trusted = x.data.orders >= params.pairHistoryMin && x.data.disputes === 0;
                   return (
-                    <li key={x.address} className="grid items-center gap-3 py-2.5 text-[0.88rem]" style={{ borderTop: '1px solid #ebe4d0', gridTemplateColumns: '1fr auto' }}>
+                    <li key={x.address} className="grid items-center gap-3 py-2.5 text-[0.88rem]" style={{ borderTop: '1px solid #1A211E', gridTemplateColumns: '1fr auto' }}>
                       <span>
                         <Link to={`/agents/${other}`} className="link font-medium">{name(other)}</Link>
-                        <span className="mono ml-2 text-[0.72rem]" style={{ color: '#878371' }}>{x.data.buyer === wallet ? 'buys from' : 'sells to'}</span>
+                        <span className="mono ml-2 text-[0.72rem]" style={{ color: '#86918B' }}>{x.data.buyer === wallet ? 'buys from' : 'sells to'}</span>
                         {x.data.disputes > 0 && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#d03b3b' }}>! {x.data.disputes} dispute{x.data.disputes > 1 ? 's' : ''}</span>}
-                        {trusted && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#126b4a' }}>✓ history on record</span>}
+                        {trusted && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#5EE6AB' }}>✓ history on record</span>}
                       </span>
-                      <span className="mono text-[0.78rem]" style={{ color: '#4b483e' }}>{x.data.orders} orders · {usd(x.data.volume)}</span>
+                      <span className="mono text-[0.78rem]" style={{ color: '#A3ADA7' }}>{x.data.orders} orders · {usd(x.data.volume)}</span>
                     </li>
                   );
                 })}
-                {mine.rel.length === 0 && <li className="mono py-4 text-[0.84rem]" style={{ color: '#878371' }}>No settled orders yet.</li>}
+                {mine.rel.length === 0 && <li className="mono py-4 text-[0.84rem]" style={{ color: '#86918B' }}>No settled orders yet.</li>}
               </ul>
             </div>
             <div className="card p-6">
-              <div className="eyebrow" style={{ color: '#878371' }}>Recent orders</div>
+              <div className="eyebrow" style={{ color: '#86918B' }}>Recent orders</div>
               <ul className="mt-3 grid" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {mine.ord.map((o) => (
                   <li key={o.address}>
-                    <a href={explorerAddress(o.address)} target="_blank" rel="noreferrer" className="grid items-center gap-3 py-2 text-[0.82rem]" style={{ borderTop: '1px solid #ebe4d0', gridTemplateColumns: '5.4rem 1fr auto' }}>
+                    <a href={explorerAddress(o.address)} target="_blank" rel="noreferrer" className="grid items-center gap-3 py-2 text-[0.82rem]" style={{ borderTop: '1px solid #1A211E', gridTemplateColumns: '5.4rem 1fr auto' }}>
                       <StateChip kind={o.data.state === OrderState.Released && o.data.instant ? 'instant' : states[o.data.state]!} />
                       <span className="mono truncate">{name(o.data.buyer)} → {name(o.data.merchant)} · {usd(o.data.amount)}</span>
-                      <span className="mono text-[0.72rem]" style={{ color: '#878371' }}>hold {duration(o.data.holdSecs)}</span>
+                      <span className="mono text-[0.72rem]" style={{ color: '#86918B' }}>hold {duration(o.data.holdSecs)}</span>
                     </a>
                   </li>
                 ))}

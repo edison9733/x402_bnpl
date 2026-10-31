@@ -314,20 +314,20 @@ export function Approve({ order: param }: { order: string }) {
       {request === 'verified' && link.status === 'ok' && (
         <>
           <span className="mono">{link.request.sku}</span>
-          <pre className="mono mt-2 overflow-auto rounded-xl p-3 text-[0.76rem] leading-relaxed" style={{ background: '#14130f', color: '#e9e6d8', maxHeight: '12rem', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          <pre className="mono mt-2 overflow-auto rounded-xl p-3 text-[0.76rem] leading-relaxed" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28', maxHeight: '12rem', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {JSON.stringify(link.request.input, null, 2)}
           </pre>
-          <span className="mt-1 block text-[0.78rem]" style={{ color: '#878371' }}>Hashes to the request hash the order committed on-chain.</span>
+          <span className="mt-1 block text-[0.78rem]" style={{ color: '#86918B' }}>Hashes to the request hash the order committed on-chain.</span>
         </>
       )}
-      {request === 'checking' && <span style={{ color: '#878371' }}>Checking the link against the order…</span>}
+      {request === 'checking' && <span style={{ color: '#86918B' }}>Checking the link against the order…</span>}
       {request === 'absent' && (
         <span>
           The link does not say. The order commits only to a hash of the request{first ? <> (<span className="mono">{toHex(first.requestHash).slice(0, 16)}…</span>)</> : null}. Pay only if you trust the agent that sent it.
         </span>
       )}
-      {request === 'mismatch' && <span style={{ color: '#7a1f1f' }}>The link describes something other than what this order pays for. Do not pay. Ask your agent for a new link.</span>}
-      {request === 'unreadable' && <span style={{ color: '#7a1f1f' }}>The link's description is damaged, so it cannot be checked. Do not pay. Ask your agent for a new link.</span>}
+      {request === 'mismatch' && <span style={{ color: '#F0A08F' }}>The link describes something other than what this order pays for. Do not pay. Ask your agent for a new link.</span>}
+      {request === 'unreadable' && <span style={{ color: '#F0A08F' }}>The link's description is damaged, so it cannot be checked. Do not pay. Ask your agent for a new link.</span>}
     </Row>
   );
 
@@ -345,17 +345,17 @@ export function Approve({ order: param }: { order: string }) {
         </button>
       )}
       {wallets.length === 0 && (
-        <div className="rounded-2xl p-4 text-[0.9rem] leading-relaxed" style={{ background: '#f4efe0' }}>
+        <div className="rounded-2xl p-4 text-[0.9rem] leading-relaxed" style={{ background: '#101513' }}>
           No wallet in this browser. On a phone, open this page inside your wallet's own browser:
           <div className="mt-3 flex flex-wrap gap-2">
             <a className="btn btn-ink" href={browse.phantom}>Open in Phantom</a>
             <a className="btn btn-ghost" href={browse.solflare}>Open in Solflare</a>
           </div>
-          <div className="mt-3 text-[0.84rem]" style={{ color: '#4b483e' }}>On a computer, install a Solana wallet extension that supports Wallet Standard, then reload.</div>
+          <div className="mt-3 text-[0.84rem]" style={{ color: '#A3ADA7' }}>On a computer, install a Solana wallet extension that supports Wallet Standard, then reload.</div>
         </div>
       )}
       {NETWORK === 'devnet' && (
-        <p className="text-[0.82rem] leading-relaxed" style={{ color: '#878371' }}>
+        <p className="text-[0.82rem] leading-relaxed" style={{ color: '#86918B' }}>
           This order is on {NETWORK}. Switch your wallet to devnet first. In Phantom: Settings → Developer Settings → Testnet Mode, then Solana Devnet.
         </p>
       )}
@@ -363,10 +363,10 @@ export function Approve({ order: param }: { order: string }) {
   );
 
   const connected = signer && (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl px-3.5 py-2.5" style={{ background: '#f4efe0' }}>
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl px-3.5 py-2.5" style={{ background: '#101513' }}>
       <span className="text-[0.88rem]">
         {signer.kind === 'wallet' ? signer.wallet.name : 'Devnet test wallet'} · <span className="mono">{short(signer.address, 6)}</span>
-        {balances && <span className="mono ml-2 text-[0.8rem]" style={{ color: '#4b483e' }}>{usd(balances.usdc)} USDC · {(Number(balances.sol) / 1e9).toFixed(4)} SOL</span>}
+        {balances && <span className="mono ml-2 text-[0.8rem]" style={{ color: '#A3ADA7' }}>{usd(balances.usdc)} USDC · {(Number(balances.sol) / 1e9).toFixed(4)} SOL</span>}
       </span>
       <button className="link text-[0.84rem]" style={{ cursor: 'pointer' }} onClick={() => { setSigner(null); setError(null); }}>
         Change wallet
@@ -376,12 +376,12 @@ export function Approve({ order: param }: { order: string }) {
 
   const step = (done: boolean, label: ReactNode, detail?: ReactNode, failed = false) => (
     <li className="grid gap-3" style={{ gridTemplateColumns: '1.6rem 1fr' }}>
-      <span className="mono grid h-6 w-6 place-items-center rounded-full text-[0.74rem]" style={{ background: failed ? '#d03b3b' : done ? '#126b4a' : '#ebe4d0', color: done || failed ? '#fff' : '#4b483e' }}>
+      <span className="mono grid h-6 w-6 place-items-center rounded-full text-[0.74rem]" style={{ background: failed ? '#d03b3b' : done ? '#5EE6AB' : '#1A211E', color: done ? '#03140C' : failed ? '#fff' : '#A3ADA7' }}>
         {failed ? '✕' : done ? '✓' : '○'}
       </span>
       <span>
         <span className="text-[0.96rem] font-medium">{label}</span>
-        {detail && <span className="mt-0.5 block text-[0.84rem] leading-relaxed" style={{ color: '#4b483e' }}>{detail}</span>}
+        {detail && <span className="mt-0.5 block text-[0.84rem] leading-relaxed" style={{ color: '#A3ADA7' }}>{detail}</span>}
       </span>
     </li>
   );
@@ -447,7 +447,7 @@ export function Approve({ order: param }: { order: string }) {
               <button className="btn btn-ghost" disabled={busy !== null} onClick={() => void act('release')}>{busy === 'release' ? 'Waiting for the wallet…' : 'Release it now'}</button>
             </>
           ) : (
-            <span className="text-[0.86rem]" style={{ color: '#878371' }}>Connect the wallet that paid to dispute or release it early.</span>
+            <span className="text-[0.86rem]" style={{ color: '#86918B' }}>Connect the wallet that paid to dispute or release it early.</span>
           )}
         </div>
       )}
@@ -465,16 +465,16 @@ export function Approve({ order: param }: { order: string }) {
       <Nav />
       <main className="wrap pb-24 pt-12">
         <Reveal>
-          <div className="eyebrow" style={{ color: '#878371' }}>Approve a purchase · {NETWORK}</div>
+          <div className="eyebrow" style={{ color: '#86918B' }}>Approve a purchase · {NETWORK}</div>
           <h1 className="display mt-3 text-[clamp(2.6rem,6vw,5rem)]">
             Your agent wants to buy. <em>You approve, your wallet pays.</em>
           </h1>
-          <p className="mt-5 max-w-[44rem] text-[1.05rem] leading-relaxed" style={{ color: '#4b483e' }}>
+          <p className="mt-5 max-w-[44rem] text-[1.05rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
             Your agent holds no key. It asked a merchant to open an escrow order in your name and sent you this page. Everything below is read from that order on-chain, not from the link. If you pay, the money waits in escrow: the merchant is paid only after it delivers and the hold ends, and until then you can dispute.
           </p>
         </Reveal>
 
-        {loaded.status === 'loading' && <p className="mono mt-6 text-[0.84rem]" style={{ color: '#878371' }}>Reading the order from {NETWORK}…</p>}
+        {loaded.status === 'loading' && <p className="mono mt-6 text-[0.84rem]" style={{ color: '#86918B' }}>Reading the order from {NETWORK}…</p>}
         {loaded.status === 'invalid' && <Notice tone="bad">This link does not name a Solana address. Ask your agent for the link again.</Notice>}
         {loaded.status === 'missing' && <Notice tone="bad">No Tessera order at this address on {NETWORK}. The link may be wrong, or the order was closed after it settled.</Notice>}
         {loaded.status === 'error' && <Notice tone="bad">Could not read {NETWORK} just now: {loaded.message}</Notice>}
@@ -497,22 +497,22 @@ export function Approve({ order: param }: { order: string }) {
                     <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <a className="link font-medium" href={`#/agents/${first.merchant}`}>{merchant ? merchant.name : short(first.merchant, 6)}</a>
                       {merchant && <TierBadge tier={merchant.eval.tier} />}
-                      {merchant && <span className="mono text-[0.78rem]" style={{ color: '#878371' }}>score {merchant.eval.score}</span>}
+                      {merchant && <span className="mono text-[0.78rem]" style={{ color: '#86918B' }}>score {merchant.eval.score}</span>}
                     </span>
                   )}
-                  <span className="mono mt-0.5 block text-[0.74rem]" style={{ color: '#878371' }}>
+                  <span className="mono mt-0.5 block text-[0.74rem]" style={{ color: '#86918B' }}>
                     {merchant === null ? `${short(first.merchant, 6)} · no credit file on-chain yet` : `${short(first.merchant, 6)} · name and score from its credit file`}
                   </span>
                 </Row>
                 <Row label="Price">
                   <span className="display text-[1.8rem] leading-none">{usd(first.amount)}</span> <span className="mono text-[0.8rem]">USDC</span>
-                  <span className="mt-1 block text-[0.8rem]" style={{ color: '#878371' }}>
+                  <span className="mt-1 block text-[0.8rem]" style={{ color: '#86918B' }}>
                     Paid into the order's own vault{vault ? <> (<span className="mono">{short(vault, 4)}</span>)</> : null}, not to the merchant.
                   </span>
                 </Row>
                 <Row label="In the name of">
                   <a className="mono link" href={`#/agents/${first.buyer}`} title={first.buyer}>{short(first.buyer, 6)}</a>
-                  <span className="mt-0.5 block text-[0.78rem]" style={{ color: '#878371' }}>Only this wallet can pay it, and refunds go back to it.</span>
+                  <span className="mt-0.5 block text-[0.78rem]" style={{ color: '#86918B' }}>Only this wallet can pay it, and refunds go back to it.</span>
                 </Row>
                 <Row label="Protection">
                   Held {duration(first.holdSecs)} after delivery, so you can dispute.
@@ -521,7 +521,7 @@ export function Approve({ order: param }: { order: string }) {
                 <Row label="State">
                   {STATE_NAME[order.state] ?? 'Unknown'}
                   {awaiting && payLeft !== null && (
-                    <span className="mono mt-0.5 block text-[0.8rem]" style={{ color: windowOpen ? '#4b483e' : '#7a1f1f' }}>
+                    <span className="mono mt-0.5 block text-[0.8rem]" style={{ color: windowOpen ? '#A3ADA7' : '#F0A08F' }}>
                       {windowOpen ? `${mmss(payLeft - MARGIN_SECS)} left to pay` : 'The payment window has closed. Nothing was charged.'}
                     </span>
                   )}
@@ -535,7 +535,7 @@ export function Approve({ order: param }: { order: string }) {
 
               {awaiting ? (
                 <>
-                  <p className="mt-2 text-[0.95rem] leading-relaxed" style={{ color: '#4b483e' }}>
+                  <p className="mt-2 text-[0.95rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
                     Your wallet signs one transaction: {usd(first.amount)} USDC from you into this order's vault, and the program marks the order paid. The network fee is a fraction of a cent in devnet SOL.
                   </p>
                   {!signer && picker}
@@ -562,7 +562,7 @@ export function Approve({ order: param }: { order: string }) {
                       {busy === 'pay' ? 'Waiting for your wallet and the network…' : `Approve and pay ${usd(first.amount)}`}
                     </button>
                   )}
-                  <p className="mt-4 text-[0.84rem] leading-relaxed" style={{ color: '#878371' }}>
+                  <p className="mt-4 text-[0.84rem] leading-relaxed" style={{ color: '#86918B' }}>
                     Not yours, or not wanted? Close this page. {payLeft !== null && windowOpen ? `The quote expires in ${mmss(payLeft)}` : 'The quote expires'} and nothing is charged.
                   </p>
                 </>
@@ -570,7 +570,7 @@ export function Approve({ order: param }: { order: string }) {
                 <>
                   {order.state !== OrderState.Cancelled && !signer && order.state === OrderState.Delivered && holdLeft > 0 && (
                     <>
-                      <p className="mt-2 text-[0.92rem]" style={{ color: '#4b483e' }}>Connect the wallet that paid to dispute or release it.</p>
+                      <p className="mt-2 text-[0.92rem]" style={{ color: '#A3ADA7' }}>Connect the wallet that paid to dispute or release it.</p>
                       {picker}
                     </>
                   )}
@@ -579,26 +579,26 @@ export function Approve({ order: param }: { order: string }) {
                 </>
               )}
 
-              {error && <div className="mono mt-4 rounded-xl p-3 text-[0.8rem]" role="alert" style={{ background: '#fdecea', color: '#7a1f1f', wordBreak: 'break-word' }}>{error}</div>}
+              {error && <div className="mono mt-4 rounded-xl p-3 text-[0.8rem]" role="alert" style={{ background: '#2A1512', color: '#F0A08F', wordBreak: 'break-word' }}>{error}</div>}
             </motion.section>
           </div>
         )}
 
         <section className="mt-6 grid gap-4 lg:grid-cols-[1.15fr_1fr]">
           <div className="card p-6">
-            <div className="eyebrow" style={{ color: '#878371' }}>Why a link, not a key</div>
-            <ul className="mt-3 grid gap-2 text-[0.92rem] leading-relaxed" style={{ color: '#4b483e', paddingLeft: '1.1rem', listStyle: 'disc' }}>
+            <div className="eyebrow" style={{ color: '#86918B' }}>Why a link, not a key</div>
+            <ul className="mt-3 grid gap-2 text-[0.92rem] leading-relaxed" style={{ color: '#A3ADA7', paddingLeft: '1.1rem', listStyle: 'disc' }}>
               <li>Your agent never holds a key or card number. It can ask; only your wallet can pay.</li>
               <li>The page reads the order from the chain and checks the link against it. A link that lies about the order is caught here.</li>
               <li>Each approval pays one order, for one price, into escrow. Until the hold ends you can dispute, which a wallet payment alone cannot do.</li>
             </ul>
           </div>
           <div className="card p-6">
-            <div className="eyebrow" style={{ color: '#878371' }}>How your agent makes one</div>
-            <pre className="mono mt-3 overflow-x-auto rounded-xl p-4 text-[0.78rem] leading-relaxed" style={{ background: '#14130f', color: '#e9e6d8', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            <div className="eyebrow" style={{ color: '#86918B' }}>How your agent makes one</div>
+            <pre className="mono mt-3 overflow-x-auto rounded-xl p-4 text-[0.78rem] leading-relaxed" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
               {'npm run tessera -- ask <merchant agent url> <skill> --owner <your wallet> --input \'{…}\''}
             </pre>
-            <p className="mt-2 text-[0.84rem]" style={{ color: '#878371' }}>It prints this link, then waits for your payment and collects the delivery. No keypair on the agent's machine.</p>
+            <p className="mt-2 text-[0.84rem]" style={{ color: '#86918B' }}>It prints this link, then waits for your payment and collects the delivery. No keypair on the agent's machine.</p>
           </div>
         </section>
       </main>

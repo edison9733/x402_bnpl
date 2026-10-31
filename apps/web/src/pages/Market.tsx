@@ -119,8 +119,8 @@ export function useBalances(owner?: Address, mint: Address = USDC_DEVNET) {
 function Deliverable({ value }: { value: unknown }) {
   const svg = typeof value === 'object' && value !== null && typeof (value as { svg?: unknown }).svg === 'string' ? (value as { svg: string }).svg : null;
   return (
-    <div className="rounded-2xl p-4" style={{ background: '#14130f', color: '#e9e6d8' }}>
-      {svg && <img alt="Generated identicon" width={96} height={96} style={{ borderRadius: 12, background: '#0a0b09', marginBottom: 12 }} src={`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`} />}
+    <div className="rounded-2xl p-4" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28' }}>
+      {svg && <img alt="Generated identicon" width={96} height={96} style={{ borderRadius: 12, background: '#0B0E0D', marginBottom: 12 }} src={`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`} />}
       <pre className="mono overflow-x-auto text-[0.76rem] leading-relaxed" style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
         {JSON.stringify(svg ? { ...(value as object), svg: '<svg …>' } : value, null, 2)}
       </pre>
@@ -298,7 +298,7 @@ function Checkout({ item, payer, onClose, onBalance }: { item: Item; payer: NonN
   const icon = { todo: '○', doing: '◌', done: '✓', failed: '✕' };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(20,19,15,0.45)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={onClose}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={onClose}>
       <motion.div
         role="dialog"
         aria-label={`Buy ${item.name}`}
@@ -308,11 +308,11 @@ function Checkout({ item, payer, onClose, onBalance }: { item: Item; payer: NonN
         transition={{ duration: 0.5, ease: EASE }}
         onClick={(e) => e.stopPropagation()}
         className="w-full overflow-auto p-7"
-        style={{ maxWidth: 640, maxHeight: '92dvh', borderRadius: 26, background: '#fbf8ef', border: '1px solid #ded7c2', boxShadow: '0 50px 120px -40px rgba(0,0,0,0.5)' }}
+        style={{ maxWidth: 640, maxHeight: '92dvh', borderRadius: 26, background: '#0B0E0D', border: '1px solid #232C28', boxShadow: '0 50px 120px -40px rgba(0,0,0,0.5)' }}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="eyebrow" style={{ color: '#878371' }}>{item.merchant} · {usd(BigInt(item.price))} USDC</div>
+            <div className="eyebrow" style={{ color: '#86918B' }}>{item.merchant} · {usd(BigInt(item.price))} USDC</div>
             <h2 className="display mt-1 text-[2.3rem]">{item.name}</h2>
           </div>
           <button onClick={onClose} className="btn btn-ghost" aria-label="Close">Close</button>
@@ -320,10 +320,10 @@ function Checkout({ item, payer, onClose, onBalance }: { item: Item; payer: NonN
 
         {steps.length === 0 && (
           <div className="mt-5 grid gap-4">
-            <p className="text-[0.98rem] leading-relaxed" style={{ color: '#4b483e' }}>{item.description}</p>
+            <p className="text-[0.98rem] leading-relaxed" style={{ color: '#A3ADA7' }}>{item.description}</p>
             {Object.keys(input).map((k) => (
               <label key={k} className="block">
-                <span className="eyebrow" style={{ color: '#878371' }}>{k}</span>
+                <span className="eyebrow" style={{ color: '#86918B' }}>{k}</span>
                 {k === 'text' ? (
                   <textarea className="field mt-1.5" rows={4} value={input[k]} onChange={(e) => setInput({ ...input, [k]: e.target.value })} />
                 ) : (
@@ -332,13 +332,13 @@ function Checkout({ item, payer, onClose, onBalance }: { item: Item; payer: NonN
               </label>
             ))}
             <label className="flex items-center gap-3 text-[0.92rem]">
-              <input type="checkbox" checked={extraHold} onChange={(e) => setExtraHold(e.target.checked)} style={{ accentColor: '#126b4a', width: 16, height: 16 }} />
+              <input type="checkbox" checked={extraHold} onChange={(e) => setExtraHold(e.target.checked)} style={{ accentColor: '#5EE6AB', width: 16, height: 16 }} />
               Ask for at least a 60-second hold, whatever the tiers say
             </label>
             <button className="btn btn-ink justify-center py-3.5" onClick={buy} disabled={busy}>
               Pay {usd(BigInt(item.price))} into escrow
             </button>
-            <p className="mono text-[0.7rem]" style={{ color: '#878371' }}>
+            <p className="mono text-[0.7rem]" style={{ color: '#86918B' }}>
               Paying as the built-in devnet test wallet <Addr a={payer.address} />. Devnet test funds only.
             </p>
           </div>
@@ -348,12 +348,12 @@ function Checkout({ item, payer, onClose, onBalance }: { item: Item; payer: NonN
           <ol className="mt-6 grid gap-3" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {steps.map((s, i) => (
               <motion.li key={s.label} initial={{ opacity: 0, x: -10 }} animate={{ opacity: s.state === 'todo' ? 0.4 : 1, x: 0 }} transition={{ duration: 0.4, ease: EASE, delay: i * 0.05 }} className="grid gap-3" style={{ gridTemplateColumns: '1.6rem 1fr' }}>
-                <span className="mono grid h-6 w-6 place-items-center rounded-full text-[0.74rem]" style={{ background: s.state === 'done' ? '#126b4a' : s.state === 'failed' ? '#d03b3b' : '#ebe4d0', color: s.state === 'done' || s.state === 'failed' ? '#fff' : '#4b483e' }}>
+                <span className="mono grid h-6 w-6 place-items-center rounded-full text-[0.74rem]" style={{ background: s.state === 'done' ? '#5EE6AB' : s.state === 'failed' ? '#d03b3b' : '#1A211E', color: s.state === 'done' ? '#03140C' : s.state === 'failed' ? '#fff' : '#A3ADA7' }}>
                   {s.state === 'doing' ? <motion.span animate={{ rotate: 360 }} transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }} style={{ display: 'inline-block' }}>{icon.doing}</motion.span> : icon[s.state]}
                 </span>
                 <span>
                   <span className="text-[0.98rem] font-medium">{s.label}</span>
-                  {s.detail && <span className="mt-0.5 block text-[0.84rem] leading-relaxed" style={{ color: '#4b483e' }}>{s.detail}</span>}
+                  {s.detail && <span className="mt-0.5 block text-[0.84rem] leading-relaxed" style={{ color: '#A3ADA7' }}>{s.detail}</span>}
                 </span>
               </motion.li>
             ))}
@@ -367,31 +367,31 @@ function Checkout({ item, payer, onClose, onBalance }: { item: Item; payer: NonN
         )}
 
         {order && order.state === OrderState.Delivered && (
-          <div className="mt-5 rounded-2xl p-5" style={{ background: '#f4efe0' }}>
+          <div className="mt-5 rounded-2xl p-5" style={{ background: '#101513' }}>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <div className="eyebrow" style={{ color: '#878371' }}>In escrow</div>
+                <div className="eyebrow" style={{ color: '#86918B' }}>In escrow</div>
                 <div className="display text-[2.4rem] leading-none">{left > 0 ? `${Math.ceil(left)} s` : 'hold over'}</div>
-                <div className="mt-1 text-[0.84rem]" style={{ color: '#4b483e' }}>{left > 0 ? 'The merchant cannot take the money yet. You can dispute until the hold ends.' : 'Anyone can release it now; the merchant server will within a few seconds.'}</div>
+                <div className="mt-1 text-[0.84rem]" style={{ color: '#A3ADA7' }}>{left > 0 ? 'The merchant cannot take the money yet. You can dispute until the hold ends.' : 'Anyone can release it now; the merchant server will within a few seconds.'}</div>
               </div>
               <div className="flex gap-2">
                 <button className="btn btn-ink" disabled={busy} onClick={() => act('release')}>Release now</button>
                 <button className="btn btn-ghost" disabled={busy || left <= 0} onClick={() => act('dispute')}>Dispute</button>
               </div>
             </div>
-            <div className="mt-4" style={{ height: 4, borderRadius: 4, background: '#ded7c2', overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: '#126b4a', width: `${order.releaseAt > order.deliveredAt ? (1 - left / Number(order.releaseAt - order.deliveredAt)) * 100 : 100}%`, transition: 'width 0.5s linear' }} />
+            <div className="mt-4" style={{ height: 4, borderRadius: 4, background: '#232C28', overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: '#5EE6AB', width: `${order.releaseAt > order.deliveredAt ? (1 - left / Number(order.releaseAt - order.deliveredAt)) * 100 : 100}%`, transition: 'width 0.5s linear' }} />
             </div>
           </div>
         )}
         {order && order.state === OrderState.Disputed && (
-          <div className="mt-5 rounded-2xl p-5 text-[0.95rem]" style={{ background: '#fdecea', border: '1px solid #f3c4bf', color: '#7a1f1f' }}>
+          <div className="mt-5 rounded-2xl p-5 text-[0.95rem]" style={{ background: '#2A1512', border: '1px solid #5A2A24', color: '#F0A08F' }}>
             Disputed. The money stays in escrow until the arbiter rules. The demo arbiter checks the delivery against the hash on-chain and usually answers within a minute.
           </div>
         )}
 
         {settled && order && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5 rounded-2xl p-5" style={{ background: '#e7f4ec', border: '1px solid #bfdccb' }}>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5 rounded-2xl p-5" style={{ background: '#12241C', border: '1px solid #2A4A3A' }}>
             <div className="text-[1rem] font-medium">
               {order.state === OrderState.Released
                 ? order.instant
@@ -403,14 +403,14 @@ function Checkout({ item, payer, onClose, onBalance }: { item: Item; payer: NonN
                   ? 'Refunded to you in full.'
                   : 'Dispute resolved.'}
             </div>
-            <div className="mono mt-1 text-[0.78rem]" style={{ color: '#4b483e' }}>
+            <div className="mono mt-1 text-[0.78rem]" style={{ color: '#A3ADA7' }}>
               merchant received {usd(order.paidMerchant, 4)} · protocol fee {usd(order.paidFee, 4)} · returned to you {usd(order.refunded, 4)}
             </div>
             {!reviewed && !order.buyerReviewed ? (
               <div className="mt-4 grid gap-3">
                 <div className="flex items-center gap-1" role="radiogroup" aria-label="Rating">
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <button key={n} role="radio" aria-checked={rating === n} onClick={() => setRating(n)} style={{ fontSize: 26, lineHeight: 1, cursor: 'pointer', color: n <= rating ? '#14130f' : '#c9c2ac' }} aria-label={`${n} stars`}>★</button>
+                    <button key={n} role="radio" aria-checked={rating === n} onClick={() => setRating(n)} style={{ fontSize: 26, lineHeight: 1, cursor: 'pointer', color: n <= rating ? '#E8EDE9' : '#3A4741' }} aria-label={`${n} stars`}>★</button>
                   ))}
                 </div>
                 <textarea className="field" rows={2} maxLength={200} placeholder="Say what happened (stored on-chain, up to 200 bytes)" value={text} onChange={(e) => setText(clip200(e.target.value))} />
@@ -420,14 +420,14 @@ function Checkout({ item, payer, onClose, onBalance }: { item: Item; payer: NonN
               <div className="mt-3 text-[0.9rem]">Your review is on-chain. <a className="link" href={`#/agents/${order.merchant}`}>See it on the merchant's credit file →</a></div>
             )}
             {terms && (
-              <div className="mt-2 text-[0.84rem]" style={{ color: '#4b483e' }}>
+              <div className="mt-2 text-[0.84rem]" style={{ color: '#A3ADA7' }}>
                 <a className="link" href={`#/review/${terms.order}`}>Merchant? Review the buyer with the on-chain receipt →</a>
               </div>
             )}
           </motion.div>
         )}
 
-        {error && <div className="mono mt-4 rounded-xl p-3 text-[0.78rem]" style={{ background: '#fdecea', color: '#7a1f1f', wordBreak: 'break-word' }}>{error}</div>}
+        {error && <div className="mono mt-4 rounded-xl p-3 text-[0.78rem]" style={{ background: '#2A1512', color: '#F0A08F', wordBreak: 'break-word' }}>{error}</div>}
         {error && paid && deliverable === undefined && !busy && (!order || order.state === OrderState.Funded) && (
           <button type="button" className="btn btn-ghost mt-3" onClick={() => void retry()}>Retry delivery</button>
         )}
@@ -479,11 +479,11 @@ export function Market() {
       <Nav />
       <main className="wrap pb-24 pt-12">
         <Reveal>
-          <div className="eyebrow" style={{ color: '#878371' }}>Market · devnet</div>
+          <div className="eyebrow" style={{ color: '#86918B' }}>Market · devnet</div>
           <h1 className="display mt-3 text-[clamp(2.6rem,6vw,5rem)]">
             Buy from an agent. <em>Watch the escrow work.</em>
           </h1>
-          <p className="mt-5 max-w-[44rem] text-[1.05rem] leading-relaxed" style={{ color: '#4b483e' }}>
+          <p className="mt-5 max-w-[44rem] text-[1.05rem] leading-relaxed" style={{ color: '#A3ADA7' }}>
             These are the same merchant agents the buyer agents trade with over A2A and x402. Here you pay from a wallet instead: your browser checks the escrow on-chain, pays into it, checks what comes back against the hash the merchant committed, and then you rate the merchant.
           </p>
         </Reveal>
@@ -491,17 +491,17 @@ export function Market() {
         <Reveal delay={0.1}>
           <div className="card mt-8 flex flex-wrap items-center justify-between gap-4 p-5">
             <div>
-              <div className="eyebrow" style={{ color: '#878371' }}>Paying with the built-in devnet test wallet</div>
+              <div className="eyebrow" style={{ color: '#86918B' }}>Paying with the built-in devnet test wallet</div>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                 {payer ? <Addr a={payer.address} n={6} className="text-[0.95rem]" /> : <span className="mono">…</span>}
                 <span className="mono text-[0.84rem]">{balances ? `${usd(balances.usdc)} USDC · ${(Number(balances.sol) / 1e9).toFixed(3)} SOL` : 'reading balances…'}</span>
                 {me && <TierBadge tier={me.eval.tier} />}
-                {me && <span className="mono text-[0.78rem]" style={{ color: '#878371' }}>score {me.eval.score}</span>}
+                {me && <span className="mono text-[0.78rem]" style={{ color: '#86918B' }}>score {me.eval.score}</span>}
               </div>
-              <div className="mt-1.5 text-[0.8rem]" style={{ color: '#878371' }}>A throwaway key kept in this browser, for trying the flow. Agents sign with their own keys through the API, CLI or SDK.</div>
+              <div className="mt-1.5 text-[0.8rem]" style={{ color: '#86918B' }}>A throwaway key kept in this browser, for trying the flow. Agents sign with their own keys through the API, CLI or SDK.</div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              {faucet && <span className="mono text-[0.76rem]" style={{ color: '#4b483e' }}>{faucet}</span>}
+              {faucet && <span className="mono text-[0.76rem]" style={{ color: '#A3ADA7' }}>{faucet}</span>}
               <button className="btn btn-ghost" onClick={drip} disabled={!payer || down}>Get test funds</button>
             </div>
           </div>
@@ -510,10 +510,10 @@ export function Market() {
         {down && (
           <div className="card mt-6 p-7">
             <div className="text-[1.05rem] font-medium">The demo merchants are offline right now.</div>
-            <p className="mt-2 text-[0.95rem]" style={{ color: '#4b483e' }}>
+            <p className="mt-2 text-[0.95rem]" style={{ color: '#A3ADA7' }}>
               The rest of the site reads the chain directly and works without them. The merchant agents hold keys, so they run from the repository, not from this page. The whole checkout is in the <a className="link" href="/videos/tessera-demo.mp4" target="_blank" rel="noreferrer">technical demo video</a>. To buy something yourself, start them:
             </p>
-            <pre className="mono mt-3 rounded-xl p-4 text-[0.84rem]" style={{ background: '#14130f', color: '#e9e6d8' }}>npm run agents</pre>
+            <pre className="mono mt-3 rounded-xl p-4 text-[0.84rem]" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28' }}>npm run agents</pre>
           </div>
         )}
 
@@ -527,17 +527,17 @@ export function Market() {
                 <motion.div whileHover={{ y: -5 }} transition={{ duration: 0.35, ease: EASE }} className="card flex h-full flex-col p-6">
                   <div className="flex items-center justify-between gap-3">
                     <a href={`#/agents/${it.merchantWallet}`} className="link text-[0.9rem] font-medium">{it.title.split(':')[0]}</a>
-                    {m && <span className="flex items-center gap-3"><TierBadge tier={m.eval.tier} /><span className="mono text-[0.78rem]" style={{ color: '#878371' }}>{m.eval.score}</span></span>}
+                    {m && <span className="flex items-center gap-3"><TierBadge tier={m.eval.tier} /><span className="mono text-[0.78rem]" style={{ color: '#86918B' }}>{m.eval.score}</span></span>}
                   </div>
                   <div className="display mt-4 text-[2rem] leading-tight">{it.name}</div>
-                  <p className="mt-2 text-[0.95rem] leading-relaxed" style={{ color: '#4b483e' }}>{it.description}</p>
+                  <p className="mt-2 text-[0.95rem] leading-relaxed" style={{ color: '#A3ADA7' }}>{it.description}</p>
                   <div className="mt-auto flex items-end justify-between gap-4 pt-6">
                     <div>
                       <div className="display text-[2rem] leading-none">{usd(BigInt(it.price))}</div>
-                      <div className="mono mt-1.5 text-[0.72rem]" style={{ color: '#878371' }}>
+                      <div className="mono mt-1.5 text-[0.72rem]" style={{ color: '#86918B' }}>
                         {hold === null ? 'USDC' : hold === 0 ? 'USDC · settles instantly for you' : `USDC · held ${duration(hold)} for you`}
                         {onCredit && (
-                          <span title={`This merchant's 402 also offers the price on credit (scheme tessera-paylater): the pool pays the escrow and a buyer with a Tessera tier repays it plus ${pl.pool!.params.feeBps / 100}% within ${duration(pl.pool!.params.termSecs)}. Agents use it with tessera buy-later; this test wallet has no credit.`} style={{ color: '#126b4a' }}>
+                          <span title={`This merchant's 402 also offers the price on credit (scheme tessera-paylater): the pool pays the escrow and a buyer with a Tessera tier repays it plus ${pl.pool!.params.feeBps / 100}% within ${duration(pl.pool!.params.termSecs)}. Agents use it with tessera buy-later; this test wallet has no credit.`} style={{ color: '#5EE6AB' }}>
                             {' '}· pay later
                           </span>
                         )}
@@ -551,7 +551,7 @@ export function Market() {
           })}
         </div>
         {params && (
-          <p className="mono mt-6 text-[0.72rem] leading-relaxed" style={{ color: '#878371' }}>
+          <p className="mono mt-6 text-[0.72rem] leading-relaxed" style={{ color: '#86918B' }}>
             Your hold is the longer of the merchant's tier and yours ({tierName(me?.eval.tier ?? 0)}: {duration(params.holdSecs[me?.eval.tier ?? 0]!)}). After {params.pairHistoryMin} undisputed purchases from one merchant, only the merchant's tier counts.
           </p>
         )}

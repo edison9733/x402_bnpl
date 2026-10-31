@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { NETWORK } from '../lib/client';
 import { Link, usePath } from '../lib/router';
 import { useChain } from '../lib/store';
-import { Logo } from './ui';
+import { Mark } from './ui';
 
 const LINKS: [string, string][] = [
   ['/network', 'Live network'],
@@ -24,7 +24,7 @@ function sectionInView(): string | null {
   return found;
 }
 
-export function Nav({ dark = false }: { dark?: boolean }) {
+export function Nav({ dark = true }: { dark?: boolean }) {
   const path = usePath();
   const { status } = useChain();
   const { scrollY } = useScroll();
@@ -41,7 +41,7 @@ export function Nav({ dark = false }: { dark?: boolean }) {
     setSpy(sectionInView());
   });
   const active = spy ?? path;
-  const bg = dark ? 'rgba(10,11,9,0.72)' : 'rgba(251,248,239,0.78)';
+  const bg = dark ? 'rgba(11,14,13,0.72)' : 'rgba(11,14,13,0.78)';
   return (
     <motion.header
       style={{
@@ -51,15 +51,15 @@ export function Nav({ dark = false }: { dark?: boolean }) {
         backdropFilter: solid ? 'blur(14px) saturate(1.4)' : 'none',
         WebkitBackdropFilter: solid ? 'blur(14px) saturate(1.4)' : 'none',
         background: solid ? bg : 'transparent',
-        borderBottom: `1px solid ${solid ? (dark ? '#272b21' : '#ded7c2') : 'transparent'}`,
+        borderBottom: `1px solid ${solid ? (dark ? '#232C28' : '#232C28') : 'transparent'}`,
         transition: 'background 0.3s, border-color 0.3s',
-        color: dark ? '#e9e6d8' : '#14130f',
+        color: dark ? '#E8EDE9' : '#E8EDE9',
       }}
     >
       <div className="wrap flex h-[68px] items-center justify-between gap-6">
         <Link to="/" className="flex items-center gap-2.5">
-          <Logo invert={dark} />
-          <span className="display text-[1.5rem]" style={{ letterSpacing: '-0.03em' }}>
+          <Mark size={26} />
+          <span className="display text-[1.35rem]" style={{ letterSpacing: '-0.02em' }}>
             Tessera
           </span>
         </Link>
@@ -88,7 +88,7 @@ export function Nav({ dark = false }: { dark?: boolean }) {
           </span>
           <button
             className="rounded-full border px-3.5 py-2 text-[0.88rem] lg:hidden"
-            style={{ borderColor: dark ? '#3a3f33' : '#cfc8b2', cursor: 'pointer' }}
+            style={{ borderColor: dark ? '#303B36' : '#303B36', cursor: 'pointer' }}
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-controls="nav-menu"
@@ -98,9 +98,9 @@ export function Nav({ dark = false }: { dark?: boolean }) {
         </div>
       </div>
       {open && (
-        <nav id="nav-menu" className="wrap grid gap-1 pb-4 lg:hidden" style={{ background: dark ? '#0a0b09' : '#fbf8ef' }}>
+        <nav id="nav-menu" className="wrap grid gap-1 pb-4 lg:hidden" style={{ background: dark ? '#0B0E0D' : '#0B0E0D' }}>
           {LINKS.map(([to, label]) => (
-            <Link key={to} to={to} className="rounded-xl px-3 py-3 text-[1.05rem]" style={{ background: active.startsWith(to) ? (dark ? '#272b21' : '#f1ebd8') : 'transparent' }} onClick={() => setOpen(false)}>
+            <Link key={to} to={to} className="rounded-xl px-3 py-3 text-[1.05rem]" style={{ background: active.startsWith(to) ? (dark ? '#232C28' : '#1A211E') : 'transparent' }} onClick={() => setOpen(false)}>
               {label}
             </Link>
           ))}

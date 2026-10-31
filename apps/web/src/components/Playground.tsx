@@ -4,11 +4,11 @@ import { duration, tierName, TIER_LIGHT, usd } from '../lib/format';
 import { outcome, posOf, presets, salesAt, type Wallet } from '../lib/playground';
 import { ScoreGauge, TierBadge } from './ui';
 
-const INK = '#14130f';
-const MUTED = '#4b483e';
-const FAINT = '#878371';
-const LINE = '#ded7c2';
-const GREEN = '#126b4a';
+const INK = '#E8EDE9';
+const MUTED = '#A3ADA7';
+const FAINT = '#86918B';
+const LINE = '#232C28';
+const GREEN = '#5EE6AB';
 
 /** Whole dollars when the amounts are large, cents when they are small. */
 const money = (units: bigint, p: Params) =>
@@ -16,7 +16,7 @@ const money = (units: bigint, p: Params) =>
 
 export function Control({ label, value, hint, children }: { label: string; value: ReactNode; hint: ReactNode; children: ReactNode }) {
   return (
-    <div className="grid gap-3 rounded-2xl border p-5" style={{ borderColor: LINE, background: '#fffdf6' }}>
+    <div className="grid gap-3 rounded-2xl border p-5" style={{ borderColor: LINE, background: '#0F1412' }}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <span className="text-[1.05rem] font-medium">{label}</span>
         <span className="display text-[1.7rem] leading-none">{value}</span>
@@ -37,7 +37,7 @@ export function Choice<T extends string | number>({ options, value, set, label, 
           aria-checked={v === value}
           onClick={() => set(v)}
           className="rounded-xl border px-2 py-3 text-[0.9rem]"
-          style={{ cursor: 'pointer', borderColor: v === value ? INK : LINE, background: v === value ? INK : 'transparent', color: v === value ? '#fbf8ef' : MUTED }}
+          style={{ cursor: 'pointer', borderColor: v === value ? INK : LINE, background: v === value ? INK : 'transparent', color: v === value ? '#0B0E0D' : MUTED }}
         >
           {text}
         </button>
@@ -133,14 +133,14 @@ export function Playground() {
                 key={x.id}
                 onClick={() => pick(x.id)}
                 className="grid content-start gap-2 rounded-2xl border p-4 text-left"
-                style={{ cursor: 'pointer', borderColor: on ? INK : LINE, background: on ? INK : '#fffdf6', color: on ? '#fbf8ef' : INK }}
+                style={{ cursor: 'pointer', borderColor: on ? INK : LINE, background: on ? INK : '#0F1412', color: on ? '#0B0E0D' : INK }}
                 aria-pressed={on}
               >
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="font-medium">{x.title}</span>
                   <span className="mono text-[0.85rem]">{r.score}</span>
                 </span>
-                <span className="text-[0.85rem] leading-snug" style={{ color: on ? '#c9c6b6' : FAINT }}>{x.blurb}</span>
+                <span className="text-[0.85rem] leading-snug" style={{ color: on ? '#A3ADA7' : FAINT }}>{x.blurb}</span>
               </button>
             );
           })}
@@ -152,10 +152,10 @@ export function Playground() {
         <div className="grid gap-4">
           <h3 className="display text-[1.9rem] leading-tight">2. Change anything</h3>
           {/* On a phone the score is below the knobs, so keep it in sight here. */}
-          <div className="sticky top-[68px] z-10 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 lg:hidden" style={{ background: INK, color: '#fbf8ef' }} aria-live="polite">
+          <div className="sticky top-[68px] z-10 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 lg:hidden" style={{ background: INK, color: '#0B0E0D' }} aria-live="polite">
             <span className="display text-[1.8rem] leading-none">{e.score}</span>
             <span className="mono text-[0.8rem]">{tierName(e.tier)}</span>
-            <span className="mono text-[0.8rem]" style={{ color: '#c9c6b6' }}>{p.holdSecs[e.tier] ? `hold ${duration(p.holdSecs[e.tier]!)}` : 'instant'}</span>
+            <span className="mono text-[0.8rem]" style={{ color: '#A3ADA7' }}>{p.holdSecs[e.tier] ? `hold ${duration(p.holdSecs[e.tier]!)}` : 'instant'}</span>
           </div>
           <Control
             label="Total sales"
@@ -190,7 +190,7 @@ export function Playground() {
         </div>
 
         {/* 3. What it adds up to */}
-        <div className="grid gap-5 rounded-3xl p-6 lg:sticky lg:top-24" style={{ background: '#f4efe0' }}>
+        <div className="grid gap-5 rounded-3xl p-6 lg:sticky lg:top-24" style={{ background: '#101513' }}>
           <h3 className="display text-[1.9rem] leading-tight">3. The score</h3>
           <div className="grid justify-items-center gap-2">
             <ScoreGauge e={e} size={260} thresholds={p.tierScore} />
@@ -207,8 +207,8 @@ export function Playground() {
 
           <ol className="grid gap-1.5">
             {[0, 1, 2, 3].map((t) => (
-              <li key={t} className="grid grid-cols-[1.2rem_1fr_auto] items-center gap-2 rounded-xl px-3 py-2 text-[0.9rem]" style={{ background: t === e.tier ? '#fffdf6' : 'transparent', outline: t === e.tier ? `1px solid ${LINE}` : 'none' }}>
-                <span aria-hidden style={{ color: t <= e.tier ? TIER_LIGHT[t] : '#cfc8b2' }}>{t <= e.tier ? '●' : '○'}</span>
+              <li key={t} className="grid grid-cols-[1.2rem_1fr_auto] items-center gap-2 rounded-xl px-3 py-2 text-[0.9rem]" style={{ background: t === e.tier ? '#0F1412' : 'transparent', outline: t === e.tier ? `1px solid ${LINE}` : 'none' }}>
+                <span aria-hidden style={{ color: t <= e.tier ? TIER_LIGHT[t] : '#303B36' }}>{t <= e.tier ? '●' : '○'}</span>
                 <span>
                   <span className="font-medium">{tierName(t)}</span>
                   <span style={{ color: FAINT }}>{t === 0 ? ' · where everyone starts' : ` · ${p.tierScore[t - 1]}+ points, ${units(p.tierPeriods[t - 1]!)}`}</span>
@@ -229,7 +229,7 @@ export function Playground() {
             </button>
           )}
 
-          <pre className="mono overflow-x-auto rounded-2xl p-4 text-[0.78rem] leading-[1.9]" style={{ background: INK, color: '#e9e6d8' }}>
+          <pre className="mono overflow-x-auto rounded-2xl p-4 text-[0.78rem] leading-[1.9]" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28' }}>
 {`Evidence = 0.45×${f(e.history / 1000)} + 0.30×${f(e.tenure / 1000)} + 0.25×${f(e.diversity / 1000)}
          = ${f(e.evidence / 1000)}
 score    = 1000 × ${f(e.evidence / 1000)} × ${f(e.rating / 1000)} × ${f(e.behaviour / 10_000)}
@@ -242,7 +242,7 @@ score    = 1000 × ${f(e.evidence / 1000)} × ${f(e.rating / 1000)} × ${f(e.beh
           <div className="flex flex-wrap items-center gap-2 border-t pt-4 text-[0.82rem]" style={{ borderColor: LINE, color: FAINT }}>
             <span>Scale:</span>
             {(['mainnet', 'devnet'] as const).map((s) => (
-              <button key={s} onClick={() => switchScale(s)} aria-pressed={scale === s} className="mono rounded-full border px-3 py-1" style={{ cursor: 'pointer', borderColor: scale === s ? INK : LINE, background: scale === s ? INK : 'transparent', color: scale === s ? '#fbf8ef' : MUTED }}>
+              <button key={s} onClick={() => switchScale(s)} aria-pressed={scale === s} className="mono rounded-full border px-3 py-1" style={{ cursor: 'pointer', borderColor: scale === s ? INK : LINE, background: scale === s ? INK : 'transparent', color: scale === s ? '#0B0E0D' : MUTED }}>
                 {s === 'mainnet' ? 'mainnet' : 'devnet'}
               </button>
             ))}

@@ -10,7 +10,7 @@
  * are only served when the agents server runs.
  */
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Logo } from '../components/ui';
+import { Logo, Mark } from '../components/ui';
 import { CONTACT } from '../components/Waitlist';
 import { Link, usePath } from '../lib/router';
 import './landing.css';
@@ -24,17 +24,11 @@ const VIDEO = { src: '/videos/tessera-2.0-demo.mp4', poster: '/videos/tessera-2.
 const DISPLAY = "'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif";
 const MONO = "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
-/** The four tiles of the mark: two filled, two outlined. */
-function Mark({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" aria-hidden>
-      <rect x="1" y="1" width="12" height="12" rx="3" fill="#5EE6AB" />
-      <rect x="15.8" y="1.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" strokeWidth="1.6" />
-      <rect x="1.8" y="15.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" strokeWidth="1.6" />
-      <rect x="15" y="15" width="12" height="12" rx="3" fill="#F5BE55" />
-    </svg>
-  );
-}
+const ArrowIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
 
 const PlayIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
@@ -83,12 +77,13 @@ function Header() {
           <a href="#merchants">Merchants</a>
           <a href="#pay-later">Pay Later</a>
           <a href="#settle">Settle once</a>
+          <a href="#/market">Market</a>
           <a href={DOCS} target="_blank" rel="noreferrer">
             Docs
           </a>
         </nav>
-        <a className="t-btn t-btn-ghost" href="#demo" style={{ minHeight: 44, padding: '0 18px', fontSize: 14 }}>
-          Watch the demo
+        <a className="t-btn t-btn-ghost" href="#/market" style={{ minHeight: 44, padding: '0 18px', fontSize: 14 }}>
+          Buy on devnet
         </a>
       </div>
     </header>
@@ -124,9 +119,9 @@ function Hero() {
               <PlayIcon />
               Watch the demo
             </a>
-            <a className="t-btn t-btn-ghost" href="#trust">
-              Why agents need trust
-              <DownIcon />
+            <a className="t-btn t-btn-ghost" href="#/market">
+              Buy on devnet
+              <ArrowIcon />
             </a>
           </div>
         </div>
@@ -1014,12 +1009,12 @@ function LandingFooter() {
 }
 
 /** The footer of the other pages (agents, market, formula, review), unchanged. */
-export function Footer({ dark = false }: { dark?: boolean }) {
+export function Footer({ dark = true }: { dark?: boolean }) {
   return (
     <footer className={dark ? 'night' : ''} style={{ borderTop: `1px solid ${dark ? '#272b21' : '#ded7c2'}` }}>
       <div className="wrap flex flex-wrap items-center justify-between gap-6 py-10 text-[0.86rem]" style={{ color: dark ? '#8b8a7c' : '#878371' }}>
         <span className="inline-flex items-center gap-2.5">
-          <Logo size={20} invert={dark} />
+          <Mark size={18} />
           Tessera. Devnet demo, unaudited. Not financial infrastructure yet.
         </span>
         <span className="mono flex flex-wrap gap-5 text-[0.76rem]">

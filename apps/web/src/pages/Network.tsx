@@ -34,14 +34,14 @@ export function Network() {
       <div className="wrap" style={{ width: 'min(1480px, 100% - 2rem)' }}>
         <div className="flex flex-wrap items-end justify-between gap-6 pb-5 pt-6">
           <div>
-            <div className="eyebrow" style={{ color: '#8b8a7c' }}>
+            <div className="eyebrow" style={{ color: '#86918B' }}>
               {NETWORK_LABEL} · program <a className="link" href={explorerAddress(TESSERA_PROGRAM_ADDRESS)} target="_blank" rel="noreferrer">{short(TESSERA_PROGRAM_ADDRESS)}</a>
             </div>
-            <h1 className="display mt-2 text-[clamp(2.2rem,4.4vw,3.6rem)]" style={{ color: '#f1eee2' }}>
+            <h1 className="display mt-2 text-[clamp(2.2rem,4.4vw,3.6rem)]" style={{ color: '#E8EDE9' }}>
               The network, <em>as the chain sees it.</em>
             </h1>
           </div>
-          <div className="mono grid grid-cols-2 gap-x-9 gap-y-3 text-[0.78rem] sm:grid-cols-5" style={{ color: '#8b8a7c' }}>
+          <div className="mono grid grid-cols-2 gap-x-9 gap-y-3 text-[0.78rem] sm:grid-cols-5" style={{ color: '#86918B' }}>
             {[
               ['agents', profiles.length, (n: number) => String(Math.round(n))],
               ['orders settled', Number(config?.ordersSettled ?? 0n), (n: number) => String(Math.round(n))],
@@ -50,7 +50,7 @@ export function Network() {
               ['settled instantly', stats.instant, (n: number) => String(Math.round(n))],
             ].map(([label, value, fmt]) => (
               <div key={label as string}>
-                <div className="display text-[1.9rem] leading-none" style={{ color: '#f1eee2' }}>
+                <div className="display text-[1.9rem] leading-none" style={{ color: '#E8EDE9' }}>
                   <Counter value={value as number} format={fmt as (n: number) => string} />
                 </div>
                 <div className="mt-1.5">{label as string}</div>
@@ -70,7 +70,7 @@ export function Network() {
             <div style={{ position: 'absolute', left: 18, bottom: 14, right: 18 }}>
               <GraphLegend />
             </div>
-            <div className="mono" style={{ position: 'absolute', right: 18, top: 14, fontSize: '0.7rem', color: '#5d5c52', textAlign: 'right' }}>
+            <div className="mono" style={{ position: 'absolute', right: 18, top: 14, fontSize: '0.7rem', color: '#86918B', textAlign: 'right' }}>
               node size = settled volume · click a node
               <br />
               every node, edge and coin is an account you can open in Explorer
@@ -83,8 +83,8 @@ export function Network() {
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="display text-[1.9rem] leading-none" style={{ color: '#f1eee2' }}>{sel.name}</div>
-                      <div className="mono mt-1.5 text-[0.72rem]" style={{ color: '#8b8a7c' }}>
+                      <div className="display text-[1.9rem] leading-none" style={{ color: '#E8EDE9' }}>{sel.name}</div>
+                      <div className="mono mt-1.5 text-[0.72rem]" style={{ color: '#86918B' }}>
                         {sel.role} · <a className="link" href={explorerAddress(sel.wallet)} target="_blank" rel="noreferrer">{short(sel.wallet, 5)}</a>
                       </div>
                     </div>
@@ -94,15 +94,15 @@ export function Network() {
                     <ScoreGauge e={sel.eval} dark size={210} thresholds={params.tierScore} />
                   </div>
                   <Breakdown e={sel.eval} dark />
-                  <div className="mono mt-4 grid grid-cols-2 gap-y-2 text-[0.76rem]" style={{ color: '#8b8a7c' }}>
+                  <div className="mono mt-4 grid grid-cols-2 gap-y-2 text-[0.76rem]" style={{ color: '#86918B' }}>
                     <span>rating</span>
                     <span className="text-right"><Stars value={sel.stars} dark /></span>
                     <span>settles with a Trusted party</span>
-                    <span className="text-right" style={{ color: '#e9e6d8' }}>{duration(params.holdSecs[sel.eval.tier]!)}</span>
+                    <span className="text-right" style={{ color: '#E8EDE9' }}>{duration(params.holdSecs[sel.eval.tier]!)}</span>
                     <span>orders settled</span>
-                    <span className="text-right" style={{ color: '#e9e6d8' }}>{sel.orders}</span>
+                    <span className="text-right" style={{ color: '#E8EDE9' }}>{sel.orders}</span>
                     <span>disputes lost</span>
-                    <span className="text-right" style={{ color: '#e9e6d8' }}>{sel.agent.asBuyer.disputesLost + sel.agent.asMerchant.disputesLost}</span>
+                    <span className="text-right" style={{ color: '#E8EDE9' }}>{sel.agent.asBuyer.disputesLost + sel.agent.asMerchant.disputesLost}</span>
                   </div>
                   <Link to={`/agents/${sel.wallet}`} className="btn btn-ghost mt-5 w-full justify-center">
                     Full credit file →
@@ -110,28 +110,28 @@ export function Network() {
                 </div>
               ) : (
                 <div>
-                  <div className="eyebrow" style={{ color: '#8b8a7c' }}>Tiers right now</div>
+                  <div className="eyebrow" style={{ color: '#86918B' }}>Tiers right now</div>
                   <div className="mt-4 grid gap-3">
                     {[3, 2, 1, 0].map((t) => {
                       const n = profiles.filter((p) => p.eval.tier === t).length;
                       return (
                         <div key={t} className="grid items-center gap-3" style={{ gridTemplateColumns: '7.5rem 1fr 4.5rem' }}>
                           <TierBadge tier={t} dark />
-                          <span style={{ height: 6, borderRadius: 6, background: '#1c1f18', overflow: 'hidden' }}>
+                          <span style={{ height: 6, borderRadius: 6, background: '#1A211E', overflow: 'hidden' }}>
                             <motion.span
                               style={{ display: 'block', height: '100%', background: ['#35705a', '#2f9e73', '#4fd19a', '#b9f8da'][t], borderRadius: 6 }}
                               animate={{ width: `${profiles.length ? (n / profiles.length) * 100 : 0}%` }}
                               transition={{ duration: 0.8, ease: EASE }}
                             />
                           </span>
-                          <span className="mono text-right text-[0.74rem]" style={{ color: '#8b8a7c' }}>
+                          <span className="mono text-right text-[0.74rem]" style={{ color: '#86918B' }}>
                             {n} · {params ? duration(params.holdSecs[t]!) : ''}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                  <p className="mt-4 text-[0.82rem] leading-relaxed" style={{ color: '#8b8a7c' }}>
+                  <p className="mt-4 text-[0.82rem] leading-relaxed" style={{ color: '#86918B' }}>
                     The hold on an order is the longer of the two parties' holds. {tierName(0)} wallets wait {params ? duration(params.holdSecs[0]!) : ''};
                     two {tierName(3)} wallets settle in the same transaction as delivery.
                   </p>
@@ -141,8 +141,8 @@ export function Network() {
 
             <div className="card-night p-5">
               <div className="flex items-center justify-between">
-                <div className="eyebrow" style={{ color: '#8b8a7c' }}>On-chain, just now</div>
-                <span className="mono text-[0.68rem]" style={{ color: '#5d5c52' }}>{stats.heldCount} in escrow</span>
+                <div className="eyebrow" style={{ color: '#86918B' }}>On-chain, just now</div>
+                <span className="mono text-[0.68rem]" style={{ color: '#86918B' }}>{stats.heldCount} in escrow</span>
               </div>
               <div className="mt-2" style={{ maxHeight: 340, overflow: 'auto' }}>
                 <Feed events={feed} byWallet={byWallet} limit={16} />
@@ -150,7 +150,7 @@ export function Network() {
             </div>
           </div>
         </div>
-        <p className="mono pb-10 text-[0.72rem] leading-relaxed" style={{ color: '#5d5c52', maxWidth: 900 }}>
+        <p className="mono pb-10 text-[0.72rem] leading-relaxed" style={{ color: '#86918B', maxWidth: 900 }}>
           This is a demo network on devnet. The traffic is generated by this project's own agents with recycled test USDC, and time is compressed
           (one period is {params?.periodSecs ?? 60} seconds here; the target for mainnet is one day). What is real: every account, every transaction, and every score, which this page recomputes in your browser from the accounts themselves.
         </p>

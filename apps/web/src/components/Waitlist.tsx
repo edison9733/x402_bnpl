@@ -38,10 +38,10 @@ export function Waitlist({ dark = false }: { dark?: boolean }) {
     }
   }
 
-  const ink = dark ? '#f1eee2' : '#14130f';
+  const ink = dark ? '#E8EDE9' : '#E8EDE9';
   if (status === 'done') {
     return (
-      <p role="status" className="display text-[1.8rem]" style={{ color: dark ? '#b9f8da' : '#126b4a' }}>
+      <p role="status" className="display text-[1.8rem]" style={{ color: dark ? '#b9f8da' : '#5EE6AB' }}>
         You're on the list. We'll be in touch.
       </p>
     );
@@ -60,7 +60,7 @@ export function Waitlist({ dark = false }: { dark?: boolean }) {
         onChange={(e) => setEmail(e.target.value)}
         disabled={!ready}
         className="min-w-0 flex-1 rounded-full px-5 py-3 text-[1rem] outline-none"
-        style={{ color: ink, background: dark ? '#10120e' : '#fff', border: `1px solid ${dark ? '#3a3f33' : '#ded7c2'}` }}
+        style={{ color: ink, background: dark ? '#101513' : '#fff', border: `1px solid ${dark ? '#303B36' : '#232C28'}` }}
       />
       <input type="text" tabIndex={-1} autoComplete="off" aria-hidden value={trap} onChange={(e) => setTrap(e.target.value)} style={{ position: 'absolute', left: -9999, width: 1, height: 1, opacity: 0 }} />
       <button type="submit" className={dark ? 'btn btn-mint' : 'btn btn-ink'} disabled={!ready || status === 'sending'} style={{ opacity: ready ? 1 : 0.6, cursor: ready ? 'pointer' : 'default' }}>

@@ -24,23 +24,23 @@ export function Feed({ events, byWallet, limit = 14 }: { events: FeedEvent[]; by
               target="_blank"
               rel="noreferrer"
               className="grid items-center gap-3 py-2 text-[0.8rem]"
-              style={{ gridTemplateColumns: '5.4rem 1fr auto', borderBottom: '1px solid #1c1f18' }}
+              style={{ gridTemplateColumns: '5.4rem 1fr auto', borderBottom: '1px solid #1A211E' }}
               title="Open this order account in Solana Explorer"
             >
               <StateChip kind={e.kind} />
-              <span className="mono truncate" style={{ color: '#e9e6d8' }}>
-                {name(e.buyer)} <span style={{ color: '#5d5c52' }}>→</span> {name(e.merchant)}
-                <span style={{ color: '#8b8a7c' }}> · {usd(e.amount)}</span>
-                {e.kind === 'delivered' && <span style={{ color: '#8b8a7c' }}> · held {duration(e.holdSecs)}</span>}
+              <span className="mono truncate" style={{ color: '#E8EDE9' }}>
+                {name(e.buyer)} <span style={{ color: '#86918B' }}>→</span> {name(e.merchant)}
+                <span style={{ color: '#86918B' }}> · {usd(e.amount)}</span>
+                {e.kind === 'delivered' && <span style={{ color: '#86918B' }}> · held {duration(e.holdSecs)}</span>}
               </span>
-              <span className="mono" style={{ color: '#5d5c52', fontSize: '0.7rem' }}>
+              <span className="mono" style={{ color: '#86918B', fontSize: '0.7rem' }}>
                 {ago(e.at)}
               </span>
             </a>
           </motion.li>
         ))}
       </AnimatePresence>
-      {events.length === 0 && <li className="mono py-6 text-[0.8rem]" style={{ color: '#5d5c52' }}>Waiting for the first order…</li>}
+      {events.length === 0 && <li className="mono py-6 text-[0.8rem]" style={{ color: '#86918B' }}>Waiting for the first order…</li>}
     </ol>
   );
 }

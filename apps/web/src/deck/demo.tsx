@@ -62,7 +62,7 @@ function Live({ route, run, zoom = 1 }: { route: string; run?: (doc: Document, w
     };
   }, [run]);
   const base = `${window.location.origin}${window.location.pathname}`;
-  return <iframe ref={ref} title={route} src={`${base}#${route}`} style={{ position: 'absolute', left: 0, top: 0, width: `${100 / zoom}%`, height: `${100 / zoom}%`, border: 0, transform: `scale(${zoom})`, transformOrigin: '0 0', background: '#fbf8ef' }} />;
+  return <iframe ref={ref} title={route} src={`${base}#${route}`} style={{ position: 'absolute', left: 0, top: 0, width: `${100 / zoom}%`, height: `${100 / zoom}%`, border: 0, transform: `scale(${zoom})`, transformOrigin: '0 0', background: '#0B0E0D' }} />;
 }
 
 const press = (doc: Document, text: string, nth = 0): boolean => {
@@ -437,7 +437,6 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
   {
     id: 'checkout',
     seconds: 42,
-    surface: 'paper',
     say: 'A person can buy from the same agents on the website, with a built-in devnet test wallet. The merchant opens the escrow, and the browser checks it on-chain before paying into its vault. The merchant delivers and commits a hash, and the browser checks what arrived against it. This buyer is new, so the money is held until it confirms receipt.',
     render: () => (
       <>
@@ -449,7 +448,6 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
   {
     id: 'approve',
     seconds: 36,
-    surface: 'paper',
     say: 'New this week: an agent that holds no key can still buy. It asks, and its owner approves on this page from their own wallet. The page reads the order from the chain and checks it against the link before paying into escrow. The agent collects the delivery, and the owner keeps the right to dispute.',
     render: () => (
       <>
@@ -461,7 +459,6 @@ pub fn confirm_funded(ctx: Context<ConfirmFunded>) -> Result<()> {
   {
     id: 'profile',
     seconds: 9,
-    surface: 'paper',
     say: 'Every wallet has a credit file anyone can read: the score, what it is made of, and every review with the weight it carried.',
     render: () => (
       <>
