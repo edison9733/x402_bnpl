@@ -79,7 +79,7 @@ const usdc = (u: bigint) => `${fromUnits(u)} USDC`;
 const when = (secs: bigint) => new Date(Number(secs) * 1000).toISOString();
 const STATE = ['open', 'repaid on time', 'repaid late', 'in default'] as const;
 /** The a2a extension whose params carry a merchant's wallet and prices (apps/agents/src/config.ts). */
-const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md';
+export const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md';
 
 type Opts = {
   rpcUrl: string;
