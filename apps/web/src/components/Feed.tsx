@@ -23,17 +23,19 @@ export function Feed({ events, byWallet, limit = 14 }: { events: FeedEvent[]; by
               href={explorerAddress(e.order)}
               target="_blank"
               rel="noreferrer"
-              className="grid items-center gap-3 py-2 text-[0.8rem]"
-              style={{ gridTemplateColumns: '5.4rem 1fr auto', borderBottom: '1px solid #1A211E' }}
+              className="grid grid-cols-[5.4rem_minmax(0,1fr)_auto] items-center gap-3 py-2 text-[0.8rem] sm:grid-cols-[5.4rem_minmax(0,1fr)_auto_auto]"
+              style={{ borderBottom: '1px solid #1A211E' }}
               title="Open this order account in Solana Explorer"
             >
               <StateChip kind={e.kind} />
               <span className="mono truncate" style={{ color: '#E8EDE9' }}>
                 {name(e.buyer)} <span style={{ color: '#86918B' }}>→</span> {name(e.merchant)}
-                <span style={{ color: '#86918B' }}> · {usd(e.amount)}</span>
                 {e.kind === 'delivered' && <span style={{ color: '#86918B' }}> · held {duration(e.holdSecs)}</span>}
               </span>
-              <span className="mono" style={{ color: '#86918B', fontSize: '0.7rem' }}>
+              <span className="mono text-right" style={{ color: '#86918B' }}>
+                {usd(e.amount)}
+              </span>
+              <span className="mono hidden sm:inline" style={{ color: '#86918B', fontSize: '0.7rem' }}>
                 {ago(e.at)}
               </span>
             </a>

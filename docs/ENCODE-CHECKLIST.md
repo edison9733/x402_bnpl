@@ -3,7 +3,7 @@
 Track: **Best Use of x402 on Solana**. Every rule below is quoted from the
 [hackathon page](https://www.encodeclub.com/programmes/solana-hackathon-2026), read on 22 October 2026.
 Code facts point to files in this repository. Written 22 October 2026; 17 days to the deadline.
-Ticked items carry the date they were done. Last update: 31 October 2026 (the block below); the rest was written on 28 October. **The escrow on devnet is
+Ticked items carry the date they were done. Last update: 1 November 2026 (the blocks below); the rest was written on 28 October. **The escrow on devnet is
 the repository's source, deployed on 28 Oct at a new address, `tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry`,
 with an upgrade key we hold. So on devnet B13 and B16 are fixed and disputes are resolved by the arbiter.
 The version 1 escrow `TessSeP5…` is retired: its keys are lost, so it can never be upgraded. Pay later
@@ -12,9 +12,42 @@ on 28 Oct to the build where `buy_now` requires the merchant's signature and car
 (`1bd11be`, slot 515766612), and later on 28 Oct to the build that names the new escrow (`eca65b0`,
 slot 515961295).**
 
+## 1 November 2026
+
+- The score page (`/#/formula`) rebuilt to the design in `docs/handoff/score/index.html`: hero terminal,
+  five factors, tiers, a stepper simulator, the recorded payout, the numbers table, the guarantees as
+  test output. Its simulator and example wallet run the SDK's `simulate` and `score.breakdown`, the same
+  functions `tessera score` runs. The five presets score 0, 304, 1000, 750 and 314 with the SDK.
+- `tessera score <wallet>` now reads the chain itself and prints the breakdown the page shows, then
+  compares the SDK with the score the program stored (`✓` line, or `✗` and exit 1). `--simulate` runs
+  the rules on made-up inputs. Quill's devnet wallet: 995, Trusted, program and SDK agree.
+- `npm test [-- score]` prints one line per test with where it is proved (`formula`, `on-chain`, both),
+  and writes `deployments/score-tests.json`, which the page's section 07 renders. 114 / 114 after the
+  audit fixes below (test:formula 66, test:cli 48).
+- `npm run demo:rewards` prints the recorded payout in the page's layout. The layout is pinned by a CLI
+  test against `deployments/rewards-demo.json`.
+- **No old design left in front of judges.** The pitch, demo and update decks, both static HTML decks
+  and their PDFs, and the favicon now use the site's one design and the four-tile mark. The pitch videos
+  (narrated and silent) were re-rendered from the restyled deck. Version 1's videos and decks were
+  removed from the site (they stay in the history), and the Market's offline note links the 2.0 video,
+  not version 1's. The poster is now a frame of the video itself.
+- **Read-only audit.** 248 agents checked the site at desktop and phone sizes, the score page, the CLI,
+  the SDK against the program, the tests, every doc, the deployment, the decks, security and a fresh
+  setup. 98 distinct issues, 21 major, none blocking. All were fixed in two fix rounds with independent
+  review, apart from what needs a deploy or a transaction. Main fixes: the simulator counts only reviewed
+  sales, as the program does. `tessera score` equations multiply out exactly and the tick says what it
+  compared. Usage errors exit 2 with one line. The hosted agents' slow wake no longer breaks `find`.
+  `inflate: false` on every JSON parser (GHSA-27r3-jxmh-p828). The in-site demo deck performs purchases
+  only for the recorder (`live=1`). The Review and Approve pages fit a phone. TRY-IT uses the hosted
+  agents and the current score page. The README's prior-work proof cites `a5c37bf`.
+- **Mid-submission deadline**, from the platform's programme data: 2026-11-02 11:59 UTC (19:59 Beijing).
+  Final: 2026-11-09 11:59 UTC. Steps are in the submission folder's `HOW-TO-SUBMIT.md`.
+- **Still open:** mallory's and washer's on-chain cards still name localhost (a `set_profile` each would
+  fix it, a transaction). Optional: move `body-parser` to 2.4 with npm 10 so `npm audit` is clean.
+
 ## State on 31 October 2026 (audit before the mid-submission)
 
-- **Live site redeployed.** `main` is `38e68ee` (PR #3, v2 merged 31 Oct). Vercel built it the same day (`last-modified`
+- **Live site redeployed.** `main` was `38e68ee` then (PR #3, v2 merged 31 Oct). Vercel built it the same day (`last-modified`
   07:53 UTC): the public site is the 2.0 build with the new home page and the approval page. Earlier commits from this
   Mac were refused by Vercel for an unverifiable author email; the repository's git config now uses the GitHub
   no-reply address.
@@ -36,11 +69,14 @@ slot 515961295).**
   opened in another tab keeps opening quotes on each hot reload until the merchant's per-client cap (5 unpaid) refuses
   the purchase; the crank clears them after the payment window.
 - **Repository public since 31 Oct** (`gh repo edit --visibility public`; the API, the raw README and the docs pages answer
-  200 without signing in). The 3:17 video and the audit fixes are pushed (`954610c`) and Vercel serves them.
-- **Agents hosted, 31 Oct (night).** Render free instance at <https://tessera-agents.onrender.com> (Railway refused
+  200 without signing in). The 3:17 video and the documentation fixes from the 31 October check are pushed (`954610c`) and Vercel
+  serves them.
+- **Agents hosted, 31 Oct (night).** Render free instance at <https://tessera-agents.onrender.com/agents> (Railway refused
   sign-ups): health, six cards, CORS for the site checked; a devnet purchase went through it from the public approval
-  page, delivered and hash-checked. `setup:devnet` re-pointed the merchants' on-chain cards at it, so `find text summary`
-  works from a fresh clone. `VITE_AGENTS_URL` set on Vercel and redeployed: the live Market page lists the merchants.
+  page, delivered and hash-checked. `setup:devnet` re-pointed the four honest merchants' on-chain cards at it, so `find text summary`
+  works from a fresh clone. The adversaries `mallory` and `washer` keep `localhost:4020` cards and show no services
+  in `tessera merchants`, because `setup:devnet` re-points only the honest agents (they register themselves when
+  they join). The hosted server serves their cards all the same. `VITE_AGENTS_URL` set on Vercel and redeployed: the live Market page lists the merchants.
   Limits of the free tier: sleeps after ~15 min idle (first request up to a minute), no disk (open quotes lost on
   restart). The lockfile needed regenerating with npm 10 for the image's `npm ci` (`1d6a5e4`).
 - **One design, 1 Nov (00:30 UTC+8).** The inner pages (Market, Agents, credit files, Live network, The score, Review,
@@ -61,7 +97,8 @@ slot 515961295).**
   rate limit both times, which the doc anticipates (faucet.solana.com). One gap: `npm run tessera -- find text summary`,
   the README's headline command, answers `no_match` from a fresh clone, because every merchant's on-chain card address
   is still `localhost:4020`; `find` without words, `merchants` and `check` work. Hosting the agents and running
-  `AGENT_HOST=https://<agents domain> npm run setup:devnet` (RAILWAY.md step 3) fixes it.
+  `AGENT_HOST=https://<agents domain> npm run setup:devnet` (RAILWAY.md step 3) fixes it. Fixed the same night (see
+  Agents hosted).
 
 ## 0. Dates
 
@@ -112,7 +149,7 @@ FAQ: judged on "what has actually been built and works, technical depth, and how
 | Failure | Where it is handled today |
 |---|---|
 | The buyer refuses a 402 that asks more than its ceiling | [`apps/agents/src/http402.ts`](../apps/agents/src/http402.ts) lines 58–60 |
-| The payment header is not a payment, the facilitator rejects the payment, or settlement fails | Since `65a4760` (28 Oct) a payment that was never sent is refused with 400 and no note: a `PAYMENT-SIGNATURE` header that is not an x402 version 2 payload (`paymentFrom`, [`apps/agents/src/server.ts`](../apps/agents/src/server.ts) lines 285–297), no reachable facilitator, the named facilitator gone, or a rejection at verify (`verifyAndSettle`, [`apps/agents/src/facilitator.ts`](../apps/agents/src/facilitator.ts)). A failed settlement (`SettlementFailed`, same file) is watched first since `d6950f3` (28 Oct; `settleExact`, [`apps/agents/src/merchant.ts`](../apps/agents/src/merchant.ts)): if the payment lands, the purchase goes on; if its blockhash expires with the order's vault still short, it is refused with 400 and "pay again" (`PaymentExpired`); if neither shows within 150 s, it is answered 502 with no delivery, the note "Do not pay again" and the facilitator's answer as `PAYMENT-RESPONSE` (`server.ts` lines 328–334). `test:paylater-402` section 8 covers each case. Checked 28 Oct against the merchant server: a header that is not a payment gets `400 Bad Request` (before `65a4760`, 502 and "Do not pay again"). On the new escrow, 28 Oct, before `d6950f3`: 3 of the 25 purchases through facilitators in the swarms came back `settlement_pending` from x402.org; nothing was delivered for them, none of those payments landed, and their orders were cancelled after the payment window and closed |
+| The payment header is not a payment, the facilitator rejects the payment, or settlement fails | Since `65a4760` (28 Oct) a payment that was never sent is refused with 400 and no note: a `PAYMENT-SIGNATURE` header that is not an x402 version 2 payload (`paymentFrom`, [`apps/agents/src/server.ts`](../apps/agents/src/server.ts) lines 285–297), no reachable facilitator, the named facilitator gone, or a rejection at verify (`verifyAndSettle`, [`apps/agents/src/facilitator.ts`](../apps/agents/src/facilitator.ts)). A failed settlement (`SettlementFailed`, same file) is watched first since `d6950f3` (28 Oct; `settleExact`, [`apps/agents/src/merchant.ts`](../apps/agents/src/merchant.ts)): if the payment lands, the purchase goes on; if its blockhash expires with the order's vault still short, it is refused with 400 and "pay again" (`PaymentExpired`); if neither shows within 150 s, it is answered 502 with no delivery, the note "Do not pay again" and the facilitator's answer as `PAYMENT-RESPONSE` (`server.ts` lines 328–334). `test:paylater-402` section 8 covers each case. Checked 28 Oct against the merchant server: a header that is not a payment gets `400 Bad Request` (before `65a4760`, 502 and "Do not pay again"). On the new escrow, 28 Oct, before `d6950f3`: 3 of the 25 purchases through facilitators in the swarms came back `settlement_pending` from x402.org; nothing was delivered for them. Two of those transfers did land, and the crank's `cancel_unpaid` returned them to the buyer after the payment window (README, failed payments, case 2) |
 | A quote is never paid | `cancel_unpaid`, [`programs/tessera/src/lib.rs`](../programs/tessera/src/lib.rs) line 377. On the new escrow it leaves a `Cancelled` tombstone (B16 fixed on devnet since 28 Oct) |
 | Paid, and the merchant never delivers | `refund`, `lib.rs` line 298; the crank refunds at the deadline (`server.ts` lines 548–566). On the new escrow, 28 Oct: Mallory took three orders and never delivered, and the crank refunded each at the deadline (order `2ubRL32m…`, 0.30 USDC from Nova: [refund tx](https://explorer.solana.com/tx/uoVsBaDb3u5TKf78AE2HGzsuwCmPA7tBBe8kD3fcJZ43ME5ef7zEQoUEJvDxRs2eLC2gXN4Vo1chadtt4nyvNNd?cluster=devnet)) |
 | A pay-later header that fails verification (new) | `checkBuyNowTransaction`, [`packages/sdk/src/paylater/index.ts`](../packages/sdk/src/paylater/index.ts) lines 292–406; `settlePayLater`, [`apps/agents/src/paylater.ts`](../apps/agents/src/paylater.ts) lines 200–230 |

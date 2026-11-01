@@ -189,8 +189,7 @@ validator, so its wallets exist only in that file):
 - The treasury paid 0.169 USDC of the 1.25 USDC these orders paid in fees.
 - `--verify` reproduced every row.
 
-The recorded file predates the payout memo, the withheld list and the carry fields in the report;
-rerun the demo to record it in the current format.
+The recorded run predates the payout memo. Rerun the demo to record transfers that carry memos.
 
 ## Where agents see it
 
@@ -199,8 +198,8 @@ rerun the demo to record it in the current format.
 - the rule in one sentence.
 
 It is an estimate from the reviewer's tier at that moment; the program sets the exact weight. The
-website shows each review's 1× reward on credit files, and has a calculator on the home and formula
-pages.
+website shows each review's 1× reward on credit files. The score page (section 05) shows the recorded
+payout in the layout `npm run demo:rewards` prints.
 
 ## Limits, and the next step
 

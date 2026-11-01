@@ -178,18 +178,20 @@ export function Review({ order: param }: { order?: string }) {
     if (v) go(`/review/${v}`);
   };
 
-  const cmd = `npm run tessera -- report ${param && isAddress(param) ? param : '<order>'} --outcome satisfied --rating ${rating} --comment "${text.replace(/"/g, '\\"') || '…'}" --keypair PATH --send`;
+  // Single quotes keep the shell from expanding $, backticks or ! in the review text.
+  const shellQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+  const cmd = `npm run tessera -- report ${param && isAddress(param) ? param : '<order>'} --outcome satisfied --rating ${rating} --comment ${shellQuote(text || '…')} --keypair PATH --send`;
 
   const picker = (
     <div className="mt-4 grid gap-2">
       {wallets.map((w) => (
-        <button key={w.name} className="btn btn-ghost justify-start py-3" onClick={() => void connect(w)} disabled={!!connecting}>
+        <button key={w.name} className="btn btn-ghost justify-start py-3" style={{ whiteSpace: 'normal', textAlign: 'left', lineHeight: 1.3 }} onClick={() => void connect(w)} disabled={!!connecting}>
           {w.icon && <img src={w.icon} alt="" width={20} height={20} style={{ borderRadius: 5 }} />}
           {connecting === w.name ? `Connecting to ${w.name}…` : `Connect ${w.name}`}
         </button>
       ))}
       {burner && (
-        <button className="btn btn-ghost justify-start py-3" onClick={() => setSigner({ kind: 'burner', address: burner.address, signer: burner })}>
+        <button className="btn btn-ghost justify-start py-3" style={{ whiteSpace: 'normal', textAlign: 'left', lineHeight: 1.3 }} onClick={() => setSigner({ kind: 'burner', address: burner.address, signer: burner })}>
           Use this browser's devnet test wallet ({short(burner.address, 4)})
         </button>
       )}
@@ -436,7 +438,7 @@ export function Review({ order: param }: { order?: string }) {
           </div>
           <div className="card p-6">
             <div className="eyebrow" style={{ color: '#86918B' }}>The same from a terminal</div>
-            <pre className="mono mt-3 overflow-x-auto rounded-xl p-4 text-[0.78rem] leading-relaxed" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{cmd}</pre>
+            <pre className="mono mt-3 overflow-x-auto rounded-xl p-4 text-[0.78rem] leading-relaxed" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{cmd}</pre>
             <p className="mt-2 text-[0.84rem]" style={{ color: '#86918B' }}>Signs locally with your keypair file and sends through the Tessera API.</p>
           </div>
         </section>

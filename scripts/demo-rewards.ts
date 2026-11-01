@@ -18,7 +18,8 @@ import { join, resolve } from 'node:path';
 import { getBase64EncodedWireTransaction, getBase64Encoder, getTransactionDecoder, lamports, partiallySignTransaction, type KeyPairSigner } from '@solana/kit';
 import { getCreateAccountInstruction } from '@solana-program/system';
 import { getInitializeMint2Instruction, getMintSize, getMintToInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
-import { configPda, fetchMaybeConfig, fromUnits, getEnsureAgentInstructionAsync, getInitializeInstructionAsync, getSetProfileInstructionAsync, programDataAddress, TESSERA_PROGRAM_ADDRESS, type Params, type RewardParams } from '@tessera/sdk';
+import { configPda, fetchMaybeConfig, fromUnits, getEnsureAgentInstructionAsync, getInitializeInstructionAsync, getSetProfileInstructionAsync, programDataAddress, rewards, TESSERA_PROGRAM_ADDRESS, type Params, type RewardParams } from '@tessera/sdk';
+import { renderRewards, styleFrom } from '../apps/cli/src/render.js';
 import { clientForSigner, generateKeypairBytes, log, REPO_ROOT, sleep, tokenHelpers, waitForChainTime, type Cluster, type ScriptClient } from './lib.js';
 import { emptyLedger, observe, paidOnChain, pay, readChain, reconcile, saveJson, score, verify, type Ledger } from './rewards-lib.js';
 
@@ -172,6 +173,7 @@ try {
   await buy('orbit', 'glib', 2, 'Summarised the wrong text. Careful with this one.');
   // Merchants review buyers too, once the buyer has reviewed the same order.
   await signSend(await api('POST', '/v1/escrow/report', { order: novaQuill, reporter: merchants.quill.client.identity.address, outcome: 'satisfied', rating: 5, comment: 'Paid promptly.' }), merchants.quill.client.identity);
+  story.push({ buyer: 'quill' as BuyerId, merchant: 'nova' as MerchantId, rating: 5, comment: 'Paid promptly.' });
   log.info('quill  reviewed nova  ★5  "Paid promptly."');
 
   log.step('The airdrop records each review as it lands, and how its subject stood then');
@@ -252,6 +254,30 @@ try {
     report,
   });
   log.ok(`recorded to ${file}`);
+
+  // The payout as the score page prints it (apps/cli/src/render.ts, brief 4.1): the same layout, these numbers.
+  const title = (id: string) => id.charAt(0).toUpperCase() + id.slice(1);
+  const failed = new Set(report.rows.filter((r) => /then_failed|early_warning/.test(r.accuracy.label)).map((r) => nameOf(r.subject)));
+  // Whose reviews were judged against a failure first, then the rest in the order they were first reviewed.
+  const subjects = [...new Set(report.rows.map((r) => nameOf(r.subject)))].sort((a, b) => Number(failed.has(b)) - Number(failed.has(a)));
+  const notes: Record<string, string> = { glib: 'took an order from wren and never delivered · wren refunded in full', quill: 'kept delivering', nova: 'kept paying' };
+  console.log(
+    `\n${renderRewards(
+      {
+        groups: subjects.map((subject) => ({
+          subject: title(subject),
+          note: notes[subject] ?? 'kept its record clean',
+          rows: report.rows
+            .filter((r) => nameOf(r.subject) === subject)
+            .map((r) => ({ reviewer: title(nameOf(r.reviewer)), rating: r.rating, quote: story.find((x) => x.buyer === nameOf(r.reviewer) && x.merchant === subject)?.comment ?? '', bps: r.accuracy.bps, reward: BigInt(r.reward), ...rewards.ACCURACY_SHORT[r.accuracy.label] })),
+        })),
+        paid: paidOut,
+        fees: feesCollected,
+        reproduce: 'npm run build:program && npm run demo:rewards',
+      },
+      styleFrom(process.env, Boolean(process.stdout.isTTY)),
+    )}`,
+  );
   apiServer.close();
 } finally {
   for (const c of children) {

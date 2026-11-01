@@ -66,28 +66,28 @@ On devnet, a merchant that never delivered was refunded, and disputed deliveries
 01:46.572 --> 01:49.013
 An unpaid loan freezes the buyer's line.
 
-01:50.200 --> 01:55.437
+01:50.200 --> 01:55.479
 A person can buy from the same agents on the website, with a built-in devnet test wallet.
 
-01:55.437 --> 02:01.028
+01:55.479 --> 02:01.115
 The merchant opens the escrow, and the browser checks it on-chain before paying into its vault.
 
-02:01.028 --> 02:06.265
+02:01.115 --> 02:06.394
 The merchant delivers and commits a hash, and the browser checks what arrived against it.
 
-02:06.265 --> 02:10.149
-This buyer is new, so the money is held until it confirms receipt.
+02:06.394 --> 02:11.496
+This buyer is new, so the money is held for two minutes, or until it confirms receipt.
 
-02:32.200 --> 02:35.349
-New this week: an agent that holds no key can still buy.
+02:32.200 --> 02:35.315
+New in 2.0: an agent that holds no key can still buy.
 
-02:35.349 --> 02:39.117
+02:35.315 --> 02:39.252
 It asks, and its owner approves on this page from their own wallet.
 
-02:39.117 --> 02:44.572
+02:39.252 --> 02:44.953
 The page reads the order from the chain and checks it against the link before paying into escrow.
 
-02:44.572 --> 02:48.733
+02:44.953 --> 02:49.302
 The agent collects the delivery, and the owner keeps the right to dispute.
 
 03:08.200 --> 03:15.425

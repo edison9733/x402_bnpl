@@ -187,3 +187,83 @@ export function farmingCost(p: Params, feeBps: number, targetHistory = 1000): Fa
     instantLimit: p.instantBase + (fees * BigInt(p.instantFeePct)) / 100n,
   };
 }
+
+// ---------------------------------------------------------------- breakdown
+
+export type Factor = {
+  /** 0..1 in thousandths, as `evaluate` gives it. */
+  milli: number;
+  /** The real inputs behind the value: `√(800 ÷ 10000)`, `48 ÷ 90`, `4.14 stars`, `no penalty`. */
+  explain: string;
+};
+
+/** A score, factor by factor, with every input it came from: what `tessera score` prints and the score page shows. */
+export type Breakdown = {
+  e: Evaluation;
+  history: Factor;
+  tenure: Factor;
+  diversity: Factor;
+  rating: Factor;
+  behaviour: Factor;
+  /** `0.45 × 0.282 + 0.30 × 0.533 + 0.25 × 0.240`: each factor in the thousandths the program holds. */
+  evidence: string;
+  /**
+   * `1000 × 0.346 × 0.880 × 1.0000`: evidence and rating in thousandths,
+   * behaviour in ten-thousandths, so the product floors to the score exactly
+   * as `programs/tessera/src/score.rs` does.
+   */
+  score: string;
+  /** Standing penalty in basis points, after decay. */
+  penaltyBps: number;
+  /** Volume-weighted stars, shrunk toward the prior. */
+  stars: number;
+  /** Periods counted toward Tenure: the smaller of age and three per active period. */
+  effectivePeriods: number;
+  /** The hold of the wallet's own tier, in seconds. */
+  holdSecs: number;
+};
+
+/** Thousandths as `0.28`. */
+export const milli2 = (n: number): string => (n / 1000).toFixed(2);
+/** Basis points as `1.00`. */
+export const bps2 = (n: number): string => (n / 10_000).toFixed(2);
+/** Thousandths in full, as `0.282`. */
+export const milli3 = (n: number): string => (n / 1000).toFixed(3);
+/** Basis points in full, as `1.0000`. */
+export const bps4 = (n: number): string => (n / 10_000).toFixed(4);
+
+/**
+ * Credit and the credit ceiling in the words the page uses: whole dollars
+ * when the ceiling is at least $1,000 (mainnet), otherwise cents (devnet).
+ */
+export function creditText(units: bigint, p: Pick<Params, 'creditFull'>): string {
+  if (p.creditFull >= 1_000n * 1_000_000n) return String(units / 1_000_000n);
+  const whole = units / 1_000_000n;
+  const cents = ((units % 1_000_000n) / 10_000n).toString().padStart(2, '0');
+  return `${whole}.${cents}`;
+}
+
+export function breakdown(a: ScoreAgent, p: Params, nowSeconds: bigint | number): Breakdown {
+  const now = BigInt(nowSeconds);
+  const e = evaluate(a, p, now);
+  const agePeriods = max(now - a.registeredAt, 0n) / max(BigInt(p.periodSecs), 1n);
+  const effective = Number(min(agePeriods, BigInt(a.activePeriods) * AGE_PER_ACTIVE));
+  const penalty = Number(currentPenalty(a, p, now));
+  const stars = averageStars(a, p);
+  const points = (n: number) => (n % 100 === 0 ? String(n / 100) : (n / 100).toFixed(1));
+  const pct = (bps: number) => (bps % 100 === 0 ? String(bps / 100) : (bps / 100).toFixed(2).replace(/0$/, ''));
+  return {
+    e,
+    history: { milli: e.history, explain: `√(${creditText(a.credit, p)} ÷ ${creditText(p.creditFull, p)})` },
+    tenure: { milli: e.tenure, explain: `${effective} ÷ ${p.tenureFull}` },
+    diversity: { milli: e.diversity, explain: `${points(a.counterpartyPoints)} ÷ ${points(p.diversityFull)}` },
+    rating: { milli: e.rating, explain: `${stars.toFixed(2)} stars` },
+    behaviour: { milli: e.behaviour / 10, explain: penalty ? `${pct(penalty)}% standing penalty` : 'no penalty' },
+    evidence: `0.45 × ${milli3(e.history)} + 0.30 × ${milli3(e.tenure)} + 0.25 × ${milli3(e.diversity)}`,
+    score: `1000 × ${milli3(e.evidence)} × ${milli3(e.rating)} × ${bps4(e.behaviour)}`,
+    penaltyBps: penalty,
+    stars,
+    effectivePeriods: effective,
+    holdSecs: p.holdSecs[e.tier]!,
+  };
+}

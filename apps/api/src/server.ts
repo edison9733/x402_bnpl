@@ -134,7 +134,7 @@ export function llmsTxt(url: string): string {
 
 > Find the best merchant for a need, check it before paying, and pay through a non-custodial escrow on Solana. Merchants are ranked by on-chain reviews that each cost a real settled order, so the ranking is expensive to fake.
 
-Program ${TESSERA_PROGRAM_ADDRESS} on ${NETWORK}. Every transaction comes back unsigned for your own wallet; this API never holds a key.
+Program ${TESSERA_PROGRAM_ADDRESS} on ${NETWORK}. Every transaction comes back unsigned for your own wallet. This API never holds a key.
 
 ## Fastest path
 
@@ -166,7 +166,7 @@ export function createApp(publicUrl = process.env.TESSERA_API_URL ?? (process.en
   app.use(securityHeaders(publicUrl.startsWith('https://')));
   // Nothing here uses cookies or sessions, so any origin may call it.
   app.use(cors());
-  app.use(express.json({ limit: '32kb' }));
+  app.use(express.json({ limit: '32kb', inflate: false }));
   const limited = limiter();
 
   const send = (res: Response, http: number, body: Record<string, unknown>) => {
@@ -191,7 +191,7 @@ export function createApp(publicUrl = process.env.TESSERA_API_URL ?? (process.en
     const wait = limited(kind, key);
     if (wait === null) return false;
     res.set('Retry-After', String(wait));
-    send(res, 429, { status: 'rate_limited', ...(tool ? { tool } : {}), message: `Too many requests; try again in ${wait} s.` });
+    send(res, 429, { status: 'rate_limited', ...(tool ? { tool } : {}), message: `Too many requests. Try again in ${wait} s.` });
     return true;
   };
 

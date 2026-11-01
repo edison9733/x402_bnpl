@@ -334,13 +334,13 @@ export function Approve({ order: param }: { order: string }) {
   const picker = (
     <div className="mt-4 grid gap-2">
       {wallets.map((w) => (
-        <button key={w.name} className="btn btn-ghost justify-start py-3" onClick={() => void connect(w)} disabled={!!connecting}>
+        <button key={w.name} className="btn btn-ghost justify-start py-3" style={{ whiteSpace: 'normal', textAlign: 'left', lineHeight: 1.3 }} onClick={() => void connect(w)} disabled={!!connecting}>
           {w.icon && <img src={w.icon} alt="" width={20} height={20} style={{ borderRadius: 5 }} />}
           {connecting === w.name ? `Connecting to ${w.name}…` : `Connect ${w.name}`}
         </button>
       ))}
       {burner && order && burner.address === order.buyer && (
-        <button className="btn btn-ghost justify-start py-3" onClick={() => setSigner({ kind: 'burner', address: burner.address, signer: burner })}>
+        <button className="btn btn-ghost justify-start py-3" style={{ whiteSpace: 'normal', textAlign: 'left', lineHeight: 1.3 }} onClick={() => setSigner({ kind: 'burner', address: burner.address, signer: burner })}>
           Use this browser's devnet test wallet ({short(burner.address, 4)})
         </button>
       )}
@@ -399,7 +399,7 @@ export function Approve({ order: param }: { order: string }) {
               'The merchant delivers',
               order.state === OrderState.Funded ? (
                 deliverLeft > 0 ? (
-                  <>Your agent collects the delivery with the claim only it holds. The merchant has {mmss(deliverLeft)} left; if it does not deliver, you get everything back.</>
+                  <>Your agent collects the delivery with the claim only it holds. The merchant has {mmss(deliverLeft)} left. If it does not deliver, you get everything back.</>
                 ) : (
                   <>The delivery deadline has passed: the order can be refunded to you in full, and the merchant's server does that itself.</>
                 )
@@ -431,7 +431,7 @@ export function Approve({ order: param }: { order: string }) {
               ) : order.state === OrderState.Disputed ? (
                 'You disputed it. The money stays in escrow until the arbiter rules.'
               ) : order.state === OrderState.Delivered ? (
-                holdLeft > 0 ? `Held ${mmss(holdLeft)} more. Until then you can dispute, and the merchant cannot take the money.` : 'The hold is over. Anyone can release it now; the merchant server will within a few seconds.'
+                holdLeft > 0 ? `Held ${mmss(holdLeft)} more. Until then you can dispute, and the merchant cannot take the money.` : 'The hold is over. Anyone can release it now, and the merchant server will within a few seconds.'
               ) : (
                 `Held ${duration(order.holdSecs)} after delivery, so you can dispute.`
               ),
@@ -588,14 +588,14 @@ export function Approve({ order: param }: { order: string }) {
           <div className="card p-6">
             <div className="eyebrow" style={{ color: '#86918B' }}>Why a link, not a key</div>
             <ul className="mt-3 grid gap-2 text-[0.92rem] leading-relaxed" style={{ color: '#A3ADA7', paddingLeft: '1.1rem', listStyle: 'disc' }}>
-              <li>Your agent never holds a key or card number. It can ask; only your wallet can pay.</li>
+              <li>Your agent never holds a key or card number. It can ask. Only your wallet can pay.</li>
               <li>The page reads the order from the chain and checks the link against it. A link that lies about the order is caught here.</li>
               <li>Each approval pays one order, for one price, into escrow. Until the hold ends you can dispute, which a wallet payment alone cannot do.</li>
             </ul>
           </div>
           <div className="card p-6">
             <div className="eyebrow" style={{ color: '#86918B' }}>How your agent makes one</div>
-            <pre className="mono mt-3 overflow-x-auto rounded-xl p-4 text-[0.78rem] leading-relaxed" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            <pre className="mono mt-3 overflow-x-auto rounded-xl p-4 text-[0.78rem] leading-relaxed" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
               {'npm run tessera -- ask <merchant agent url> <skill> --owner <your wallet> --input \'{…}\''}
             </pre>
             <p className="mt-2 text-[0.84rem]" style={{ color: '#86918B' }}>It prints this link, then waits for your payment and collects the delivery. No keypair on the agent's machine.</p>

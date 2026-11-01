@@ -9,10 +9,11 @@
     "apps/*"
   ],
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "build:program": "NO_DNA=1 anchor build",
+    "test": "tsx scripts/test.ts",
     "codegen": "tsx packages/sdk/codama.ts",
     "test:formula": "tsx --test packages/sdk/test/*.test.ts",
     "test:cli": "tsx --test apps/cli/test/*.test.ts",

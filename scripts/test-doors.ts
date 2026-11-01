@@ -452,7 +452,7 @@ try {
   const findOut = await cli(['find', 'text', 'summary', '--buyer', B]);
   ok('tessera find ranks merchants for a need', findOut.status === 0 && findOut.stdout.includes(M2) && /to settled/.test(findOut.stdout), findOut.stdout + findOut.stderr);
   const scoreOut = await cli(['score', M]);
-  ok('tessera score prints the credit file', scoreOut.status === 0 && /as merchant: /.test(scoreOut.stdout), scoreOut.stderr || scoreOut.stdout);
+  ok('tessera score prints the breakdown and the program agrees with the SDK', scoreOut.status === 0 && /^history\s+\d\.\d\d/m.test(scoreOut.stdout) && /same result from the program and the SDK|the SDK gives the same for that moment/.test(scoreOut.stdout), scoreOut.stderr || scoreOut.stdout);
   const checkOut = await cli(['check', M, '0.20', '--buyer', poor.identity.address]);
   ok('tessera check exits 3 on block (here: the buyer cannot afford it)', checkOut.status === 3 && /^BLOCK/.test(checkOut.stdout), checkOut.stdout);
   const escrowOut = await cli(['check', M, '0.20', '--buyer', B]);

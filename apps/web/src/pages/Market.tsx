@@ -27,9 +27,15 @@ import { Nav } from '../components/Nav';
 import { Addr, EASE, Reveal, TierBadge } from '../components/ui';
 import { loadBurner, sendWith } from '../lib/burner';
 import { AGENTS_URL, readRpc } from '../lib/client';
+import { DEMO_VIDEO } from '../lib/media';
 import { duration, explorerAddress, explorerTx, short, tierName, usd } from '../lib/format';
 import { usePayLater } from '../lib/paylater';
 import { refresh, useChain, useProfiles } from '../lib/store';
+
+/** The merchants on this machine (npm run agents), or none configured: nothing to wait for. */
+const LOCAL_AGENTS = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(AGENTS_URL);
+const NO_AGENTS = AGENTS_URL === 'https://agents.invalid';
+const WAKE_MS = 90_000;
 
 type Item = { merchant: string; merchantWallet: string; title: string; sku: string; name: string; description: string; price: string; example: Record<string, unknown> };
 type Terms = { orderId: string; order: string; vault: string; merchant: string; buyer: string; amount: string; mint: string; holdSecs: number; buyerTier: string; merchantTier: string; pairTrusted: boolean; requestHash: string; openTx: string };
@@ -372,7 +378,7 @@ function Checkout({ item, payer, onClose, onBalance }: { item: Item; payer: NonN
               <div>
                 <div className="eyebrow" style={{ color: '#86918B' }}>In escrow</div>
                 <div className="display text-[2.4rem] leading-none">{left > 0 ? `${Math.ceil(left)} s` : 'hold over'}</div>
-                <div className="mt-1 text-[0.84rem]" style={{ color: '#A3ADA7' }}>{left > 0 ? 'The merchant cannot take the money yet. You can dispute until the hold ends.' : 'Anyone can release it now; the merchant server will within a few seconds.'}</div>
+                <div className="mt-1 text-[0.84rem]" style={{ color: '#A3ADA7' }}>{left > 0 ? 'The merchant cannot take the money yet. You can dispute until the hold ends.' : 'Anyone can release it now, and the merchant server will within a few seconds.'}</div>
               </div>
               <div className="flex gap-2">
                 <button className="btn btn-ink" disabled={busy} onClick={() => act('release')}>Release now</button>
@@ -449,9 +455,39 @@ export function Market() {
   // credit. Said here as information: the test wallet has no credit to use it.
   const pl = usePayLater();
 
+  // The hosted merchants run on a free server that sleeps when idle and takes up to a
+  // minute to answer its first request, so keep asking for a while before calling them down.
+  const [waking, setWaking] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    api<Item[]>('/api/catalog').then(setCatalog).catch(() => setDown(true));
-  }, []);
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const started = Date.now();
+    setDown(false);
+    const load = () => {
+      api<Item[]>('/api/catalog', undefined, 20_000)
+        .then((c) => {
+          if (stop) return;
+          setCatalog(c);
+          setWaking(false);
+        })
+        .catch(() => {
+          if (stop) return;
+          if (!LOCAL_AGENTS && !NO_AGENTS && Date.now() - started < WAKE_MS) {
+            setWaking(true);
+            timer = setTimeout(load, 4_000);
+          } else {
+            setWaking(false);
+            setDown(true);
+          }
+        });
+    };
+    load();
+    return () => {
+      stop = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [attempt]);
 
   const drip = async () => {
     if (!payer) return;
@@ -502,18 +538,45 @@ export function Market() {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               {faucet && <span className="mono text-[0.76rem]" style={{ color: '#A3ADA7' }}>{faucet}</span>}
-              <button className="btn btn-ghost" onClick={drip} disabled={!payer || down}>Get test funds</button>
+              <button className="btn btn-ghost" onClick={drip} disabled={!payer || !catalog}>Get test funds</button>
             </div>
           </div>
         </Reveal>
 
+        {waking && !catalog && (
+          <div className="card mt-6 p-7" role="status" aria-live="polite">
+            <div className="text-[1.05rem] font-medium">Waking the demo merchants…</div>
+            <p className="mt-2 text-[0.95rem]" style={{ color: '#A3ADA7' }}>
+              They run on a free server that sleeps when nobody has used it for a while, so the first visit can take up to a minute. The rest of the site reads the chain directly and works already.
+            </p>
+          </div>
+        )}
+
         {down && (
           <div className="card mt-6 p-7">
-            <div className="text-[1.05rem] font-medium">The demo merchants are offline right now.</div>
+            <div className="text-[1.05rem] font-medium">The demo merchants are not answering right now.</div>
             <p className="mt-2 text-[0.95rem]" style={{ color: '#A3ADA7' }}>
-              The rest of the site reads the chain directly and works without them. The merchant agents hold keys, so they run from the repository, not from this page. The whole checkout is in the <a className="link" href="/videos/tessera-demo.mp4" target="_blank" rel="noreferrer">technical demo video</a>. To buy something yourself, start them:
+              The rest of the site reads the chain directly and works without them.{' '}
+              {LOCAL_AGENTS
+                ? 'The merchant agents hold keys, so they run from the repository: start them with the command below.'
+                : NO_AGENTS
+                  ? 'This build was made without an address for them (VITE_AGENTS_URL).'
+                  : 'They run on a free server that sleeps when idle, and it may still be waking up.'}{' '}
+              The whole checkout is in the{' '}
+              <a className="link" href={`${DEMO_VIDEO.src}#t=${DEMO_VIDEO.checkoutAt}`} target="_blank" rel="noreferrer">
+                demo video, from {Math.floor(DEMO_VIDEO.checkoutAt / 60)}:{String(DEMO_VIDEO.checkoutAt % 60).padStart(2, '0')}
+              </a>
+              .
             </p>
-            <pre className="mono mt-3 rounded-xl p-4 text-[0.84rem]" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28' }}>npm run agents</pre>
+            {LOCAL_AGENTS ? (
+              <pre className="mono mt-3 rounded-xl p-4 text-[0.84rem]" style={{ background: '#101513', color: '#E8EDE9', border: '1px solid #232C28' }}>npm run agents</pre>
+            ) : (
+              !NO_AGENTS && (
+                <button type="button" className="btn btn-ghost mt-4" onClick={() => setAttempt((a) => a + 1)}>
+                  Try again
+                </button>
+              )
+            )}
           </div>
         )}
 
@@ -537,7 +600,7 @@ export function Market() {
                       <div className="mono mt-1.5 text-[0.72rem]" style={{ color: '#86918B' }}>
                         {hold === null ? 'USDC' : hold === 0 ? 'USDC · settles instantly for you' : `USDC · held ${duration(hold)} for you`}
                         {onCredit && (
-                          <span title={`This merchant's 402 also offers the price on credit (scheme tessera-paylater): the pool pays the escrow and a buyer with a Tessera tier repays it plus ${pl.pool!.params.feeBps / 100}% within ${duration(pl.pool!.params.termSecs)}. Agents use it with tessera buy-later; this test wallet has no credit.`} style={{ color: '#5EE6AB' }}>
+                          <span title={`This merchant's 402 also offers the price on credit (scheme tessera-paylater): the pool pays the escrow and a buyer with a Tessera tier repays it plus ${pl.pool!.params.feeBps / 100}% within ${duration(pl.pool!.params.termSecs)}. Agents use it with tessera buy-later. This test wallet has no credit.`} style={{ color: '#5EE6AB' }}>
                             {' '}· pay later
                           </span>
                         )}
@@ -552,7 +615,7 @@ export function Market() {
         </div>
         {params && (
           <p className="mono mt-6 text-[0.72rem] leading-relaxed" style={{ color: '#86918B' }}>
-            Your hold is the longer of the merchant's tier and yours ({tierName(me?.eval.tier ?? 0)}: {duration(params.holdSecs[me?.eval.tier ?? 0]!)}). After {params.pairHistoryMin} undisputed purchases from one merchant, only the merchant's tier counts.
+            Your hold is the longer of the merchant's tier and yours ({tierName(me?.eval.tier ?? 0)}: {duration(params.holdSecs[me?.eval.tier ?? 0]!)}). Only the merchant's tier counts once you have reviewed {params.pairHistoryMin} completed purchases from that merchant, the first at least {duration(params.pairAgeSecs)} ago. There must be no dispute between you, and no penalty on your credit file.
           </p>
         )}
       </main>

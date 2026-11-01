@@ -52,6 +52,12 @@
       "merchant": "glib",
       "rating": 2,
       "comment": "Summarised the wrong text. Careful with this one."
+    },
+    {
+      "buyer": "quill",
+      "merchant": "nova",
+      "rating": 5,
+      "comment": "Paid promptly."
     }
   ],
   "afterwards": "Glib then took an order from wren and never delivered: wren was refunded in full.",
@@ -70,7 +76,7 @@
         "usdc": "0.0075"
       },
       "judgedAfterSecs": 600,
-      "note": "An estimate from your tier and this pair’s reviews now. The program sets the exact weight when the review lands, and settling this order can raise your tier first.",
+      "note": "An estimate from your tier and this pair\u2019s reviews now. The program sets the exact weight when the review lands, and settling this order can raise your tier first.",
       "rule": "The same whatever the stars. After judgedAfterSecs it is paid x1.5 if you warned others about a wallet that then failed, x1.2 if you agree with other reviewers, x0.5 if far from them, and nothing for 4-5 stars to a wallet that then failed."
     }
   },

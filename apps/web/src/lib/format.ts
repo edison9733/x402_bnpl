@@ -9,13 +9,14 @@ export function compactUsd(units: bigint): string {
   return `$${n.toFixed(2)}`;
 }
 
-/** 0 -> "instant", 45 -> "45 s", 3600 -> "1 h", 259200 -> "3 d". */
+/** 0 -> "instant", 45 -> "45 s", 3600 -> "60 min", 86400 -> "24 h", 259200 -> "3 days". */
 export function duration(secs: number): string {
   if (secs <= 0) return 'instant';
   if (secs < 90) return `${secs} s`;
   if (secs < 5400) return `${Math.round(secs / 60)} min`;
   if (secs < 129_600) return `${Math.round(secs / 3600)} h`;
-  return `${Math.round(secs / 86_400)} d`;
+  const days = Math.round(secs / 86_400);
+  return `${days} day${days === 1 ? '' : 's'}`;
 }
 
 export function ago(unixSecs: number, now = Date.now() / 1000): string {

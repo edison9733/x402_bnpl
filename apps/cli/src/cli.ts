@@ -62,17 +62,18 @@ import {
   toUnits,
   verifyOrderForPayment,
 } from '@tessera/sdk';
-import { OUTCOMES, ROLES, TOOLS, type ToolName } from '@tessera/api/contract';
+import { MAX_FIND_LIMIT, OUTCOMES, ROLES, TOOLS, type ToolName } from '@tessera/api/contract';
 import { ASK_COMMANDS, ASK_HELP, askCommands } from './ask.js';
-import { PAYLATER_COMMANDS, PAYLATER_HELP, payLater } from './paylater.js';
-import { TAB_COMMANDS, TAB_HELP, tabCommands } from './tab.js';
+import { PAYLATER_COMMANDS, PAYLATER_HELP, payLater, scrub } from './paylater.js';
+import { SCORE_COMMANDS, scoreCommand, SCORE_HELP } from './score.js';
+import { DEVNET_FALLBACK_RPC, PUBLIC_DEVNET_RPC, rateLimited, rateLimitMessage, TAB_COMMANDS, TAB_HELP, tabCommands } from './tab.js';
 
 const HELP = `tessera: credit checks and non-custodial escrow for agent payments on Solana
 
 Before payment
   find [need words…] [--buyer W] [--sort best|fastest|cheapest] [--max-price A] [--amount A] [--limit N]
                                                  the best merchants for a need, ranked by on-chain record
-  score <wallet>                                 a wallet's credit file
+${SCORE_HELP}
   check <merchant> <amount> [--buyer W] [--min-hold S]
                                                  instant, escrow or block, and why
 During payment
@@ -100,13 +101,26 @@ Options
   --keypair PATH   sign locally with this Solana keypair file (~ allowed); its address
                    fills in --buyer, --merchant, --signer or --reporter when omitted
   --send           with --keypair: send the signed transaction through the API
-  --json           print the API's JSON as it is
+  --json           print JSON
 
 Exit codes: 0 ok, 1 refused or failed, 2 usage error, 3 check said block.`;
 
 type Flags = Record<string, string | boolean | undefined>;
 
-const { values: flags, positionals } = parseArgs({
+/** parseArgs explains a bad flag over three lines and suggests `--`: one short line instead, as a usage error. */
+function badFlag(e: unknown): never {
+  const message = e instanceof Error ? e.message : String(e);
+  const flag = /--[\w-]+/.exec(message)?.[0] ?? /'(-[^' ,]+)/.exec(message)?.[1] ?? 'an option';
+  if (message.startsWith('Unknown option')) return usage(`unknown option ${flag} (see: tessera help)`);
+  if (/argument missing/.test(message)) return usage(`${flag} needs a value (see: tessera help)`);
+  if (/argument is ambiguous/.test(message)) return usage(`${flag} needs a value (for one that starts with a dash, write ${flag}=VALUE)`);
+  if (/does not take an argument/.test(message)) return usage(`${flag} takes no value`);
+  return usage(`${message.split('\n')[0]} (see: tessera help)`);
+}
+
+const { values: flags, positionals } = (() => {
+  try {
+    return parseArgs({
   allowPositionals: true,
   options: {
     api: { type: 'string' },
@@ -146,62 +160,83 @@ const { values: flags, positionals } = parseArgs({
     'dry-run': { type: 'boolean' },
     yes: { type: 'boolean' },
     'no-color': { type: 'boolean' },
+    simulate: { type: 'boolean' },
+    preset: { type: 'string' },
+    sales: { type: 'string' },
+    buyers: { type: 'string' },
+    'buyer-tier': { type: 'string' },
+    active: { type: 'string' },
+    stars: { type: 'string' },
+    disputes: { type: 'string' },
     help: { type: 'boolean', short: 'h' },
   },
-}) as { values: Flags; positionals: string[] };
+    });
+  } catch (e) {
+    return badFlag(e);
+  }
+})() as { values: Flags; positionals: string[] };
 
+/** A refusal or a failure: exit 1. Every message is one line, scrubbed: some carry what a merchant or an RPC sent. */
 function die(message: string): never {
-  console.error(`tessera: ${message}`);
+  console.error(`tessera: ${scrub(message)}`);
   process.exit(1);
 }
 
 /** A mistake on the command line, as opposed to a refusal or a failure: exit 2. */
 function usage(message: string): never {
-  console.error(`tessera: ${message}`);
+  console.error(`tessera: ${scrub(message)}`);
   process.exit(2);
 }
 
-/** Plain http only to this machine: anywhere else an on-path attacker could rewrite what comes back. */
+/**
+ * Plain http only to this machine: anywhere else an on-path attacker could rewrite what comes back.
+ * A URL typed on the command line (--api, --rpc, --site, <merchant agent url>) that fails is a usage
+ * error. One from the environment is a failure.
+ */
 function endpoint(url: string, what: string): string {
+  const bad = /^(--|<)/.test(what) ? usage : die;
   let u: URL;
   try {
     u = new URL(url);
   } catch {
-    return die(`${what} is not a URL: ${url}`);
+    return bad(`${what} is not a URL: ${url}`);
   }
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
-  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) die(`${what} must be https:// (http:// only for localhost, 127.0.0.1 or ::1): ${url}`);
+  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) bad(`${what} must be https:// (http:// only for localhost, 127.0.0.1 or ::1): ${url}`);
   return url.replace(/\/$/, '');
 }
 
-const API = endpoint(String(flags.api ?? process.env.TESSERA_API_URL ?? 'http://127.0.0.1:4030'), flags.api ? '--api' : 'TESSERA_API_URL');
+/** The API, checked when a command first calls it: a bad $TESSERA_API_URL does not stop help or a command that reads the chain itself. */
+let api: string | undefined;
+const apiUrl = (): string => (api ??= endpoint(String(flags.api ?? process.env.TESSERA_API_URL ?? 'http://127.0.0.1:4030'), flags.api !== undefined ? '--api' : 'TESSERA_API_URL'));
 
-/** Every string the API sends, without control or bidirectional characters, so a name or a review cannot move the cursor or reorder a line. */
-const scrub = (v: unknown): unknown =>
-  typeof v === 'string'
-    ? v.replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, ' ')
-    : Array.isArray(v)
-      ? v.map(scrub)
-      : v && typeof v === 'object'
-        ? Object.fromEntries(Object.entries(v).map(([k, x]) => [scrub(k), scrub(x)]))
-        : v;
+/** The RPC this machine reads the chain from: --rpc, else the first of $TESSERA_RPC_URLS, else public devnet. `named` when the user chose one. */
+function chosenRpc(): { url: string; named: boolean } {
+  const env = (process.env.TESSERA_RPC_URLS ?? '').split(',')[0]!.trim();
+  return {
+    url: endpoint(String(flags.rpc ?? (env || PUBLIC_DEVNET_RPC)), flags.rpc !== undefined ? '--rpc' : 'TESSERA_RPC_URLS'),
+    named: flags.rpc !== undefined || env !== '',
+  };
+}
 
 const json = (s: string | undefined, what: string): unknown => {
   if (s === undefined) return undefined;
   try {
     return JSON.parse(s);
   } catch {
-    return die(`${what} must be JSON`);
+    return usage(`${what} must be JSON`);
   }
 };
 const int = (s: string | undefined, what: string): number | undefined => {
   if (s === undefined) return undefined;
   const n = Number(s);
-  if (!Number.isInteger(n)) die(`${what} must be an integer`);
+  if (!Number.isInteger(n)) usage(`${what} must be an integer`);
   return n;
 };
+const plural = (n: unknown, one: string): string => `${n} ${Number(n) === 1 ? one : `${one}s`}`;
 
 async function call(tool: ToolName, args: Record<string, unknown>): Promise<{ http: number; body: Record<string, unknown> }> {
+  const API = apiUrl();
   const spec = TOOLS[tool];
   const rest = Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined));
   const path = spec.path.replace(/\{(\w+)\}/g, (_, k: string) => {
@@ -272,9 +307,10 @@ type Expected = {
 };
 
 async function expected(cmd: string, args: Record<string, unknown>, me: Address): Promise<Expected> {
-  const url = endpoint(String(flags.rpc ?? ((process.env.TESSERA_RPC_URLS ?? '').split(',')[0]!.trim() || 'https://api.devnet.solana.com')), flags.rpc ? '--rpc' : 'TESSERA_RPC_URLS');
+  const { url } = chosenRpc();
   const rpc = createSolanaRpc(url);
-  const read = <T>(p: Promise<T>): Promise<T> => p.catch((e: Error) => die(`cannot read the chain at ${new URL(url).host}: ${e.message}`));
+  const unread = (e: Error) => (rateLimited(e) ? rateLimitMessage(new URL(url).host) : `cannot read the chain at ${new URL(url).host}: ${e.message}`);
+  const read = <T>(p: Promise<T>): Promise<T> => p.catch((e: Error) => die(unread(e)));
   const cfg = await read(fetchMaybeConfig(rpc, await configPda()));
   if (!cfg.exists) return die(`no Tessera program is set up at ${new URL(url).host}; pass --rpc for the cluster the API serves`);
   const mint = cfg.data.mint;
@@ -310,7 +346,7 @@ async function expected(cmd: string, args: Record<string, unknown>, me: Address)
       payTo: (args.order as Address | undefined) ?? (await orderAddresses(orderId, mint)).order,
       requestHash: hex('requestHash') ?? (args.request !== undefined ? await hashJson(args.request) : undefined),
       minHoldSecs: args.minHoldSecs as number | undefined,
-    }).catch((e: Error) => die(e instanceof OrderVerificationError ? e.message : `cannot read the chain at ${new URL(url).host}: ${e.message}`));
+    }).catch((e: Error) => die(e instanceof OrderVerificationError ? e.message : unread(e)));
     return { order: v.order, vault: v.vault, mint, decimals, tessera: [TesseraInstruction.ConfirmFunded], payees: [], pay: { source: await findAta(me, mint), amount: v.data.amount } };
   }
   const tessera = SETTLES[cmd];
@@ -501,26 +537,24 @@ function show(tool: ToolName, { http, body }: { http: number; body: Record<strin
   if (tool === 'find_merchants') {
     if (status === 'no_match') return void console.log(`no_match: ${body.message}`);
     console.log(`${body.count} found · sorted ${body.sort}: ${body.basis}`);
-    for (const r of (body.ranked as Record<string, any>[]) ?? []) {
+    const ranked = (body.ranked as Record<string, any>[]) ?? [];
+    for (const r of ranked) {
       const svc = r.service ? `  ${r.service.id} ${r.service.price ? usdc(r.service.price) : 'price ?'}` : '';
       const time = r.expectedSecs === null ? 'cannot pay' : `~${r.expectedSecs} s to settled`;
-      console.log(`${String(r.rank).padStart(2)}. ${r.merchant}  ${r.name ?? ''}  ${r.tier} ${r.score} ★${Number(r.stars).toFixed(2)} (${r.reviews} reviews, ${r.sales} sales${r.missedDeliveries ? `, ${r.missedDeliveries} missed` : ''}${r.disputesLost ? `, ${r.disputesLost} disputes lost` : ''})`);
+      console.log(`${String(r.rank).padStart(2)}. ${r.merchant}  ${r.name ?? ''}  ${r.tier} ${r.score} ★${Number(r.stars).toFixed(2)} (${plural(r.reviews, 'review')}, ${plural(r.sales, 'sale')}${r.missedDeliveries ? `, ${r.missedDeliveries} missed` : ''}${r.disputesLost ? `, ${plural(r.disputesLost, 'dispute')} lost` : ''})`);
       console.log(`    ${String(r.decision).toUpperCase()} ${time}${svc}`);
       for (const rv of r.topReviews ?? []) console.log(`    "${rv.text}" ★${rv.stars}`);
     }
-    console.log(String(body.next));
-    return;
-  }
-  if (tool === 'get_score') {
-    console.log(party('wallet', body));
-    if (body.known === false) console.log(String(body.message));
-    else {
-      const m = body.asMerchant as Record<string, unknown>;
-      const b = body.asBuyer as Record<string, unknown>;
-      console.log(`hold at this tier ${body.holdSecs} s · penalty ${Number(body.penaltyBps) / 100}% · ${body.reviewsReceived} reviews`);
-      console.log(`as merchant: ${m.orders} orders, ${usdc(m.volume)}, ${m.disputesLost} disputes lost, ${m.missedDeliveries} missed`);
-      console.log(`as buyer:    ${b.orders} orders, ${usdc(b.volume)}, ${b.disputesLost} disputes lost`);
+    // The API sends the top 5 unless asked for more: say so, or a merchant below the cut looks missing.
+    const count = Number(body.count);
+    if (ranked.length < count) {
+      console.log(
+        ranked.length < Math.min(count, MAX_FIND_LIMIT)
+          ? `showing ${ranked.length} of ${count} · --limit ${MAX_FIND_LIMIT} for ${count > MAX_FIND_LIMIT ? `the top ${MAX_FIND_LIMIT}` : 'all'}`
+          : `showing the top ${ranked.length} of ${count}`,
+      );
     }
+    console.log(String(body.next));
     return;
   }
   if (tool === 'check_payment') {
@@ -565,62 +599,113 @@ if (!cmd || flags.help || cmd === 'help') {
 
 const kp = flags.keypair ? await loadKeypair(String(flags.keypair)) : undefined;
 const me = (flag: string): string | undefined => (flags[flag] as string | undefined) ?? kp?.address;
-const need = (v: unknown, what: string) => (v === undefined || v === '' ? die(`${what} is required (see: tessera help)`) : v);
+const need = (v: unknown, what: string) => (v === undefined || v === '' ? usage(`${what} is required (see: tessera help)`) : v);
+
+/**
+ * Runs a command that reads the chain itself. A failure is one line. Public devnet rate-limits after a
+ * few quick reads: when it answers HTTP 429 and the user named no RPC, a command that only reads runs
+ * once more on the second devnet RPC, and a rate limit that lasts is said in plain words.
+ */
+async function onChain(readOnly: boolean, run: (rpcUrl: string) => Promise<number>): Promise<number> {
+  const { url, named } = chosenRpc();
+  const host = new URL(url).host;
+  try {
+    return await run(url);
+  } catch (e) {
+    if (!rateLimited(e)) return die(`${cmd} failed: ${(e as Error).message} (RPC ${host})`);
+    if (readOnly && !named) return run(DEVNET_FALLBACK_RPC).catch(() => die(rateLimitMessage(host)));
+    return die(rateLimitMessage(host));
+  }
+}
+
+if (SCORE_COMMANDS.has(cmd)) {
+  const str = (k: string): string | undefined => (flags[k] === undefined ? undefined : String(flags[k]));
+  const code = await onChain(true, (rpcUrl) =>
+    scoreCommand(a1, {
+      rpcUrl,
+      json: Boolean(flags.json),
+      noColor: Boolean(flags['no-color']),
+      network: str('network'),
+      simulate: Boolean(flags.simulate),
+      preset: str('preset'),
+      sales: str('sales'),
+      buyers: str('buyers'),
+      buyerTier: str('buyer-tier'),
+      active: str('active'),
+      stars: str('stars'),
+      disputes: str('disputes'),
+      die,
+      usage,
+    }),
+  );
+  process.exit(code);
+}
 
 if (PAYLATER_COMMANDS.has(cmd)) {
-  const rpcUrl = endpoint(String(flags.rpc ?? ((process.env.TESSERA_RPC_URLS ?? '').split(',')[0]!.trim() || 'https://api.devnet.solana.com')), flags.rpc ? '--rpc' : 'TESSERA_RPC_URLS');
-  await payLater(cmd, a1, a2, {
-    rpcUrl,
-    kp,
-    send: Boolean(flags.send),
-    json: Boolean(flags.json),
-    all: Boolean(flags.all),
-    order: flags.order as string | undefined,
-    merchantKp: flags['merchant-keypair'] ? await loadKeypair(String(flags['merchant-keypair'])) : undefined,
-    input: json(flags.input as string, '--input'),
-    endpoint,
-    die,
-  }).catch((e: Error) => die(`${cmd} failed: ${e.message} (RPC ${new URL(rpcUrl).host})`));
+  const merchantKp = flags['merchant-keypair'] ? await loadKeypair(String(flags['merchant-keypair'])) : undefined;
+  const input = json(flags.input as string, '--input');
+  // Only `credit` is read again on the second RPC: the others sign, and may send.
+  await onChain(cmd === 'credit', (rpcUrl) =>
+    payLater(cmd, a1, a2, {
+      rpcUrl,
+      kp,
+      send: Boolean(flags.send),
+      json: Boolean(flags.json),
+      all: Boolean(flags.all),
+      order: flags.order as string | undefined,
+      merchantKp,
+      input,
+      endpoint,
+      die,
+      usage,
+    }).then(() => 0),
+  );
   process.exit(0);
 }
 
 if (ASK_COMMANDS.has(cmd)) {
-  const rpcUrl = endpoint(String(flags.rpc ?? ((process.env.TESSERA_RPC_URLS ?? '').split(',')[0]!.trim() || 'https://api.devnet.solana.com')), flags.rpc ? '--rpc' : 'TESSERA_RPC_URLS');
-  await askCommands(cmd, a1, a2, {
-    rpcUrl,
-    owner: flags.owner as string | undefined,
-    claim: flags.claim as string | undefined,
-    site: flags.site as string | undefined,
-    input: json(flags.input as string, '--input'),
-    minHoldSecs: int(flags['min-hold'] as string | undefined, '--min-hold'),
-    wait: Boolean(flags.wait),
-    json: Boolean(flags.json),
-    endpoint,
-    die,
-  }).catch((e: Error) => die(`${cmd} failed: ${e.message} (RPC ${new URL(rpcUrl).host})`));
+  const input = json(flags.input as string, '--input');
+  const minHoldSecs = int(flags['min-hold'] as string | undefined, '--min-hold');
+  await onChain(false, (rpcUrl) =>
+    askCommands(cmd, a1, a2, {
+      rpcUrl,
+      owner: flags.owner as string | undefined,
+      claim: flags.claim as string | undefined,
+      site: flags.site as string | undefined,
+      input,
+      minHoldSecs,
+      wait: Boolean(flags.wait),
+      json: Boolean(flags.json),
+      endpoint,
+      die,
+      usage,
+    }).then(() => 0),
+  );
   process.exit();
 }
 
 if (TAB_COMMANDS.has(cmd)) {
-  const rpcUrl = endpoint(String(flags.rpc ?? ((process.env.TESSERA_RPC_URLS ?? '').split(',')[0]!.trim() || 'https://api.devnet.solana.com')), flags.rpc ? '--rpc' : 'TESSERA_RPC_URLS');
   const str = (k: string): string | undefined => (flags[k] === undefined ? undefined : String(flags[k]));
-  const code = await tabCommands(cmd, a1, {
-    rpcUrl,
-    rpcFlag: str('rpc'),
-    kp,
-    json: Boolean(flags.json),
-    noColor: Boolean(flags['no-color']),
-    network: str('network'),
-    sort: str('sort'),
-    category: str('category'),
-    limit: str('limit'),
-    tab: str('tab'),
-    wallet: str('wallet'),
-    dryRun: Boolean(flags['dry-run']),
-    yes: Boolean(flags.yes),
-    die,
-    usage,
-  }).catch((e: Error) => die(`${cmd} failed: ${e.message} (RPC ${new URL(rpcUrl).host})`));
+  // `settle` pays, so it is never run a second time.
+  const code = await onChain(cmd !== 'settle', (rpcUrl) =>
+    tabCommands(cmd, a1, {
+      rpcUrl,
+      rpcFlag: str('rpc'),
+      kp,
+      json: Boolean(flags.json),
+      noColor: Boolean(flags['no-color']),
+      network: str('network'),
+      sort: str('sort'),
+      category: str('category'),
+      limit: str('limit'),
+      tab: str('tab'),
+      wallet: str('wallet'),
+      dryRun: Boolean(flags['dry-run']),
+      yes: Boolean(flags.yes),
+      die,
+      usage,
+    }),
+  );
   process.exit(code);
 }
 
@@ -638,16 +723,12 @@ switch (cmd) {
       limit: int(flags.limit as string, '--limit'),
     };
     break;
-  case 'score':
-    tool = 'get_score';
-    args = { wallet: need(a1, '<wallet>') };
-    break;
   case 'check':
     tool = 'check_payment';
     args = { merchant: need(a1, '<merchant>'), amount: need(a2 ?? flags.amount, '<amount>'), buyer: me('buyer'), minHoldSecs: int(flags['min-hold'] as string, '--min-hold') };
     break;
   case 'open': {
-    if (!ROLES.includes(a1 as (typeof ROLES)[number])) die(`open needs a role: ${ROLES.join(' or ')}`);
+    if (!ROLES.includes(a1 as (typeof ROLES)[number])) usage(`open needs a role: ${ROLES.join(' or ')}`);
     tool = 'open_escrow';
     const role = a1 as (typeof ROLES)[number];
     args = {
@@ -662,7 +743,7 @@ switch (cmd) {
       requestHash: flags['request-hash'],
       minHoldSecs: int(flags['min-hold'] as string, '--min-hold'),
     };
-    if (role === 'buyer' && !args.order && !args.orderId) die('open buyer needs --order (the payTo the merchant quoted) or --order-id');
+    if (role === 'buyer' && !args.order && !args.orderId) usage('open buyer needs --order (the payTo the merchant quoted) or --order-id');
     break;
   }
   case 'deliver':
@@ -683,7 +764,7 @@ switch (cmd) {
     break;
   case 'report': {
     const outcome = need(flags.outcome, '--outcome');
-    if (!OUTCOMES.includes(outcome as (typeof OUTCOMES)[number])) die(`--outcome must be one of: ${OUTCOMES.join(', ')}`);
+    if (!OUTCOMES.includes(outcome as (typeof OUTCOMES)[number])) usage(`--outcome must be one of: ${OUTCOMES.join(', ')}`);
     tool = 'report_outcome';
     args = { order: need(a1, '<order>'), reporter: need(me('reporter'), '--reporter'), outcome, rating: int(flags.rating as string, '--rating'), comment: flags.comment };
     break;
@@ -693,7 +774,7 @@ switch (cmd) {
     args = { transaction: need(a1, '<signed-base64>') };
     break;
   default:
-    die(`unknown command "${cmd}" (see: tessera help)`);
+    usage(`unknown command "${cmd}" (see: tessera help)`);
 }
 
 const out = await call(tool, args);

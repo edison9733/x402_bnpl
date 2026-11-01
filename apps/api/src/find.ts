@@ -25,19 +25,24 @@ import {
   type ProgramAccountsRpc,
   type Review,
 } from '@tessera/sdk';
-import { allowPrivateCards, clean, fetchCard, type Card, type CardResult, type Skill } from './cards.js';
+import { allowPrivateCards, clean, fetchCard, TIMEOUT_MS as CARD_TIMEOUT_MS, type Card, type CardResult, type Skill } from './cards.js';
 import { chainNow, explorerAddress, readPairs, rpc, tokenBalance } from './chain.js';
 import { MAX_FIND_LIMIT, type Sort } from './contract.js';
 import { config, decide, isReply, money, reply, type Cfg, type Reply } from './core.js';
 
 const snapshotEnv = Number(process.env.TESSERA_FIND_SNAPSHOT_MS ?? 30_000);
 const SNAPSHOT_MS = Number.isFinite(snapshotEnv) && snapshotEnv >= 0 ? snapshotEnv : 30_000;
+const budgetEnv = Number(process.env.TESSERA_CARDS_BUDGET_MS);
 /**
- * The longest a find waits for agent cards, all of them together. A card that
- * is not in by then is reported as slow and left out of matching this time;
- * its fetch carries on (each has its own deadline) and fills the cache.
+ * The longest a find waits for agent cards, all of them together: by default
+ * a second more than one card's own deadline. A card that is not in by then
+ * is reported as slow and left out of matching this time; its fetch carries
+ * on (each has its own deadline) and fills the cache.
  */
-const CARDS_BUDGET_MS = 2_500;
+const CARDS_BUDGET_MS = Number.isFinite(budgetEnv) && budgetEnv > 0 ? budgetEnv : CARD_TIMEOUT_MS + 1_000;
+const LATE_CARD = 'the card did not answer in time';
+/** A card that missed its deadline or the find's budget: its server may be asleep, not gone. */
+export const cardLate = (error: string | null | undefined): boolean => !!error && (error === LATE_CARD || /^no answer in \d+ ms$/.test(error));
 /** Delivery times are taken from this many of a merchant's latest delivered orders. */
 const RECENT_ORDERS = 50;
 
@@ -99,6 +104,8 @@ export async function findMerchants(i: {
   maxPrice?: string;
   sort?: Sort;
   limit?: number;
+  /** Every match, past MAX_FIND_LIMIT: for a caller in this process (the CLI's `merchants`). The HTTP route and MCP cannot set it. */
+  all?: boolean;
 }): Promise<Reply> {
   const cfg = await config();
   if (isReply(cfg)) return cfg;
@@ -113,7 +120,7 @@ export async function findMerchants(i: {
   const merchants = all.agents.filter((a) => a.address && (a.data.asMerchant.orders > 0 || a.data.uri) && a.data.wallet !== i.buyer);
   const allowPrivate = allowPrivateCards();
   let budget: NodeJS.Timeout | undefined;
-  const late = new Promise<CardResult>((r) => (budget = setTimeout(() => r({ error: 'the card did not answer in time' }), CARDS_BUDGET_MS)));
+  const late = new Promise<CardResult>((r) => (budget = setTimeout(() => r({ error: LATE_CARD }), CARDS_BUDGET_MS)));
   const cards = await Promise.all(merchants.map((a) => (a.data.uri ? Promise.race([fetchCard(a.data.uri, allowPrivate), late]) : Promise.resolve(null))));
   clearTimeout(budget);
 
@@ -142,13 +149,16 @@ export async function findMerchants(i: {
   });
 
   if (!candidates.length) {
+    // A card that did not answer may be a hosted agent waking up: say so, or "no merchant offers it" reads as final.
+    const slow = cards.filter((c) => c && 'error' in c && cardLate(c.error)).length;
+    const retry = slow ? `${slow} merchant card${slow === 1 ? '' : 's'} did not answer in time: the hosted agents may be waking. Try again in a minute, or try` : 'Try';
     return reply('no_match', {
       need: i.need ?? null,
       sort,
       count: 0,
       ranked: [],
       asOf: all.at,
-      message: `No merchant ${words.length ? `offers "${clean(i.need, 60)}"` : 'is registered'}${maxPrice !== null ? ` at ${fromUnits(maxPrice, cfg.decimals)} USDC or less` : ''}. Try fewer or broader words, or drop maxPrice.`,
+      message: `No merchant ${words.length ? `offers "${clean(i.need, 60)}"` : 'is registered'}${maxPrice !== null ? ` at ${fromUnits(maxPrice, cfg.decimals)} USDC or less` : ''}. ${retry} fewer or broader words, or drop maxPrice.`,
     });
   }
 
@@ -229,7 +239,7 @@ export async function findMerchants(i: {
     need: i.need ?? null,
     sort,
     count: rows.length,
-    ranked: rows.slice(0, Math.min(limit, MAX_FIND_LIMIT)).map((r, k) => ({ rank: k + 1, ...r })),
+    ranked: (i.all ? rows : rows.slice(0, Math.min(limit, MAX_FIND_LIMIT))).map((r, k) => ({ rank: k + 1, ...r })),
     asOf: all.at,
     ...(i.buyer ? {} : { assumedBuyerTier: TIER_NAMES[0] }),
     basis:

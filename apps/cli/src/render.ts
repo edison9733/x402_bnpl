@@ -3,9 +3,12 @@
  * plain data in, lines out, no I/O and no chain. The layouts are the
  * terminals on the landing page (docs/handoff/CLAUDE_CODE_BRIEF.md, 3.3 to
  * 3.5), held still by apps/cli/test/render.test.ts. Colour is ANSI on the
- * foreground only, never a background, and every glyph has an ASCII stand-in
- * for a terminal that is not UTF-8.
+ * foreground only, never a background. For a terminal that is not UTF-8 the
+ * bars, ticks, ellipses and rules have ASCII stand-ins, and so does the maths
+ * of the score. The middle dot in the other summary lines stays as it is.
  */
+
+import type { Breakdown, Factor } from '@tessera/sdk/score';
 
 export type Color = 'none' | 'basic' | 'truecolor';
 export type Style = { color: Color; utf8: boolean };
@@ -264,7 +267,11 @@ export const tabTotal = (rows: TabRow[]): bigint => rows.reduce((sum, r) => sum 
 
 const recordLine = (r: TabRecord): string => `record: ${plural(r.loans, 'loan')}, ${r.repaidOnTime} on time, ${r.repaidLate} late, ${plural(r.defaults, 'default')}`;
 
-/** The tab table: spec D9, column widths 7, 16, 12, 9 and the status, a rule of 52, then the total. */
+/**
+ * The tab table: spec D9, column widths 7, 16, 12, 9 and the status, a rule of
+ * 52, then the total. AMOUNT grows past 9 when an amount needs it, so a space
+ * always follows the longest, and the rule grows with it.
+ */
 export function renderTab(input: TabInput, style: Style): string {
   const { rows } = input;
   if (!rows.length) {
@@ -273,21 +280,22 @@ export function renderTab(input: TabInput, style: Style): string {
     return lines.join('\n');
   }
   const dp = decimalsFor(rows.map((r) => r.amount));
+  const aw = Math.max(9, ...[...rows.map((r) => r.amount), tabTotal(rows)].map((a) => width(money(a, dp)) + 1));
   const lines = [
     paint(`tab ${shortAddr(input.wallet, style)} · open · pay later · ${input.network} ${input.token}`, 'dim', style),
-    paint(`${col('#', 7)}${col('MERCHANT', 16)}${col('ORDER', 12)}${col('AMOUNT', 9)}STATUS`, 'dim', style),
+    paint(`${col('#', 7)}${col('MERCHANT', 16)}${col('ORDER', 12)}${col('AMOUNT', aw)}STATUS`, 'dim', style),
   ];
   for (const r of rows) {
     lines.push(
       cell(`#${r.n}`, 7, 'dim', style) +
         cell(fit(r.merchant || shortAddr(r.merchantWallet, style), 16, style), 16, 'primary', style) +
         cell(shortAddr(r.order, style), 12, 'dim', style) +
-        col(money(r.amount, dp), 9) +
+        col(money(r.amount, dp), aw) +
         paint(STATUS_TEXT[r.status], 'amber', style),
     );
   }
-  lines.push(paint((style.utf8 ? '─' : '-').repeat(52), 'dim', style));
-  lines.push(`${col('TOTAL', 7)}${col(plural(rows.length, 'order'), 28)}${col(money(tabTotal(rows), dp), 9)}${paint('unpaid', 'amber', style)}`);
+  lines.push(paint((style.utf8 ? '─' : '-').repeat(52 + aw - 9), 'dim', style));
+  lines.push(`${col('TOTAL', 7)}${col(plural(rows.length, 'order'), 28)}${col(money(tabTotal(rows), dp), aw)}${paint('unpaid', 'amber', style)}`);
   return lines.join('\n');
 }
 
@@ -373,4 +381,227 @@ export function settleJson(i: SettleInput) {
     token: i.token,
     ...(i.reason ? { reason: i.reason } : {}),
   };
+}
+
+// ---------------------------------------------------------------- score
+
+/** The multiplier a row's accuracy paid: `1.5×`, `1×`, `0×` (`x` without UTF-8). */
+export function times(bps: number, style: Style): string {
+  const n = bps / 10_000;
+  return `${Number.isInteger(n) ? n : n.toFixed(n * 10 === Math.round(n * 10) ? 1 : 2)}${style.utf8 ? '×' : 'x'}`;
+}
+
+export type ScoreInput = {
+  /** The wallet, shown short, or empty for a simulation. */
+  wallet: string;
+  simulated: boolean;
+  /** `devnet`, `localnet`, or `mainnet scale` for a simulation. */
+  network: string;
+  counterparties: number;
+  activePeriods: number;
+  b: Breakdown;
+  /** The other network's hold at the same tier, for the tier line: `mainnet target`, or `devnet` for a simulation. */
+  other: { network: string; holdSecs: number };
+  /**
+   * The score the program stored, the SDK's score for the moment it was
+   * stored (`at`, unix seconds), so whether the SDK reproduces it. Null when
+   * there is no credit file, or in a simulation.
+   */
+  program: { score: number; sdk: number; at: number } | null;
+  /** True when the wallet has no Agent account yet. */
+  noFile: boolean;
+};
+
+const F2 = (milli: number): string => (milli / 1000).toFixed(2);
+
+/** The score's maths for a terminal that is not UTF-8: sqrt, /, x and - for √, ÷, × and ·. */
+const maths = (text: string, style: Style): string =>
+  style.utf8 ? text : text.replace(/√/g, 'sqrt').replace(/÷/g, '/').replace(/×/g, 'x').replace(/·/g, '-');
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const two = (n: number): string => String(n).padStart(2, '0');
+
+/** Unix seconds as `28 Oct 14:02 UTC`. */
+export function utcMinute(secs: number): string {
+  const d = new Date(secs * 1000);
+  if (Number.isNaN(d.getTime())) return `${secs} (unix time)`;
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())} UTC`;
+}
+
+/** Unix seconds as ISO 8601 in UTC, to the second: `2026-10-28T14:02:11Z`. */
+export function utcIso(secs: number): string | null {
+  const d = new Date(secs * 1000);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+/** The score breakdown: brief 3.2, a label of 12, a value of 7, a bar of 10 and 2, then the real inputs. */
+export function renderScore(i: ScoreInput, style: Style): string {
+  const { b } = i;
+  const tier = b.e.tier;
+  const text = (t: string, role: Role) => paint(maths(t, style), role, style);
+  const head = i.simulated ? 'simulated' : shortAddr(i.wallet, style);
+  const lines = [text(`${head} · ${plural(i.counterparties, 'counterparty', 'counterparties')} · ${plural(i.activePeriods, 'active period')} · ${i.network}`, 'dim')];
+  if (i.noFile) lines.push(paint('no credit file yet: no order has settled through Tessera with this wallet', 'dim', style));
+  const factor = (label: string, f: Factor) => cell(label, 12, 'dim', style) + cell(F2(f.milli), 7, 'primary', style) + bar(f.milli, tier, style) + '  ' + text(f.explain, 'dim');
+  lines.push(factor('history', b.history), factor('tenure', b.tenure), factor('diversity', b.diversity), factor('rating', b.rating), factor('behaviour', b.behaviour));
+  lines.push(cell('evidence', 12, 'dim', style) + cell(F2(b.e.evidence), 7, 'primary', style) + text(b.evidence, 'dim'));
+  lines.push(cell('score', 12, 'dim', style) + cell(String(b.e.score), 7, 'mint', style) + text(b.score, 'dim'));
+  lines.push(cell('tier', 12, 'dim', style) + cell(TIERS[tier]!, 12, tierRole(tier), style) + text(`hold ${holdLabel(b.holdSecs)} · ${i.other.network} ${holdLabel(i.other.holdSecs)}`, 'dim'));
+  // The program stored its score at `at`, and the breakdown above is for now: say which was compared.
+  const p = i.program;
+  if (p && p.score === p.sdk) {
+    const tick = style.utf8 ? '✓' : 'ok';
+    lines.push(
+      text(
+        p.score === b.e.score
+          ? `${tick} same result from the program and the SDK`
+          : `${tick} the program stored ${p.score} on ${utcMinute(p.at)} and the SDK gives the same for that moment · ${b.e.score} now`,
+        'mint',
+      ),
+    );
+  }
+  return lines.join('\n');
+}
+
+/** `✗ program says 300, SDK says 304`: the one line that goes to stderr, in amber. */
+export const renderScoreMismatch = (program: number, sdk: number, style: Style): string => paint(`${style.utf8 ? '✗' : 'x'} program says ${program}, SDK says ${sdk}`, 'amber', style);
+
+/** Thousandths as the program holds them: `0.282`. */
+const F3 = (milli: number): number => Number((milli / 1000).toFixed(3));
+
+export function scoreJson(i: ScoreInput, p: { creditFull: bigint; diversityFull: number }, credit: bigint, points: number) {
+  const { b } = i;
+  const dollars = (units: bigint) => Number(amount(units, 6));
+  return {
+    wallet: i.simulated ? null : i.wallet,
+    simulated: i.simulated,
+    network: i.network,
+    inputs: {
+      counterparties: i.counterparties,
+      active_periods: i.activePeriods,
+      credit: dollars(credit),
+      credit_full: dollars(p.creditFull),
+      points: points / 100,
+      diversity_full: p.diversityFull / 100,
+      stars: Number(b.stars.toFixed(2)),
+      penalty_bps: b.penaltyBps,
+    },
+    // In the program's own units, so they multiply out to the score: behaviour is in basis points.
+    factors: {
+      history: F3(b.e.history),
+      tenure: F3(b.e.tenure),
+      diversity: F3(b.e.diversity),
+      rating: F3(b.e.rating),
+      behaviour: Number((b.e.behaviour / 10_000).toFixed(4)),
+      evidence: F3(b.e.evidence),
+    },
+    score: b.e.score,
+    tier: TIERS[b.e.tier],
+    hold: holdLabel(b.holdSecs),
+    hold_seconds: b.holdSecs,
+    [`hold_${i.other.network.replace(/ /g, '_')}`]: holdLabel(i.other.holdSecs),
+    program_score: i.program ? i.program.score : null,
+    // When the program stored that score: `match` compares it with the SDK for this moment, not for now.
+    program_score_at: i.program ? utcIso(i.program.at) : null,
+    match: i.program ? i.program.score === i.program.sdk : null,
+  };
+}
+
+// ---------------------------------------------------------------- rewards
+
+export type RewardLine = {
+  reviewer: string;
+  rating: number;
+  /** What the reviewer wrote, or empty. */
+  quote: string;
+  /** The accuracy multiplier in basis points: 10000 is 1x. */
+  bps: number;
+  reward: bigint;
+  reason: string;
+  tone: 'good' | 'bad' | 'plain';
+};
+export type RewardGroup = {
+  /** Whose reviews these are. */
+  subject: string;
+  /** What happened to the subject afterwards: `kept delivering`. */
+  note: string;
+  rows: RewardLine[];
+};
+export type RewardsInput = {
+  groups: RewardGroup[];
+  /** Paid to reviewers, and the fees the orders paid, in token units. */
+  paid: bigint;
+  fees: bigint;
+  reproduce: string;
+};
+
+/** Token units with the zeros trimmed, two places at least: `1.25`, `0.169`. */
+const usdc = (units: bigint): string => amount(units, 6).replace(/0+$/, '').replace(/\.(\d)$/, '.$10').replace(/\.$/, '.00');
+
+/** The recorded payout: brief 4.1, a reviewer of 8, stars of 6, a quote of 52, a multiplier of 6, a payout of 9, then the reason. */
+export function renderRewards(i: RewardsInput, style: Style): string {
+  const lines: string[] = [];
+  for (const g of i.groups) {
+    lines.push(paint(`reviews of ${g.subject} · ${g.note}`, 'dim', style));
+    for (const r of g.rows) {
+      const x = r.bps > 10_000 ? 'mint' : r.bps < 10_000 ? 'amber' : 'default';
+      const tone: Role = r.tone === 'good' ? 'mint' : r.tone === 'bad' ? 'amber' : 'dim';
+      lines.push(
+        cell(fit(r.reviewer, 8, style), 8, 'primary', style) +
+          col(`${r.rating}/5`, 6) +
+          cell(r.quote ? fit(`"${r.quote}"`, 52, style) : '', 52, 'dim', style) +
+          cell(times(r.bps, style), 6, x, style) +
+          cell(money(r.reward, 3), 9, 'primary', style) +
+          paint(r.reason, tone, style),
+      );
+    }
+  }
+  const share = i.fees > 0n ? `${(Number((i.paid * 10_000n) / i.fees) / 100).toFixed(2)}%` : '0%';
+  lines.push('', `${paint(`paid from the treasury: ${usdc(i.paid)} USDC`, 'mint', style)} ${paint(`of ${usdc(i.fees)} USDC in fees · ${share}`, 'dim', style)}`);
+  lines.push(paint(`reproduce: ${i.reproduce}`, 'dim', style));
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------- tests
+
+export type TestWhere = 'formula' | 'on-chain' | 'formula + on-chain';
+export type TestLine = {
+  title: string;
+  where: TestWhere | null;
+  /** True only for a test that ran and passed: a skipped or todo test has not proved anything. */
+  passed: boolean;
+  error?: string;
+  /** Why the test did not count: it was skipped, or it is marked todo (a failing todo does not fail the run). */
+  skip?: 'skipped' | 'todo';
+  /** How deep it is nested in describe or t.test: 0, or absent, for a top-level test. */
+  depth?: number;
+  /** A describe block: printed, but not counted as a test. */
+  suite?: boolean;
+};
+
+/** `✓ title  where`, `✗ title` with the assertion message under it in amber, or `- title  where  skipped`: brief 4.2. */
+export function renderTestLine(t: TestLine, style: Style): string {
+  const pad = '  '.repeat(t.depth ?? 0);
+  const tag = t.where ? `  ${paint(t.where, 'dim', style)}` : '';
+  if (t.skip) return `${pad}${paint('-', 'dim', style)} ${t.title}${tag}  ${paint(t.skip, 'dim', style)}`;
+  if (t.passed) return `${pad}${paint(style.utf8 ? '✓' : 'ok', 'mint', style)} ${t.title}${tag}`;
+  const head = `${pad}${paint(style.utf8 ? '✗' : 'x', 'amber', style)} ${t.title}${tag}`;
+  return t.error ? `${head}\n${paint(t.error.split('\n').map((l) => `${pad}    ${l}`).join('\n'), 'amber', style)}` : head;
+}
+
+/** `14 passing · 9 formula · 7 on-chain`, with `2 failing` in amber and `1 skipped` or `1 todo` when there are. Describe blocks are not tests. */
+export function renderTestSummary(lines: TestLine[], style: Style): string {
+  const tests = lines.filter((t) => !t.suite);
+  const passing = tests.filter((t) => t.passed && !t.skip).length;
+  const failing = tests.filter((t) => !t.passed && !t.skip).length;
+  const skipped = tests.filter((t) => t.skip === 'skipped').length;
+  const todo = tests.filter((t) => t.skip === 'todo').length;
+  const formula = tests.filter((t) => t.where?.includes('formula')).length;
+  const onChain = tests.filter((t) => t.where?.includes('on-chain')).length;
+  const parts = [paint(`${passing} passing`, 'mint', style)];
+  if (failing) parts.push(paint(`${failing} failing`, 'amber', style));
+  if (skipped) parts.push(paint(`${skipped} skipped`, 'dim', style));
+  if (todo) parts.push(paint(`${todo} todo`, 'dim', style));
+  parts.push(paint(`${formula} formula`, 'dim', style), paint(`${onChain} on-chain`, 'dim', style));
+  return parts.join(paint(' · ', 'dim', style));
 }

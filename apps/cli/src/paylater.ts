@@ -81,6 +81,20 @@ const STATE = ['open', 'repaid on time', 'repaid late', 'in default'] as const;
 /** The a2a extension whose params carry a merchant's wallet and prices (apps/agents/src/config.ts). */
 export const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md';
 
+/**
+ * Every string someone else wrote (the API, a merchant), without control or
+ * bidirectional characters, so a name, a review, an error or a claim cannot
+ * move the cursor or reorder a line. Arrays and objects are scrubbed all through.
+ */
+export const scrub = <T>(v: T): T =>
+  (typeof v === 'string'
+    ? v.replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, ' ')
+    : Array.isArray(v)
+      ? v.map(scrub)
+      : v && typeof v === 'object'
+        ? Object.fromEntries(Object.entries(v).map(([k, x]) => [scrub(k), scrub(x)]))
+        : v) as T;
+
 type Opts = {
   rpcUrl: string;
   kp?: KeyPairSigner;
@@ -95,6 +109,8 @@ type Opts = {
   /** The CLI's URL check: https, or http to this machine. */
   endpoint: (url: string, what: string) => string;
   die: (m: string) => never;
+  /** A mistake on the command line: exits 2. */
+  usage: (m: string) => never;
 };
 
 /**
@@ -151,14 +167,31 @@ export async function waitConfirmed(rpc: Rpc, sig: Signature): Promise<'confirme
 
 export async function payLater(cmd: string, a1: string | undefined, a2: string | undefined, o: Opts): Promise<void> {
   const rpc = createSolanaRpc(o.rpcUrl);
+  /** An address typed on the command line (`<wallet>`, `--order`) that is missing or wrong is a usage error. One a merchant sent is a refusal. */
   const addr = (v: string | undefined, what: string): Address => {
-    if (!v) o.die(`${what} is required (see: tessera help)`);
+    const bad: (m: string) => never = /^(--|<)/.test(what) ? o.usage : o.die;
+    if (!v) bad(`${what} is required (see: tessera help)`);
     try {
       return address(v);
     } catch {
-      return o.die(`${what} is not a Solana address: ${v}`);
+      return bad(`${what} is not a Solana address: ${scrub(v)}`);
     }
   };
+
+  // Everything on the command line is checked before the chain is read.
+  const wallet = cmd === 'credit' ? addr(a1, '<wallet>') : undefined;
+  if (cmd !== 'credit' && !o.kp) o.usage(`${cmd} needs --keypair`);
+  const request = cmd === 'buy-later' && !o.order && a1 && /^https?:\/\//i.test(a1) ? httpRequest(a1, a2) : undefined;
+  // The order is the merchant's quote: the payTo of its 402, opened in your name.
+  const orderAddr = cmd === 'buy-later' && !request ? addr(o.order ?? a1, '--order') : undefined;
+  // buy_now is signed by the buyer and by the order's merchant, so the pool
+  // only funds orders their merchant agreed to. Without the merchant's key
+  // here, the merchant must sign: that is the x402 form.
+  const merchantKp = orderAddr
+    ? (o.merchantKp ??
+      o.die("buy_now needs the order's merchant's signature as well as yours: pass --merchant-keypair PATH where you hold that key too, or buy over x402 with: tessera buy-later <merchant agent url> <skill> --keypair PATH, and the merchant signs"))
+    : undefined;
+  const loanArg = (cmd === 'repay' && !o.all) || cmd === 'mark-default' ? addr(a1, '<loan>') : undefined;
 
   const chainNow = async () => (await readClock(rpc)) ?? o.die('the RPC has no clock');
   const pool = await paylater.fetchMaybePool(rpc, await paylater.poolPda());
@@ -207,12 +240,41 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     console.log(`confirmed: ${sig}`);
   }
 
-  if (cmd === 'credit') {
-    const wallet = addr(a1, '<wallet>');
+  if (wallet) {
     const now = await chainNow();
     const [s, loans] = await Promise.all([standing(wallet, now), paylater.fetchLoansOf(rpc, wallet)]);
     const tab = paylater.owed(loans);
-    if (o.json) return void console.log(JSON.stringify({ ...s, owed: tab }, (_, v) => (typeof v === 'bigint' ? v.toString() : v), 2));
+    if (o.json) {
+      // Like every other --json: amounts are USDC decimal strings, the tier is its name, and no account internals.
+      const l = s.line;
+      return void console.log(
+        JSON.stringify(
+          {
+            wallet,
+            known: s.known,
+            tier: TIERS[s.tier],
+            score: s.score,
+            limit: fromUnits(s.limit),
+            available: fromUnits(s.available),
+            owes: fromUnits(owedTotal(tab)),
+            outstanding: fromUnits(l?.outstanding ?? 0n),
+            record: l ? { loans: l.loans, repaidOnTime: l.repaidOnTime, repaidLate: l.repaidLate, defaults: l.defaults } : null,
+            owed: tab.map(({ address: loan, data: d }) => ({
+              loan,
+              order: d.order,
+              merchantWallet: d.merchant,
+              amount: fromUnits(d.amount),
+              fee: fromUnits(d.fee),
+              owes: fromUnits(paylater.owedOf(d)),
+              dueAt: Number(d.dueAt),
+              status: d.state === paylater.LoanState.Defaulted ? 'in_default' : d.dueAt >= now ? 'on_tab' : 'late',
+            })),
+          },
+          null,
+          2,
+        ),
+      );
+    }
     console.log(`credit   ${short(wallet)}  ${TIERS[s.tier]} ${s.score}${s.known ? '' : '  (no credit file)'}`);
     console.log(`limit ${usdc(s.limit)} · owes ${usdc(owedTotal(tab))} (${usdc(s.line?.outstanding ?? 0n)} of it counts against the limit) · available ${usdc(s.available)}`);
     const l = s.line;
@@ -227,7 +289,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     return;
   }
 
-  const kp = o.kp ?? o.die(`${cmd} needs --keypair`);
+  const kp = o.kp ?? o.usage(`${cmd} needs --keypair`);
 
   if (cmd === 'repay' && o.all) {
     // The tab: buy as many things as the limit allows, then settle every loan in one transaction.
@@ -244,19 +306,9 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     return;
   }
 
-  if (cmd === 'buy-later' && !o.order && a1 && /^https?:\/\//i.test(a1)) {
-    return buyLaterOverHttp(a1, a2, kp);
-  }
+  if (request) return buyLaterOverHttp(request, kp);
 
-  if (cmd === 'buy-later') {
-    // The order is the merchant's quote: the payTo of its 402, opened in your name.
-    const orderAddr = addr(o.order ?? a1, '--order');
-    // buy_now is signed by the buyer and by the order's merchant, so the pool
-    // only funds orders their merchant agreed to. Without the merchant's key
-    // here, the merchant must sign: that is the x402 form.
-    const merchantKp =
-      o.merchantKp ??
-      o.die("buy_now needs the order's merchant's signature as well as yours: pass --merchant-keypair PATH where you hold that key too, or buy over x402 with: tessera buy-later <merchant agent url> <skill> --keypair PATH, and the merchant signs");
+  if (orderAddr && merchantKp) {
     const found = await fetchMaybeOrder(rpc, orderAddr);
     if (!found.exists) o.die(`no escrow order at ${orderAddr}`);
     const d = found.data;
@@ -282,7 +334,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     return sendOrPrint(kp, instructions);
   }
 
-  const loanAddr = addr(a1, '<loan>');
+  const loanAddr = loanArg!;
   const loan = await paylater.fetchMaybeLoan(rpc, loanAddr);
   if (!loan.exists) o.die(`no loan at ${loanAddr}`);
   const d = loan.data;
@@ -299,6 +351,15 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
   console.log(`loan ${short(loanAddr)}  ${STATE[d.state]}  owes ${usdc(owes)} (${usdc(d.amount)} + ${usdc(d.fee)} fee)  ${left >= 0n ? `due in ${left} s: on time` : `${-left} s late`}; closed once repaid, its rent back to ${short(d.buyer)}`);
   return sendOrPrint(kp, await repayAndClose(pool.data.mint, loanAddr, d.buyer, kp));
 
+  /** The x402 form of buy-later, checked before the chain is read: the merchant's URL (its card's own URL is accepted too), the skill and the request. */
+  function httpRequest(merchantUrl: string, skill: string | undefined): { base: string; skill: string; input: object } {
+    if (!skill) o.usage('buy-later <merchant agent url> needs a <skill> (see: tessera help)');
+    const base = o.endpoint(merchantUrl, '<merchant agent url>').replace(/\/\.well-known\/agent-card\.json$/, '').replace(/\/$/, '');
+    const input = o.input ?? {};
+    if (typeof input !== 'object' || input === null || Array.isArray(input)) o.usage('--input must be a JSON object');
+    return { base, skill, input };
+  }
+
   /**
    * The whole purchase over x402, on credit. The merchant's URL is the base
    * its agent card and `/x402/<skill>` hang off (the card's own URL is
@@ -310,11 +371,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
    * The merchant adds its signatures (fee payer, and the order's merchant,
    * which buy_now requires) and sends it.
    */
-  async function buyLaterOverHttp(merchantUrl: string, skill: string | undefined, kp: KeyPairSigner): Promise<void> {
-    if (!skill) o.die('buy-later <merchant agent url> needs a <skill> (see: tessera help)');
-    const base = o.endpoint(merchantUrl, '<merchant agent url>').replace(/\/\.well-known\/agent-card\.json$/, '').replace(/\/$/, '');
-    const input = o.input ?? {};
-    if (typeof input !== 'object' || input === null || Array.isArray(input)) o.die('--input must be a JSON object');
+  async function buyLaterOverHttp({ base, skill, input }: { base: string; skill: string; input: object }, kp: KeyPairSigner): Promise<void> {
     const get = async (url: string, headers: Record<string, string> = {}) => {
       let res: Response;
       try {
@@ -337,7 +394,7 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     // 1. Ask. The 402 names the escrow order and, when the pool is here, the credit option.
     const askUrl = `${base}/x402/${encodeURIComponent(skill)}?buyer=${kp.address}&input=${encodeURIComponent(JSON.stringify(input))}`;
     const first = await get(askUrl);
-    if (first.res.status !== 402) o.die(`expected 402 from ${base}, got ${first.res.status}: ${String(first.body.error ?? '')}`);
+    if (first.res.status !== 402) o.die(`expected 402 from ${base}, got ${first.res.status}: ${scrub(String(first.body.error ?? ''))}`);
     const required = first.body as { accepts?: { scheme: string; asset: string; amount: string; payTo: string; extra: Record<string, unknown> }[]; extensions?: { tessera?: { orderId: string; holdSecs: number } } };
     const option = (required.accepts ?? []).find((a) => a.scheme === paylater.X402_SCHEME);
     if (!option) o.die(`${base} does not offer pay later for ${skill}`);
@@ -345,11 +402,12 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     const amount = BigInt(option.amount);
     const terms = required.extensions?.tessera;
     if (!terms) o.die('the 402 carries no escrow terms');
-    console.log(`402      ${usdc(amount)} into escrow order ${short(option.payTo)}, hold ${terms.holdSecs} s`);
-    console.log(`credit   limit ${usdc(BigInt(offer.buyerLimit))} · owing ${usdc(BigInt(offer.buyerOutstanding))} · fee ${usdc(BigInt(offer.fee))} · due ${offer.termSecs} s after the purchase`);
-    if (!offer.eligible) o.die(`not eligible for pay later: ${offer.reason ?? 'the merchant did not say why'}`);
+    // What the merchant sent is printed scrubbed: an escape code in it could redraw the lines above.
+    console.log(scrub(`402      ${usdc(amount)} into escrow order ${short(String(option.payTo))}, hold ${terms.holdSecs} s`));
+    console.log(scrub(`credit   limit ${usdc(BigInt(offer.buyerLimit))} · owing ${usdc(BigInt(offer.buyerOutstanding))} · fee ${usdc(BigInt(offer.fee))} · due ${offer.termSecs} s after the purchase`));
+    if (!offer.eligible) o.die(`not eligible for pay later: ${scrub(String(offer.reason ?? 'the merchant did not say why'))}`);
     if (amount > advertised) o.die(`refusing: the 402 asks ${usdc(amount)}, more than the ${usdc(advertised)} the card advertises`);
-    if (offer.program !== paylater.TESSERA_PAYLATER_PROGRAM_ADDRESS) o.die(`the merchant names another pay-later program (${offer.program})`);
+    if (offer.program !== paylater.TESSERA_PAYLATER_PROGRAM_ADDRESS) o.die(`the merchant names another pay-later program (${scrub(String(offer.program))})`);
     const feePayer = addr(offer.feePayer, 'the fee payer in the 402');
 
     // 2. The order, from the chain: opened for this wallet by this merchant, for this request, at the address quoted.
@@ -385,16 +443,16 @@ export async function payLater(cmd: string, a1: string | undefined, a2: string |
     const payload = { x402Version: 2, accepted: option, payload: { transaction: built.transaction } };
     console.log(`BUY LATER  signed buy_now for ${short(verified.order)}; the merchant adds its signature, pays the network fee and sends it`);
     const second = await get(askUrl, { 'PAYMENT-SIGNATURE': Buffer.from(JSON.stringify(payload), 'utf8').toString('base64') });
-    if (!second.res.ok) o.die(`the merchant refused (${second.res.status}): ${String(second.body.error ?? 'failed')}${second.body.note ? ` ${String(second.body.note)}` : ''}`);
+    if (!second.res.ok) o.die(`the merchant refused (${second.res.status}): ${scrub(String(second.body.error ?? 'failed'))}${second.body.note ? ` ${scrub(String(second.body.note))}` : ''}`);
     const receipt = second.res.headers.get('PAYMENT-RESPONSE');
     const settled = receipt ? (JSON.parse(Buffer.from(receipt, 'base64').toString('utf8')) as { transaction?: string }) : undefined;
     if (o.json) {
       const l = await paylater.fetchMaybeLoan(rpc, built.loan);
       return void console.log(JSON.stringify({ ...second.body, loan: built.loan, loanAccount: l.exists ? l.data : null, settleTx: settled?.transaction }, (_, v) => (typeof v === 'bigint' ? v.toString() : v), 2));
     }
-    if (settled?.transaction) console.log(`settled  ${settled.transaction}`);
-    console.log(`result   ${JSON.stringify(second.body.result).slice(0, 300)}`);
-    console.log(`escrow   ${JSON.stringify(second.body.escrow)}`);
+    if (settled?.transaction) console.log(`settled  ${scrub(String(settled.transaction))}`);
+    console.log(scrub(`result   ${JSON.stringify(second.body.result).slice(0, 300)}`));
+    console.log(scrub(`escrow   ${JSON.stringify(second.body.escrow)}`));
     const l = await paylater.fetchMaybeLoan(rpc, built.loan);
     if (l.exists) {
       console.log(`loan     ${built.loan}`);

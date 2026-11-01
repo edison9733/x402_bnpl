@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { OrderState, TESSERA_PROGRAM_ADDRESS } from '@tessera/sdk';
+import { Footer } from './Landing';
 import { Feed } from '../components/Feed';
 import { Graph, GraphLegend } from '../components/Graph';
 import { Nav } from '../components/Nav';
@@ -31,11 +32,14 @@ export function Network() {
   return (
     <div className="night gridded" style={{ minHeight: '100dvh' }}>
       <Nav dark />
-      <div className="wrap" style={{ width: 'min(1480px, 100% - 2rem)' }}>
+      <div className="wrap">
         <div className="flex flex-wrap items-end justify-between gap-6 pb-5 pt-6">
           <div>
             <div className="eyebrow" style={{ color: '#86918B' }}>
-              {NETWORK_LABEL} · program <a className="link" href={explorerAddress(TESSERA_PROGRAM_ADDRESS)} target="_blank" rel="noreferrer">{short(TESSERA_PROGRAM_ADDRESS)}</a>
+              {NETWORK_LABEL} · program{' '}
+              <a className="mono link" style={{ textTransform: 'none', letterSpacing: 0 }} href={explorerAddress(TESSERA_PROGRAM_ADDRESS)} target="_blank" rel="noreferrer">
+                {short(TESSERA_PROGRAM_ADDRESS)}
+              </a>
             </div>
             <h1 className="display mt-2 text-[clamp(2.2rem,4.4vw,3.6rem)]" style={{ color: '#E8EDE9' }}>
               The network, <em>as the chain sees it.</em>
@@ -58,22 +62,25 @@ export function Network() {
             ))}
           </div>
         </div>
+      </div>
 
+      <div className="wrap" style={{ width: 'min(1480px, 100% - 2.5rem)' }}>
         <div className="grid gap-4 pb-10 lg:grid-cols-[1fr_380px]">
           <div className="card-night" style={{ position: 'relative', overflow: 'hidden' }}>
             {status === 'error' && (
               <div className="mono p-6 text-[0.85rem]" style={{ color: '#ec835a' }}>
-                Could not reach Solana devnet: {error}. The public RPC rate-limits; this page retries every few seconds.
+                Could not reach Solana devnet: {error}. The public RPC limits requests. This page retries every few seconds.
               </div>
             )}
-            <Graph profiles={profiles} pairs={pairs} orders={orders} feed={feed} height="min(72dvh, 760px)" onPick={(w) => setPicked((p) => (p === w ? null : w))} selected={picked} />
-            <div style={{ position: 'absolute', left: 18, bottom: 14, right: 18 }}>
-              <GraphLegend />
-            </div>
-            <div className="mono" style={{ position: 'absolute', right: 18, top: 14, fontSize: '0.7rem', color: '#86918B', textAlign: 'right' }}>
+            {/* caption and legend sit outside the canvas, so they never cover a node */}
+            <div className="mono" style={{ padding: '14px 18px 0', fontSize: '0.7rem', color: '#86918B', textAlign: 'right' }}>
               node size = settled volume · click a node
               <br />
               every node, edge and coin is an account you can open in Explorer
+            </div>
+            <Graph profiles={profiles} pairs={pairs} orders={orders} feed={feed} height="min(72dvh, 760px)" onPick={(w) => setPicked((p) => (p === w ? null : w))} selected={picked} />
+            <div style={{ padding: '10px 18px 14px' }}>
+              <GraphLegend />
             </div>
           </div>
 
@@ -115,7 +122,7 @@ export function Network() {
                     {[3, 2, 1, 0].map((t) => {
                       const n = profiles.filter((p) => p.eval.tier === t).length;
                       return (
-                        <div key={t} className="grid items-center gap-3" style={{ gridTemplateColumns: '7.5rem 1fr 4.5rem' }}>
+                        <div key={t} className="grid items-center gap-3" style={{ gridTemplateColumns: '7.5rem 1fr 6rem' }}>
                           <TierBadge tier={t} dark />
                           <span style={{ height: 6, borderRadius: 6, background: '#1A211E', overflow: 'hidden' }}>
                             <motion.span
@@ -124,7 +131,7 @@ export function Network() {
                               transition={{ duration: 0.8, ease: EASE }}
                             />
                           </span>
-                          <span className="mono text-right text-[0.74rem]" style={{ color: '#86918B' }}>
+                          <span className="mono whitespace-nowrap text-right text-[0.74rem]" style={{ color: '#86918B' }}>
                             {n} · {params ? duration(params.holdSecs[t]!) : ''}
                           </span>
                         </div>
@@ -132,8 +139,8 @@ export function Network() {
                     })}
                   </div>
                   <p className="mt-4 text-[0.82rem] leading-relaxed" style={{ color: '#86918B' }}>
-                    The hold on an order is the longer of the two parties' holds. {tierName(0)} wallets wait {params ? duration(params.holdSecs[0]!) : ''};
-                    two {tierName(3)} wallets settle in the same transaction as delivery.
+                    The hold on an order is the longer of the two parties' holds.
+                    {params && ` ${tierName(0)} wallets wait ${duration(params.holdSecs[0]!)}. Two ${tierName(3)} wallets settle in the same transaction as delivery.`}
                   </p>
                 </div>
               )}
@@ -150,11 +157,14 @@ export function Network() {
             </div>
           </div>
         </div>
+      </div>
+      <div className="wrap">
         <p className="mono pb-10 text-[0.72rem] leading-relaxed" style={{ color: '#86918B', maxWidth: 900 }}>
           This is a demo network on devnet. The traffic is generated by this project's own agents with recycled test USDC, and time is compressed
-          (one period is {params?.periodSecs ?? 60} seconds here; the target for mainnet is one day). What is real: every account, every transaction, and every score, which this page recomputes in your browser from the accounts themselves.
+          (one period is {params?.periodSecs ?? 60} seconds here, and the mainnet target is one day). What is real: every account, every transaction, and every score, which this page recomputes in your browser from the accounts themselves.
         </p>
       </div>
+      <Footer />
     </div>
   );
 }

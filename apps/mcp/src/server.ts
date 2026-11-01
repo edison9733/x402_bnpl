@@ -263,7 +263,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (allowedHosts.length) app.use(hostHeaderValidation(allowedHosts));
   else if (['127.0.0.1', 'localhost', '::1'].includes(host)) app.use(localhostHostValidation());
   else console.warn(`Warning: serving ${host} without ALLOWED_HOSTS, so with no DNS-rebinding protection.`);
-  app.use(express.json({ limit: '64kb' }));
+  app.use(express.json({ limit: '64kb', inflate: false }));
   const limited = limiter();
   const rpcError = (code: number, message: string) => ({ jsonrpc: '2.0', error: { code, message }, id: null });
 
@@ -274,7 +274,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const messages = Array.isArray(req.body) ? req.body.length : 1;
     if (messages > MAX_BATCH) return void res.status(400).json(rpcError(-32600, `A batch may hold at most ${MAX_BATCH} messages.`));
     const wait = limited(client, Math.max(1, messages));
-    if (wait !== null) return void res.status(429).set('retry-after', String(wait)).json(rpcError(-32000, `Too many requests; try again in ${wait} s.`));
+    if (wait !== null) return void res.status(429).set('retry-after', String(wait)).json(rpcError(-32000, `Too many requests. Try again in ${wait} s.`));
     const server = buildServer(client);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on('close', () => {

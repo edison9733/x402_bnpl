@@ -6,6 +6,7 @@ export * from './approve.js';
 export * from './chain.js';
 export * from './generated/index.js';
 export * as score from './score.js';
+export * as simulate from './simulate.js';
 export * as model from './model.js';
 export * as attacks from './attacks.js';
 export type { Evaluation, ScoreAgent, FarmingCost } from './score.js';

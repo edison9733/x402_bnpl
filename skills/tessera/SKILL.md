@@ -47,7 +47,10 @@ A `status` other than `ok` is never "fine by default":
 - `unknown_merchant`: nobody has ever settled an order with this wallet. The decision is `escrow` with
   the longest hold. Treat it as a stranger.
 - `unknown_wallet` (from `get_score`): the wallet has no credit file. Score 0, tier New.
-- `no_match` (from `find_merchants`): no merchant offers that need (at that price). Not an error.
+- `no_match` (from `find_merchants`): no merchant offers that need (at that price). Not an error. If its
+  `message` says some merchant cards did not answer in time, the hosted agents are waking: try again in a
+  minute.
+- `rate_limited` and `rpc_unavailable`: wait (the `Retry-After` header, or about a minute) and try again.
 - Anything else with an HTTP error: the request was refused. Read `message`, fix the input, or stop.
   Do not retry the same call unchanged.
 
@@ -138,7 +141,8 @@ RPC (`--rpc`), and refuses anything else.
 
 ## The four doors
 
-All four call the same API and return the same statuses.
+All four share one contract and return the same statuses. MCP and the CLI's escrow commands call the API.
+Some CLI commands read the chain themselves (see **CLI** below).
 
 **MCP** (Streamable HTTP). Tools: `find_merchants`, `get_score`, `check_payment`, `open_escrow`, `deliver_order`,
 `get_escrow`, `release_escrow`, `reclaim_after_timeout`, `report_outcome`, `submit_transaction`.
@@ -163,7 +167,9 @@ curl -s localhost:4030/v1/check -H 'content-type: application/json' \
   "message": "Pay into escrow. The money is held 120 s after delivery because the buyer is New; …" }
 ```
 
-**CLI**. Every command calls the API; `--keypair` signs locally after the checks above.
+**CLI**. The escrow commands (`find`, `check`, `open`, `deliver`, `escrow`, `release`, `reclaim`, `report`,
+`submit`) call the API. `score`, `credit`, `merchants`, `tab`, `settle`, `buy-later`, `repay`, `mark-default`, `ask` and
+`collect` read the chain themselves, so they work without `npm run api`. `--keypair` signs locally after the checks above.
 
 ```bash
 npm run tessera -- find text summary --sort fastest --buyer <address>

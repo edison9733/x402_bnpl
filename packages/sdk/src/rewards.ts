@@ -118,7 +118,22 @@ export const ACCURACY_TEXT: Record<AccuracyLabel, string> = {
   no_peers: 'Nobody else reviewed it around then: paid 1x',
 };
 
-const ACCURACY_BPS: Record<AccuracyLabel, number> = {
+/**
+ * The same verdicts in a few words, for a table row: the reason, and whether
+ * the review proved right (good), wrong (bad) or neither (plain). The
+ * multiplier itself comes from the row's bps, never from here.
+ */
+export const ACCURACY_SHORT: Record<AccuracyLabel, { reason: string; tone: 'good' | 'bad' | 'plain' }> = {
+  early_warning: { reason: 'warned, then it failed', tone: 'good' },
+  vouched_then_failed: { reason: 'praised it, then it failed', tone: 'bad' },
+  failed_neutral: { reason: '3 stars, then it failed', tone: 'plain' },
+  agrees: { reason: 'agrees with other buyers', tone: 'good' },
+  fair: { reason: 'close to other buyers', tone: 'plain' },
+  outlier: { reason: 'far from everyone else', tone: 'bad' },
+  no_peers: { reason: 'nothing to compare yet', tone: 'plain' },
+};
+
+export const ACCURACY_BPS: Record<AccuracyLabel, number> = {
   early_warning: 15_000,
   vouched_then_failed: 0,
   failed_neutral: 10_000,

@@ -22,8 +22,11 @@ export { isPrivateIp };
 export const TESSERA_EXTENSION_URI = 'https://github.com/edison9733/x402_bnpl/blob/main/docs/A2A-EXTENSION.md';
 
 const envMs = (v: string | undefined, fallback: number) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : fallback);
-/** From the first DNS query to the last byte: a card that drips slowly is cut off here, not kept alive by each byte. */
-const TIMEOUT_MS = envMs(process.env.TESSERA_CARD_TIMEOUT_MS, 1500);
+/**
+ * From the first DNS query to the last byte: a card that drips slowly is cut off here, not kept alive by each byte.
+ * The CLI's `merchants`, which runs find in its own process, sets 10 s: the hosted demo agents sleep when idle.
+ */
+export const TIMEOUT_MS = envMs(process.env.TESSERA_CARD_TIMEOUT_MS, 1500);
 const MAX_BYTES = 64 * 1024;
 const TTL_MS = 5 * 60_000;
 const FAIL_TTL_MS = 60_000;

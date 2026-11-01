@@ -6,12 +6,12 @@
   <p class="mono grey" style="font-size: 22px; margin: 18px 0 0;">Edison Liu · Computer Engineering, ZJU-UIUC Institute</p>
 </section>
 
-<section data-document-role="page" data-label="Hook" data-speaker-notes="AI agents now pay each other with x402, the payment protocol from Coinbase: about two hundred million payments so far, and on one recent day, the average was seven cents.">
+<section data-document-role="page" data-label="Hook" data-speaker-notes="AI agents now pay each other with x402, the payment protocol from Coinbase: about two hundred million payments by August, and on the fifth of October, the average was seven cents.">
   <p class="kicker">x402, the payment protocol from Coinbase</p>
   <h1 style="font-size: 96px; max-width: 16ch;">AI agents now <em>pay each other.</em></h1>
   <div class="row" style="gap: 96px; margin-top: 84px;">
-    <div><div class="display mint" style="font-size: 150px;">≈<span data-count="200">200</span>M</div><p style="font-size: 26px; margin: 14px 0 0;">x402 payments so far</p></div>
-    <div><div class="display white" style="font-size: 150px;">7¢</div><p style="font-size: 26px; margin: 14px 0 0;">average payment on one recent day</p></div>
+    <div><div class="display mint" style="font-size: 150px;">≈<span data-count="200">200</span>M</div><p style="font-size: 26px; margin: 14px 0 0;">x402 payments by Aug 2026</p></div>
+    <div><div class="display white" style="font-size: 150px;">7¢</div><p style="font-size: 26px; margin: 14px 0 0;">average payment on 5 Oct 2026</p></div>
   </div>
   <p class="source">Solana Foundation, 5 Aug 2026: “roughly 200 million transactions … Most transactions are under 50 cents.” x402scan.com, 24 h to 5 Oct 2026: 118,341 payments, $8.01K.</p>
 </section>
@@ -21,11 +21,11 @@
   <h1 style="font-size: 92px; max-width: 24ch;">One person, unlimited agents. <em>No ID.</em></h1>
   <p style="font-size: 34px; max-width: 40ch; margin: 36px 0 0; line-height: 1.3;">And an x402 payment is final once it settles. No chargeback.</p>
   <div class="row" style="gap: 22px; margin-top: 56px;">
-    <span class="mono mint" style="font-size: 26px; padding: 14px 26px; border-radius: 999px; border: 1.5px solid #b9f8da;">Behaviour</span>
-    <span class="mono mint" style="font-size: 26px; padding: 14px 26px; border-radius: 999px; border: 1.5px solid #b9f8da;">Amounts settled</span>
-    <span class="mono mint" style="font-size: 26px; padding: 14px 26px; border-radius: 999px; border: 1.5px solid #b9f8da;">Ratings</span>
+    <span class="mono mint" style="font-size: 26px; padding: 14px 26px; border-radius: 999px; border: 1.5px solid #5EE6AB;">Behaviour</span>
+    <span class="mono mint" style="font-size: 26px; padding: 14px 26px; border-radius: 999px; border: 1.5px solid #5EE6AB;">Amounts settled</span>
+    <span class="mono mint" style="font-size: 26px; padding: 14px 26px; border-radius: 999px; border: 1.5px solid #5EE6AB;">Ratings</span>
   </div>
-  <p style="font-size: 30px; margin: 44px 0 0; color: #b9f8da;">Fix 1: a credit layer that labels each anonymous agent by how it behaves.</p>
+  <p style="font-size: 30px; margin: 44px 0 0; color: #5EE6AB;">Fix 1: a credit layer that labels each anonymous agent by how it behaves.</p>
   <p class="source">Creating a Solana wallet needs no identity and costs nothing beyond fees. An x402 <span class="mono">exact</span> payment is a signed token transfer with no chargeback.</p>
 </section>
 
@@ -34,11 +34,11 @@
   <div class="row" style="gap: 26px; margin-top: 10px; align-items: stretch;">
     <div class="card" style="flex: 1; padding: 30px 30px 34px;"><h3 style="font-size: 46px;">Sybil</h3><p style="font-size: 26px; margin-top: 16px;">One person, many wallets.</p></div>
     <div class="card" style="flex: 1; padding: 30px 30px 34px;"><h3 style="font-size: 46px;">Friendly fraud</h3><p style="font-size: 26px; margin-top: 16px;">Got the goods, claims they never came.</p></div>
-    <div class="card" style="flex: 1; padding: 30px 30px 34px; border-color: #f2b8a8;"><h3 style="font-size: 46px;">Reputation farming</h3><p style="font-size: 26px; margin-top: 16px;">Trade with yourself until you look trusted, then cash in on strangers.</p></div>
+    <div class="card" style="flex: 1; padding: 30px 30px 34px; border-color: rgba(245,190,85,.45);"><h3 style="font-size: 46px;">Reputation farming</h3><p style="font-size: 26px; margin-top: 16px;">Trade with yourself until you look trusted, then cash in on strangers.</p></div>
   </div>
   <h1 style="font-size: 70px; max-width: 32ch; margin-top: 48px;">Fix 2: escrow, <em>until the wallet has earned trust.</em></h1>
   <p style="font-size: 30px; max-width: 52ch; margin: 28px 0 0;">Faking a record now costs real fees, and months you can't skip.</p>
-  <p class="source">Mainnet targets: a new wallet counts 10%, each counterparty is capped, Trusted needs 30 active days; a farming ring costs hundreds to a few thousand dollars and one to three months. Priced, not impossible (docs/SECURITY.md).</p>
+  <p class="source">Mainnet targets: a new wallet counts 10%, each counterparty is capped, Trusted needs 30 active days. A farming ring costs hundreds to a few thousand dollars and one to three months. Priced, not impossible (docs/SECURITY.md).</p>
 </section>
 
 <section data-document-role="page" data-label="What Tessera does" data-speaker-notes="And the escrow knows who it is dealing with. At our mainnet target, a fresh wallet&#x27;s money waits three days. Two Trusted agents settle instantly.">
@@ -46,10 +46,10 @@
   <h1 style="font-size: 84px; max-width: 19ch;">Escrow that knows <em>who it is dealing with.</em></h1>
   <p style="font-size: 30px; margin: 30px 0 0;">Every wallet has an on-chain score, built from settled orders, ratings and behaviour.</p>
   <div class="col" style="margin-top: 40px;">
-    <div class="card" style="display: flex; align-items: center; gap: 28px;"><span style="width: 230px; color: #f1eee2; font-size: 22px;">○○○○ &nbsp;New</span><span class="track" style="--t: 6.5s;"><b style="background: #4b5a46;"></b></span><span class="display white" style="font-size: 44px; width: 270px; text-align: right;">3 d <span class="mono grey" style="font-size: 14px;">hold</span></span></div>
-    <div class="card" style="display: flex; align-items: center; gap: 28px;"><span style="width: 230px; color: #f1eee2; font-size: 22px;">●○○○ &nbsp;Building</span><span class="track" style="--t: 3.6s;"><b style="background: #5f8c6e;"></b></span><span class="display white" style="font-size: 44px; width: 270px; text-align: right;">24 h <span class="mono grey" style="font-size: 14px;">hold</span></span></div>
-    <div class="card" style="display: flex; align-items: center; gap: 28px;"><span style="width: 230px; color: #f1eee2; font-size: 22px;">●●●○ &nbsp;Established</span><span class="track" style="--t: 1.8s;"><b style="background: #7cc79c;"></b></span><span class="display white" style="font-size: 44px; width: 270px; text-align: right;">60 min <span class="mono grey" style="font-size: 14px;">hold</span></span></div>
-    <div class="card on" style="display: flex; align-items: center; gap: 28px;"><span style="width: 230px; color: #b9f8da; font-size: 22px;">●●●● &nbsp;Trusted</span><span class="track" style="--t: 0.9s;"><b style="background: #b9f8da;"></b></span><span class="display mint" style="font-size: 44px; width: 270px; text-align: right;">instant</span></div>
+    <div class="card" style="display: flex; align-items: center; gap: 28px;"><span style="width: 230px; color: #E8EDE9; font-size: 22px;">●○○○ &nbsp;New</span><span class="track" style="--t: 6.5s;"><b style="background: #35705a;"></b></span><span class="display white" style="font-size: 44px; width: 270px; text-align: right;">3 days <span class="mono grey" style="font-size: 14px;">hold</span></span></div>
+    <div class="card" style="display: flex; align-items: center; gap: 28px;"><span style="width: 230px; color: #E8EDE9; font-size: 22px;">●●○○ &nbsp;Building</span><span class="track" style="--t: 3.6s;"><b style="background: #2f9e73;"></b></span><span class="display white" style="font-size: 44px; width: 270px; text-align: right;">24 h <span class="mono grey" style="font-size: 14px;">hold</span></span></div>
+    <div class="card" style="display: flex; align-items: center; gap: 28px;"><span style="width: 230px; color: #E8EDE9; font-size: 22px;">●●●○ &nbsp;Established</span><span class="track" style="--t: 1.8s;"><b style="background: #4fd19a;"></b></span><span class="display white" style="font-size: 44px; width: 270px; text-align: right;">60 min <span class="mono grey" style="font-size: 14px;">hold</span></span></div>
+    <div class="card on" style="display: flex; align-items: center; gap: 28px;"><span style="width: 230px; color: #5EE6AB; font-size: 22px;">●●●● &nbsp;Trusted</span><span class="track" style="--t: 0.9s;"><b style="background: #5EE6AB;"></b></span><span class="display mint" style="font-size: 44px; width: 270px; text-align: right;">instant</span></div>
   </div>
   <p class="source">Mainnet target holds. On devnet the same four tiers hold for 2 min, 45 s, 10 s and 0.</p>
 </section>
@@ -58,15 +58,15 @@
   <p class="kicker">Nothing new to adopt</p>
   <h1 style="font-size: 88px; max-width: 18ch;">One field changes: <em>where payTo points.</em></h1>
   <div class="card" style="margin-top: 54px; padding: 34px 40px; border-radius: 22px;">
-<pre style="font-size: 27px; line-height: 1.7; color: #c9c6b6;">HTTP/1.1 402 Payment Required
+<pre style="font-size: 27px; line-height: 1.7; color: #C9D2CC;">HTTP/1.1 402 Payment Required
 {
   "scheme":  "exact",
   "network": "solana:EtWTRABZ…",     // devnet
   "amount":  "200000",
-  "payTo":   <span class="mint">"JE6F5J7i…WdUW"</span>     <span style="color: #5d5c52;">// an escrow account, not the merchant</span>
+  "payTo":   <span class="mint">"JE6F5J7i…WdUW"</span>     <span style="color: #6B7771;">// an escrow account, not the merchant</span>
 }</pre>
   </div>
-  <div class="row" style="gap: 44px; margin-top: 44px; font-size: 25px; color: #f1eee2;"><span>A2A to ask</span><span>x402 to pay</span><span>a facilitator settles</span><span>a Solana program holds</span></div>
+  <div class="row" style="gap: 44px; margin-top: 44px; font-size: 25px; color: #E8EDE9;"><span>A2A to ask</span><span>x402 to pay</span><span>a facilitator settles</span><span>a Solana program holds</span></div>
   <p class="source">A real order from this project on devnet, on the version 1 escrow. The x402 <span class="mono">exact</span> scheme derives the token account from payTo, so an escrow account is a valid payTo.</p>
 </section>
 
@@ -77,8 +77,8 @@
     <div class="col" style="flex: 1.25; gap: 10px;">
       <div class="mono" style="font-size: 19px;">Three buyers reviewed Glib. Then Glib took an order and never delivered.</div>
       <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">Scout</span> <span class="gold" style="font-size: 24px;">★★★★★</span><div class="mono warn" style="font-size: 16px;">0× · praised it, then it failed</div></div><span class="display grey" style="font-size: 40px;">$0.00</span></div>
-      <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">Nova</span> <span class="gold" style="font-size: 24px;">★★★★</span><span style="font-size: 24px; color: #3a3f33;">★</span><div class="mono warn" style="font-size: 16px;">0× · praised it, then it failed</div></div><span class="display grey" style="font-size: 40px;">$0.00</span></div>
-      <div class="card on" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">Orbit</span> <span class="gold" style="font-size: 24px;">★★</span><span style="font-size: 24px; color: #3a3f33;">★★★</span><div class="mono mint" style="font-size: 16px;">1.5× · warned, then it failed</div></div><span class="display mint" style="font-size: 40px;">$0.045</span></div>
+      <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">Nova</span> <span class="gold" style="font-size: 24px;">★★★★</span><span style="font-size: 24px; color: #3A4741;">★</span><div class="mono warn" style="font-size: 16px;">0× · praised it, then it failed</div></div><span class="display grey" style="font-size: 40px;">$0.00</span></div>
+      <div class="card on" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">Orbit</span> <span class="gold" style="font-size: 24px;">★★</span><span style="font-size: 24px; color: #3A4741;">★★★</span><div class="mono mint" style="font-size: 16px;">1.5× · warned, then it failed</div></div><span class="display mint" style="font-size: 40px;">$0.045</span></div>
       <div class="mono" style="font-size: 17px; margin-top: 4px;">Paid on chain: <span class="mint">0.169 USDC of 1.25 USDC in fees</span>, to 6 reviews</div>
     </div>
     <div class="col" style="flex: 1;">
@@ -95,7 +95,7 @@
   <h1 style="font-size: 78px; max-width: 22ch;">Buy now, pay later. <em>Still through escrow.</em></h1>
   <div class="row" style="gap: 52px; margin-top: 36px;">
     <div class="col" style="flex: 1.25; gap: 10px;">
-      <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">The merchant quotes</span><div class="mono grey" style="font-size: 16px;">opens an escrow order; its 402 names it as payTo</div></div><span class="display white" style="font-size: 40px;">0.20</span></div>
+      <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">The merchant quotes</span><div class="mono grey" style="font-size: 16px;">opens an escrow order. Its 402 names it as payTo</div></div><span class="display white" style="font-size: 40px;">0.20</span></div>
       <div class="card on" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">The pool pays the order</span><div class="mono mint" style="font-size: 16px;">buy_now: into the escrow vault, never to the merchant</div></div><span class="display mint" style="font-size: 40px;">0.20</span></div>
       <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">The escrow pays the merchant</span><div class="mono grey" style="font-size: 16px;">after delivery and the hold, minus its 1% fee</div></div><span class="display white" style="font-size: 40px;">0.198</span></div>
       <div class="card" style="display: flex; align-items: center; padding: 14px 22px;"><div style="flex: 1;"><span class="display white" style="font-size: 32px;">The buyer repays the pool</span><div class="mono grey" style="font-size: 16px;">the price plus 2%, by the due date</div></div><span class="display white" style="font-size: 40px;">0.204</span></div>
@@ -107,16 +107,16 @@
       <div class="card"><h3>Or default, in public</h3><p>Anyone can mark a late loan. The line freezes at zero for good.</p></div>
     </div>
   </div>
-  <p class="source">New in 2.0. buy_now (programs/tessera-paylater) pays the order&#x27;s vault and has the escrow confirm it in the same instruction; the escrow program is unchanged. Fees: the escrow&#x27;s 1%, the pool&#x27;s 2%. Tested by npm run test:paylater.</p>
+  <p class="source">New in 2.0. buy_now (programs/tessera-paylater) pays the order&#x27;s vault and has the escrow confirm it in the same instruction. The escrow program is unchanged. Fees: the escrow&#x27;s 1%, the pool&#x27;s 2%. Tested by npm run test:paylater.</p>
 </section>
 
 <section data-document-role="page" data-label="Over x402" data-speaker-notes="How does an agent ask for credit? Through x402 itself. The merchant&#x27;s 402 keeps the standard exact option first, and adds a second one, tessera-paylater: the same order, the same price, and the buyer&#x27;s live limit. The buyer signs one buy_now, which carries the price it agreed to. The merchant checks it, signs it too, pays the network fee, sends it, and delivers: it settles this option itself. A standard x402 client takes the first option and never sees a difference.">
   <p class="kicker">x402 · a second way to pay, in the same 402</p>
   <h1 style="font-size: 80px; max-width: 30ch;">The 402 also offers <em style="white-space: nowrap;">tessera-paylater.</em></h1>
   <div class="card" style="margin-top: 40px; padding: 30px 38px; border-radius: 22px;">
-<pre style="font-size: 23px; line-height: 1.6; color: #c9c6b6;">HTTP/1.1 402 Payment Required
+<pre style="font-size: 23px; line-height: 1.6; color: #C9D2CC;">HTTP/1.1 402 Payment Required
 "accepts": [
-  { "scheme": "exact",            "payTo": "&lt;order&gt;", "amount": "200000" },   <span style="color: #5d5c52;">// any x402 client</span>
+  { "scheme": "exact",            "payTo": "&lt;order&gt;", "amount": "200000" },   <span style="color: #6B7771;">// any x402 client</span>
   { "scheme": <span class="mint">"tessera-paylater"</span>, "payTo": "&lt;order&gt;", "amount": "200000",
     "extra": { "feePayer": "&lt;merchant&gt;", "buyerLimit": "602000",
                "fee": "4000", "termSecs": 600, "eligible": true } }
@@ -127,39 +127,39 @@
     <div class="card" style="flex: 1;"><h3>2 · The merchant settles it</h3><p>It checks the transaction and the order, signs as fee payer and as the order&#x27;s merchant, simulates it and sends it.</p></div>
     <div class="card on" style="flex: 1;"><h3>3 · Then it delivers</h3><p>The pool has paid the vault and the escrow has confirmed it, in one instruction.</p></div>
   </div>
-  <p class="source">Standard x402 clients are unaffected: the exact entries come first and pay as before. Shape from apps/agents/src/paylater.ts; buyerLimit is 2 USDC × 301 ÷ 1000, a Building buyer at score 301 on the devnet pool. Tested over HTTP, the CLI and A2A: npm run test:paylater-402.</p>
+  <p class="source">Standard x402 clients are unaffected: the exact entries come first and pay as before. Shape from apps/agents/src/paylater.ts. buyerLimit is 2 USDC × 301 ÷ 1000, a Building buyer at score 301 on the devnet pool. Tested over HTTP, the CLI and A2A: npm run test:paylater-402.</p>
 </section>
 
-<section data-document-role="page" data-label="Live on Solana devnet" data-speaker-notes="All of it is live on Solana devnet: the escrow program, deployed on 28 October at a new address with the audit fixes, and the new pay-later program next to it, with a pool funded with devnet USDC. Anyone can read these accounts.">
+<section data-document-role="page" data-label="Live on Solana devnet" data-speaker-notes="All of it is live on Solana devnet: the escrow program, deployed on 28 October at a new address with the fixes from our internal reviews, and the new pay-later program next to it, with a pool funded with devnet USDC. Anyone can read these accounts.">
   <p class="kicker">Live on Solana devnet</p>
   <h1 style="font-size: 84px; max-width: 22ch;">Two programs and a pool, <em>on devnet.</em></h1>
   <div class="col" style="gap: 0; margin-top: 44px;">
-    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Escrow program</span><span class="mono mint" style="font-size: 23px; width: 760px;">tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry</span><span class="grey" style="font-size: 22px;">deployed 28 Oct, with the audit fixes</span></div>
-    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pay-later program</span><span class="mono mint" style="font-size: 23px; width: 760px;">LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D</span><span class="grey" style="font-size: 22px;">new in 2.0 · upgraded 28 Oct</span></div>
-    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pool</span><span class="mono mint" style="font-size: 23px; width: 760px;">GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq</span><span class="grey" style="font-size: 22px;">funded with 8 devnet USDC</span></div>
-    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">Pool vault</span><span class="mono" style="font-size: 23px; width: 760px;">DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV</span><span class="grey" style="font-size: 22px;">the pool&#x27;s USDC</span></div>
-    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #272b21; border-bottom: 1px solid #272b21; font-size: 26px;"><span class="white" style="width: 300px;">USDC (devnet)</span><span class="mono" style="font-size: 23px; width: 760px;">4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU</span><span class="grey" style="font-size: 22px;">Circle&#x27;s devnet mint</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #232C28; font-size: 26px;"><span class="white" style="width: 300px;">Escrow program</span><span class="mono mint" style="font-size: 23px; width: 760px;">tESs6b4JFTWoNnELMa4KSxPuJDSRaLAtCSUr8BGY6ry</span><span class="grey" style="font-size: 22px;">deployed 28 Oct, with the review fixes</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #232C28; font-size: 26px;"><span class="white" style="width: 300px;">Pay-later program</span><span class="mono mint" style="font-size: 23px; width: 760px;">LXNPYNYcjv1G3HEJzurFrnj11NGnriy5xxqKSeTQU7D</span><span class="grey" style="font-size: 22px;">new in 2.0 · upgraded 28 Oct</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #232C28; font-size: 26px;"><span class="white" style="width: 300px;">Pool</span><span class="mono mint" style="font-size: 23px; width: 760px;">GNf8LpVeJ6ayrVMqABpU1nAHW9ZX7upC2aGqcumWF5Qq</span><span class="grey" style="font-size: 22px;">funded with 8 devnet USDC</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #232C28; font-size: 26px;"><span class="white" style="width: 300px;">Pool vault</span><span class="mono" style="font-size: 23px; width: 760px;">DK9angk2VJ43sUaUgJB9wpvDmjh4zroVj8zC2UYTXsgV</span><span class="grey" style="font-size: 22px;">the pool&#x27;s USDC</span></div>
+    <div style="display: flex; align-items: baseline; padding: 16px 0; border-top: 1px solid #232C28; border-bottom: 1px solid #232C28; font-size: 26px;"><span class="white" style="width: 300px;">USDC (devnet)</span><span class="mono" style="font-size: 23px; width: 760px;">4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU</span><span class="grey" style="font-size: 22px;">Circle&#x27;s devnet mint</span></div>
   </div>
   <p class="mono" style="font-size: 22px; margin: 36px 0 0;">Pool rules: limits <span class="white">0 / 2 / 5 / 10 USDC</span> by tier · fee <span class="white">2%</span> · term <span class="white">600 s</span> + 60 s grace · merchants at Building or above</p>
-  <p class="source">Read on chain on 28 Oct 2026 (getAccountInfo). Open any of them at explorer.solana.com/address/&lt;address&gt;?cluster=devnet. Time is compressed on devnet, so a whole loan can be watched in about ten minutes. The version 1 escrow, TessSeP5…1CQ, lost its keys and is retired; its accounts stay as history.</p>
+  <p class="source">Read on chain on 28 Oct 2026 (getAccountInfo). Open any of them at explorer.solana.com/address/&lt;address&gt;?cluster=devnet. Time is compressed on devnet, so a whole loan can be watched in about ten minutes. The version 1 escrow, TessSeP5…1CQ, lost its keys and is retired. Its accounts stay as history.</p>
 </section>
 
 <section data-document-role="page" data-label="Honest limits" data-speaker-notes="And what it is not, yet. It is devnet, with test money and our own agents. The pool has one authority key. Nothing is audited. And if the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed: the buyer repays out of the refund, or defaults. And a dispute on devnet is decided by one arbiter key, which we hold.">
   <p class="kicker">Honest limits</p>
   <h1 style="font-size: 84px; max-width: 20ch;">What it is not, <em>yet.</em></h1>
   <div class="col" style="gap: 0; margin-top: 44px; max-width: 1500px;">
-    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">Devnet test money.</span> Circle&#x27;s devnet USDC, and the traffic is this project&#x27;s own agents.</span></div>
-    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">One pool authority key.</span> One lender, one pool: that key alone sets the rules and withdraws.</span></div>
-    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">Unaudited.</span> Both programs have had internal reviews only.</span></div>
-    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A refund goes to the buyer, and the loan stays owed.</span> The buyer repays out of the refund, or defaults.</span></div>
-    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A default freezes the line, not the score.</span> The escrow program does not know about loans.</span></div>
-    <div style="display: flex; padding: 20px 0; border-top: 1px solid #272b21; border-bottom: 1px solid #272b21; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">One arbiter key.</span> A dispute on devnet is decided by one key, which we hold.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #232C28; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">Devnet test money.</span> Circle&#x27;s devnet USDC, and the traffic is this project&#x27;s own agents.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #232C28; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">One pool authority key.</span> One lender, one pool: that key alone sets the rules and withdraws.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #232C28; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">Unaudited.</span> Both programs have had internal reviews only.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #232C28; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A refund goes to the buyer, and the loan stays owed.</span> The buyer repays out of the refund, or defaults.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #232C28; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">A default freezes the line, not the score.</span> The escrow program does not know about loans.</span></div>
+    <div style="display: flex; padding: 20px 0; border-top: 1px solid #232C28; border-bottom: 1px solid #232C28; font-size: 30px; line-height: 1.35;"><span class="warn" style="width: 46px; flex: none;">○</span><span><span class="white">One arbiter key.</span> A dispute on devnet is decided by one key, which we hold.</span></div>
   </div>
   <p class="source">docs/PAYLATER.md, &quot;Limits&quot;, and README, &quot;What is real and what is not&quot;.</p>
 </section>
 
 <section class="center" data-document-role="page" data-label="Close" data-speaker-notes="Why me? Every x402 payment already leaves a public record on the chain. My idea is to use that data to lower the risk of being scammed in agentic commerce. Without it, a payment is just a payment, and the data goes to waste. Micropayments were the easy part. Every payment matters. This is Tessera.">
-  <h1 style="font-size: 70px; color: #8b8a7c; max-width: 20ch;">Micropayments were the easy part.</h1>
+  <h1 style="font-size: 70px; color: #86918B; max-width: 20ch;">Micropayments were the easy part.</h1>
   <h1 style="font-size: 150px; max-width: 12ch; margin-top: 20px;">Every payment <em class="mint">matters.</em></h1>
   <div class="row" style="gap: 16px; margin-top: 56px; align-items: center;">
     {{logo:40}}

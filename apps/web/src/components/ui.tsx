@@ -17,17 +17,6 @@ export function Mark({ size }: { size: number }) {
   );
 }
 
-export function Logo({ size = 26, invert = false }: { size?: number; invert?: boolean }) {
-  // Two halves of one token: the tessera a Roman host and guest each kept.
-  const ink = invert ? '#0B0E0D' : '#E8EDE9';
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden>
-      <path d="M8 32a22 22 0 0 1 22-22v44A22 22 0 0 1 8 32z" fill={ink} />
-      <path d="M36 10a22 22 0 0 1 0 44l6-11-6-11 6-11z" fill={invert ? '#b9f8da' : '#2f9e73'} />
-    </svg>
-  );
-}
-
 /** Fade and rise into view, once. */
 export function Reveal({ children, delay = 0, y = 24, className }: { children: ReactNode; delay?: number; y?: number; className?: string }) {
   return (
@@ -126,12 +115,19 @@ export function Addr({ a, n = 4, className }: { a: string; n?: number; className
   );
 }
 
-const STATE: Record<string, { label: string; color: string; icon: string }> = {
+/** The Instant state's bolt, drawn rather than typed: U+26A1 shows as a colour emoji on some systems. */
+const Bolt = (
+  <svg width="9" height="10" viewBox="3 2 18 20" style={{ display: 'inline-block', verticalAlign: '-1px' }}>
+    <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor" />
+  </svg>
+);
+
+const STATE: Record<string, { label: string; color: string; icon: ReactNode }> = {
   opened: { label: 'Quoted', color: '#86918B', icon: '○' },
   funded: { label: 'Funded', color: '#3987e5', icon: '◐' },
   delivered: { label: 'Held', color: '#fab219', icon: '◔' },
   released: { label: 'Released', color: '#5EE6AB', icon: '●' },
-  instant: { label: 'Instant', color: '#5EE6AB', icon: '⚡' },
+  instant: { label: 'Instant', color: '#5EE6AB', icon: Bolt },
   refunded: { label: 'Refunded', color: '#ec835a', icon: '↩' },
   disputed: { label: 'Disputed', color: '#d03b3b', icon: '!' },
   resolved: { label: 'Resolved', color: '#86918B', icon: '⚖' },

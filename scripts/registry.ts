@@ -44,7 +44,7 @@ const DRY = flag('dry');
 const MIRROR = option('mirror', 0);
 const VERIFY = flag('verify');
 
-const REPO_RAW = process.env.REGISTRY_URI_BASE ?? 'https://raw.githubusercontent.com/edison9733/agentic_commerce/main';
+const REPO_RAW = process.env.REGISTRY_URI_BASE ?? 'https://raw.githubusercontent.com/edison9733/x402_bnpl/main';
 const RPC_URL = process.env.RPC_URL ?? DEVNET.rpcUrl;
 const STATE_FILE = resolve(REPO_ROOT, 'deployments/registry.json');
 const FILES_DIR = resolve(REPO_ROOT, 'deployments/registry');

@@ -84,13 +84,31 @@ export function Deck({ slides, title }: { slides: Slide[]; title: string }) {
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       if (['ArrowRight', ' ', 'PageDown'].includes(e.key)) next();
-      else if (['ArrowLeft', 'PageUp'].includes(e.key)) prev();
+      else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) prev();
+      else if (e.key === 'Home') setI(0);
+      else if (e.key === 'End') setI(slides.length - 1);
       else if (e.key === 'n') setNotes((v) => !v);
       else if (e.key === 'a') setAuto((v) => !v);
     };
     window.addEventListener('keydown', on);
-    return () => window.removeEventListener('keydown', on);
-  }, [next, prev]);
+    // a swipe on a phone: left for the next slide, right to go back
+    let x0: number | null = null;
+    const down = (e: TouchEvent) => { x0 = e.touches[0]?.clientX ?? null; };
+    const up = (e: TouchEvent) => {
+      const x = e.changedTouches[0]?.clientX;
+      if (x0 === null || x === undefined) return;
+      const dx = x - x0;
+      x0 = null;
+      if (Math.abs(dx) > 50) (dx < 0 ? next : prev)();
+    };
+    window.addEventListener('touchstart', down, { passive: true });
+    window.addEventListener('touchend', up);
+    return () => {
+      window.removeEventListener('keydown', on);
+      window.removeEventListener('touchstart', down);
+      window.removeEventListener('touchend', up);
+    };
+  }, [next, prev, slides.length]);
 
   useEffect(() => {
     if (auto && ready && startedAt === undefined) setStartedAt(Date.now());
@@ -132,7 +150,7 @@ export function Deck({ slides, title }: { slides: Slide[]; title: string }) {
           </motion.div>
         </AnimatePresence>
         {!clean && (
-          <div className="mono" style={{ position: 'absolute', left: 28, bottom: 18, fontSize: 13, color: night ? '#86918B' : '#86918B' }}>
+          <div className="mono" style={{ position: 'absolute', left: 16, bottom: 10, padding: '4px 12px', borderRadius: 8, background: 'rgba(11,14,13,0.92)', fontSize: 13, color: '#86918B' }}>
             {title} · {i + 1} / {slides.length} · {auto ? 'autoplay' : '→ next · n notes · a autoplay'} · {Math.floor(total / 60)}:{String(total % 60).padStart(2, '0')} total
           </div>
         )}

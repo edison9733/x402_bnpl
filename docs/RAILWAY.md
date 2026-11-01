@@ -1,7 +1,7 @@
 # Hosting the API and the agents on Railway (or Render)
 
 > **Where the demo agents run today (31 October 2026): Render**, free instance, from this repository's
-> `Dockerfile`, at <https://tessera-agents.onrender.com>. Railway was not accepting sign-ups that day. The
+> `Dockerfile`, at <https://tessera-agents.onrender.com/agents>. Railway was not accepting sign-ups that day. The
 > service is a **Web Service** with Language **Docker**, Docker Command `npm run agents`, Health Check Path
 > `/healthz`, and these variables: `TESSERA_KEYS` (from `npm run keys:export`), `WEB_ORIGINS` =
 > `https://agentic-commerce-two-theta.vercel.app`, `AGENT_HOST` = `https://tessera-agents.onrender.com`,
@@ -10,7 +10,7 @@
 > refunded or cancelled by anyone). It sleeps after about 15 minutes idle; the first request then takes
 > up to a minute. Railway sets `AGENT_HOST` and `TRUST_PROXY` by itself; on Render they are set by hand.
 > After deploying, `AGENT_HOST=https://tessera-agents.onrender.com npm run setup:devnet -- --light`
-> pointed the merchants' on-chain cards at it (section 3), and `VITE_AGENTS_URL` was set on Vercel
+> pointed the four honest merchants' on-chain cards at it (section 3), and `VITE_AGENTS_URL` was set on Vercel
 > (section 4).
 
 The website is static and stays on Vercel. Railway runs the servers. All three use one image, from the

@@ -5,9 +5,9 @@ There are four ways to try it, from no setup at all to doing every step of a tra
 | | What you do | You need |
 |---|---|---|
 | **A. Look around** | Play with the score, browse the live network | A browser |
-| **B. Be both sides, from a terminal** | Make two wallets; sell to yourself, pay, deliver, release, review, and get a refund | A computer with Node and the Solana CLI |
+| **B. Be both sides, from a terminal** | Make two wallets. Sell to yourself, pay, deliver, release, review, and get a refund | A computer with Node and the Solana CLI |
 | **C. Buy on the website** | Buy from the demo merchant agents with the built-in devnet test wallet | A browser (the agents are hosted) |
-| **D. Let an agent ask you to pay** | An agent with no key asks; you approve on a page and your own wallet pays | A Solana wallet on devnet, and Node for the CLI |
+| **D. Let an agent ask you to pay** | An agent with no key asks. You approve on a page and your own wallet pays | A Solana wallet on devnet, and Node for the CLI |
 
 Everything runs on Solana **devnet** with test money. Nothing here costs real money.
 
@@ -17,34 +17,35 @@ Everything runs on Solana **devnet** with test money. Nothing here costs real mo
 
 Open https://agentic-commerce-two-theta.vercel.app
 
-1. **The score**, on the home page or under **The score** in the menu:
-   - Click the example wallets, from **Brand new** to **Sells to itself**.
-   - Then drag the sliders and watch the score, the tier and the hold change.
-   - The **Try it** button applies the single change that adds the most points.
+1. **The score**, in the menu of any inner page or in the footer of the home page:
+   - Pick an example wallet, from **Brand new** to **Sells to itself**.
+   - Then change sales, buyers, their tier, active days, stars and disputes with the − and + buttons
+     and the chips. Watch the score, the tier and the hold change.
+   - The terminal next to them prints what `tessera score --simulate` prints for that wallet.
 2. **Live network**: every order on devnet, as it happens.
 3. **Agents**: every wallet's credit file, with its score, reviews, and what each review was worth.
-4. **For agents**: what an AI agent sees when it asks `find_merchants` who to buy from.
+4. **Merchants**, on the home page: what an agent sees when it searches for a merchant in its terminal.
 
 ---
 
 ## B. Be the buyer and the merchant, from a terminal (about 20 minutes)
 
 You make two wallets and play both sides of a real trade, one command at a time:
-- the merchant asks for payment;
-- the buyer pays into escrow;
-- the merchant delivers;
-- the buyer releases the money and both sides review each other.
+- The merchant asks for payment.
+- The buyer pays into escrow.
+- The merchant delivers.
+- The buyer releases the money and both sides review each other.
 
 Then you see a refund when a merchant never delivers.
 
-Every command and output below comes from a rehearsal run on a local copy of the chain, using the
-devnet settings and two brand-new wallets.
+Most outputs below come from a rehearsal on a local copy of the chain, using the devnet settings and
+two brand-new wallets. Step 10 shows devnet itself, with a merchant made by these steps on 31 October.
 
 > On Windows, use WSL (Ubuntu) and run everything inside it.
 
 ### Step 0. One-time: install the tools
 
-1. Install **Node 22** (20.19 or newer also works), from https://nodejs.org.
+1. Install **Node 22** (22.12 or newer), from https://nodejs.org.
 2. Install the **Solana CLI**:
    ```bash
    sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
@@ -104,8 +105,8 @@ npm run api
 Leave it running. It builds transactions for you to sign. It never sees your keys: the CLI signs on
 your computer.
 
-If the API is already hosted on Railway, you can skip this step. Instead, run
-`export TESSERA_API_URL=https://<your api domain>` in the first terminal.
+Only the merchant agents are hosted (on Render). The API runs on your machine. If you host your own
+API, skip this step and run `export TESSERA_API_URL=https://<your api domain>` in the first terminal.
 
 All the commands below run in the **first terminal**.
 
@@ -120,6 +121,8 @@ You see:
 ```
 ESCROW  0.50 USDC  hold 120 s  (merchant_unknown)  [unknown_merchant]
 Nobody has settled an order with this merchant. Pay only into an escrow it opens, held 120 s. If it cannot open one, do not pay.
+merchant HwZD…TTFn  New 0  (no credit file)
+buyer    75xu…7bEF  New 0  (no credit file)
 ```
 
 The merchant is brand new, so the answer is: don't pay it directly. Pay into an escrow, and the money
@@ -132,7 +135,7 @@ npm run tessera -- open merchant --buyer $BUYER --amount 0.50 \
   --request '{"item":"a haiku"}' --keypair ~/tessera/merchant.json --send
 ```
 
-You see:
+Among the lines it prints, these two matter:
 
 ```
 order 8VHSNtD3WErxoG3wXdmpJD14VTYdoRj61tZzwGiFmKAZ  vault 5pJrATPR…
@@ -188,6 +191,8 @@ When you're happy with what you got:
 npm run tessera -- release $ORDER --keypair ~/tessera/buyer.json --send
 ```
 
+Among the lines it prints:
+
 ```
 payouts: merchant 0.495 USDC, fee 0.005 USDC, buyer 0.00 USDC
 ```
@@ -218,22 +223,52 @@ counts for nothing.
 
 ```bash
 npm run tessera -- score $MERCHANT
-npm run tessera -- find
+npm run tessera -- find --limit 20
 ```
 
-```
-wallet   HwZD…TTFn  New 28  ★3.18
-as merchant: 1 orders, 0.50 USDC, 0 disputes lost, 0 missed
+This is a merchant made with these steps on devnet on 31 October. Yours prints the same lines with
+your own address:
 
- 1. HwZD9vrP…    New 28 ★3.18 (1 reviews, 1 sales)
-    ESCROW ~122 s to settled
+```
+2SNy…a4F5 · 1 counterparty · 1 active period · devnet
+history     0.10   █░░░░░░░░░  √(0.05 ÷ 5.00)
+tenure      0.10   █░░░░░░░░░  3 ÷ 30
+diversity   0.02   ░░░░░░░░░░  0.1 ÷ 5
+rating      0.56   ██████░░░░  3.18 stars
+behaviour   1.00   ██████████  no penalty
+evidence    0.08   0.45 × 0.100 + 0.30 × 0.100 + 0.25 × 0.020
+score       44     1000 × 0.080 × 0.560 × 1.0000
+tier        New         hold 2 min · mainnet target 3 days
+✓ the program stored 40 on 31 Oct 13:56 UTC and the SDK gives the same for that moment · 44 now
+
+7 found · sorted best: Score: reviews weighted by the money behind them, settled sales, distinct buyers, tenure and penalties. Every review needed a real settled order.
+ 1. 93YALFSrr5dBp1FuZsFRPVeM3w6i3ovrg97PZ9SWVGJk  Vera  Trusted 1000 ★4.83 (39 reviews, 41 sales)
+    ESCROW ~126 s to settled  credit-report 0.30 USDC
+    "Delivered what was asked. Hash matches." ★5
+    "Delivered what was asked. Hash matches." ★5
+…
+ 6. 2SNySKwUmdG3b3iwC5gspQYkPEXiZWkvRf4tA1qqa4F5    New 44 ★3.18 (1 review, 1 sale, 1 missed)
+    ESCROW ~127 s to settled
     "Fast and exactly what I asked for" ★5
+ 7. EbTnud5vWHwQP3dyQ7WyX8VSytyq8vXThTnJESoCF3NV  mallory  New 0 ★3.00 (3 reviews, 0 sales, 3 missed)
+    ESCROW ~420 s to settled
+Pick one, call check_payment with its merchant wallet and your amount (this list is up to 30 s old), then pay into the escrow order it quotes.
 ```
 
 What this shows:
-- One small sale moves the score a little. Trust is earned slowly, and faking it costs money.
+- One small sale moves the score a little. Trust is earned slowly, and faking it costs money. Each line
+  prints the real input behind the factor: your buyer was New, so the $0.50 sale counts for 10% of it,
+  $0.05 of the $5.00 at which History is full on devnet.
+- Tenure counts at most three periods for each active period. With one active period it stops at
+  0.10 (3 ÷ 30), three minutes after step 5. If you get here sooner, it is lower and so is the score.
 - The stars show 3.18, not 5. Every wallet starts from 3 stars, and one 50-cent review only moves that a bit.
-- Your merchant is now listed by `find`, the call AI agents make to choose who to buy from.
+- The last line checks the score the program stored on the account against the SDK, for the moment it
+  was stored. This merchant's 40 was stored at step 11, while its penalty stood. If nothing has changed
+  since, the line reads `✓ same result from the program and the SDK`. If the two ever differed, the
+  command would say so and exit 1.
+- `find` is the call AI agents make to choose who to buy from. It shows the top 5 unless you pass
+  `--limit`. Your merchant is listed below the four Trusted demo merchants, with its one review. The
+  merchant above shows `1 missed` because it went on to step 11.
 
 You can also see it on the website: open `https://agentic-commerce-two-theta.vercel.app/#/agents/<your merchant address>`.
 
@@ -250,11 +285,13 @@ If the buyer tries to take the money back straight away, it is refused:
 npm run tessera -- reclaim $ORDER2 --keypair ~/tessera/buyer.json --send
 ```
 
+Among the lines it prints:
+
 ```
 not_yet: The merchant still has time to deliver.
 ```
 
-The merchant has 5 minutes to deliver. After that, run the same command again:
+The merchant has 5 minutes to deliver. After that, run the same command again. Among the lines it prints:
 
 ```
 payouts: merchant 0.00 USDC, fee 0.00 USDC, buyer 0.30 USDC
@@ -268,9 +305,12 @@ npm run tessera -- score $MERCHANT
 ```
 
 ```
-penalty 10%
-as merchant: 1 orders, 0.50 USDC, 0 disputes lost, 1 missed
+behaviour   0.90   █████████░  10% standing penalty
+score       40     1000 × 0.080 × 0.560 × 0.9000
 ```
+
+The whole score is a tenth lower until the penalty heals, and a wallet with any penalty standing cannot be
+Trusted. (`score` prints every line as in step 10. Only the behaviour and score lines change.)
 
 ### Things to try next
 
@@ -288,7 +328,8 @@ as merchant: 1 orders, 0.50 USDC, 0 disputes lost, 1 missed
 | You see | It means | Do this |
 |---|---|---|
 | `insufficient_funds` | The buyer has no test USDC | Use the Circle faucet again (step 2) |
-| `fetch failed` or a connection error | The CLI can't reach the API | Start `npm run api` in the second terminal (step 3) |
+| `the API at http://127.0.0.1:4030 is unreachable` | `find`, `check`, `escrow` and the commands that build a transaction call the API, and it is not running | Start `npm run api` in the second terminal (step 3) |
+| `score failed` or `rate limiting` | `score` reads the chain itself, with no API. The devnet RPC did not answer | Wait a minute and run it again, or pass `--rpc <your devnet RPC>` |
 | `airdrop request failed` | Devnet's rate limit | Use https://faucet.solana.com |
 | `not_yet` | It's too early for that step | Read the time it gives, or run `escrow $ORDER` to see what's possible next |
 | `self_dealing` | The buyer and the merchant are the same wallet | Use the two different key files |
@@ -297,20 +338,21 @@ as merchant: 1 orders, 0.50 USDC, 0 disputes lost, 1 missed
 
 ## C. Buy on the website with the built-in test wallet
 
-The merchant agents are hosted at <https://tessera-agents.onrender.com> ([RAILWAY.md](RAILWAY.md)), and the
-site is built with `VITE_AGENTS_URL` pointing at it. The instance is free, so after a quiet spell the first
-request takes up to a minute while it wakes; the Market page then loads the merchants.
+The merchant agents are hosted on Render, at <https://tessera-agents.onrender.com/agents>
+([RAILWAY.md](RAILWAY.md)), and the site is built with `VITE_AGENTS_URL` pointing at them. The instance is
+free, so after a quiet spell the first request takes up to a minute while it wakes. The Market page then
+loads the merchants.
 
-The site has no wallet login. It pays from a throwaway devnet key kept in your browser; agents sign with
+The site has no wallet login. It pays from a throwaway devnet key kept in your browser. Agents sign with
 their own keys through the API, CLI or SDK.
 
 1. Open the site and go to **Market**. Press the test-funds button. It sends the built-in wallet test
    USDC and SOL.
 2. Pick a merchant and buy. The page does each step for you:
-   - pay into escrow;
-   - check the delivery;
-   - release;
-   - review.
+   - Pay into escrow.
+   - Check the delivery.
+   - Release.
+   - Review.
 3. Open **Agents** and find the built-in wallet: your purchase and review are on its credit file.
 
 ---
@@ -325,31 +367,27 @@ You need a Solana wallet set to devnet (Phantom: Settings → Developer Settings
 Solana Devnet) holding a little devnet SOL ([faucet.solana.com](https://faucet.solana.com)) and test
 USDC ([faucet.circle.com](https://faucet.circle.com), choose Solana Devnet).
 
-1. Start the merchant agents and the website, each in its own terminal:
+1. As the agent, ask the hosted Pixel merchant. You need no local servers. There is no `--keypair`:
+   this machine never holds your key.
 
    ```bash
-   npm run agents
+   npm run tessera -- ask https://tessera-agents.onrender.com/agents/pixel identicon --owner <your wallet> --input '{"seed":"my-agent"}' --wait
    ```
 
-   ```bash
-   npm run web
-   ```
+   It reads the order from the chain, prints an `approve` link on the public site, and waits.
 
-2. As the agent, ask. There is no `--keypair`: this machine never holds your key.
-
-   ```bash
-   npm run tessera -- ask http://localhost:4020/agents/pixel identicon --owner <your wallet> --input '{"seed":"my-agent"}' --wait
-   ```
-
-   It reads the order from the chain, prints an `approve` link, and waits.
-3. Open the link where your wallet is: in the browser with the extension, or on a phone the `phone`
+   The hosted instance is free and sleeps after a quiet spell. It can take up to a minute to wake, and
+   `ask` gives up on the merchant's card after 30 s. If the first try times out, open
+   <https://tessera-agents.onrender.com/health>, wait for it to answer, and run `ask` again.
+2. Open the link where your wallet is: in the browser with the extension, or on a phone the `phone`
    link, which opens the page inside Phantom. The page shows what the order buys (checked against the
    hash the order committed), the merchant's score and the price, all read from the chain. Press
-   **Approve and pay**. You have 5 minutes before the quote expires; nothing is charged if you don't.
-   A phone cannot open `localhost`: for a phone, add `--site https://agentic-commerce-two-theta.vercel.app`
-   (the page reads only the chain, so the public site works with merchants running on your computer).
-4. The command sees the payment, collects the delivery and checks it against the hash on-chain. On the
+   **Approve and pay**. You have 5 minutes before the quote expires. Nothing is charged if you don't.
+3. The command sees the payment, collects the delivery and checks it against the hash on-chain. On the
    page you can watch the hold, and dispute or release early.
+
+With your own keys, you can run the merchants yourself instead: `npm run agents` and `npm run web`, each
+in its own terminal, then `ask http://localhost:4020/agents/pixel …`. The link then opens your local site.
 
 Without `--wait`, `ask` prints the link and a `collect` command to run after you have paid, for an agent
 that cannot wait on one command.

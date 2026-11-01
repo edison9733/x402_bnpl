@@ -10,7 +10,8 @@
  * are only served when the agents server runs.
  */
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Logo, Mark } from '../components/ui';
+import { Mark } from '../components/ui';
+import { DEMO_VIDEO } from '../lib/media';
 import { CONTACT } from '../components/Waitlist';
 import { Link, usePath } from '../lib/router';
 import './landing.css';
@@ -19,7 +20,7 @@ const REPO = 'https://github.com/edison9733/x402_bnpl';
 /** The docs start at the README on GitHub. */
 const DOCS = `${REPO}#readme`;
 /** The Tessera 2.0 demo of 31 October 2026, rendered on devnet (apps/web/public/videos). */
-const VIDEO = { src: '/videos/tessera-2.0-demo.mp4', poster: '/videos/tessera-2.0-demo-poster.jpg', captions: '/videos/tessera-2.0-demo.vtt', length: '3:17' };
+const VIDEO = DEMO_VIDEO;
 
 const DISPLAY = "'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif";
 const MONO = "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
@@ -183,17 +184,20 @@ function Demo() {
             </video>
             {!started && (
               <>
+                {/* On phones the overlay sits on the frame's own text, so the poster is dimmed there. */}
+                <div className="t-scrim" aria-hidden />
                 <div style={{ position: 'absolute', left: 'clamp(14px, 2vw, 24px)', top: 'clamp(14px, 2vw, 22px)', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   <span className="t-pill t-pill-mint">x402</span>
                   <span className="t-pill t-pill-amber">Solana</span>
                 </div>
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 24, textAlign: 'center' }}>
-                  <button type="button" className="t-play" aria-label="Play the Tessera demo video" onClick={play}>
+                {/* A click anywhere on the poster plays the video. The round button is the same action for the keyboard and screen readers. */}
+                <div className="t-vover" onClick={play}>
+                  <button type="button" className="t-play" aria-label="Play the Tessera demo video">
                     <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden>
                       <path d="M8 5v14l11-7z" fill="currentColor" />
                     </svg>
                   </button>
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#A3ADA7' }}>Tessera 2.0 demo · {VIDEO.length} · on devnet</span>
+                  <span className="t-vlab">Tessera 2.0 demo · {VIDEO.length} · on devnet</span>
                 </div>
               </>
             )}
@@ -230,7 +234,7 @@ const HOLDS: { name: string; gate: string; bar?: string; minWidth?: number; valu
 ];
 
 const FACTS: [string, string][] = [
-  ['When an order settles instantly', 'Both sides are Trusted, or the buyer has two or more undisputed orders with that merchant. The merchant must also be within its instant limit.'],
+  ['When an order settles instantly', 'The merchant is Trusted and within its instant limit. The buyer is Trusted too, or has no penalty, has reviewed two orders from that merchant and never disputed one. The first review must be at least 30\u00a0days old (5\u00a0min on devnet).'],
   ['Instant settlement has a cap', 'An exit scam on instant settlement is capped at the fees the merchant already paid, plus a small base.'],
   ['Buyers need no SOL', 'The x402 facilitator pays the network fee.'],
   ['Reviews come from the order', "Only the buyer and the merchant on an order can review each other. A refunded order's review weighs nothing."],
@@ -463,7 +467,7 @@ function MerchantLine({ m }: { m: Merchant }) {
       <Col w={16} cls="t-wht">{m.name}</Col>
       <Col w={21} cls="t-sells">{m.sells}</Col>
       <Col w={6} cls="t-wht">{m.score}</Col>
-      <span className="t-sb">
+      <span className="t-sb t-wide">
         <span style={{ width: `${Math.round(m.score / 10)}%`, ...(t.bar ? { background: t.bar } : {}) }} />
       </span>
       <Col w={13} cls={t.cls}>{m.tier}</Col>
@@ -529,13 +533,13 @@ function Merchants() {
             </span>
             <div className="t-out t-oM">
               <span className="t-ln t-dim">
-                {MERCHANT_COUNT} merchants · {MERCHANT_GROUPS.length} categories · scores from settled orders only
+                {MERCHANT_COUNT} merchants · {MERCHANT_GROUPS.length} categories<span className="t-wide"> · scores from settled orders only</span>
               </span>
               <span className="t-ln t-dim">
                 <Col w={16}>MERCHANT</Col>
                 <Col w={21} cls="t-sells">SELLS</Col>
                 <Col w={6}>SCORE</Col>
-                <Col w={12} />
+                <Col w={12} cls="t-wide" />
                 <Col w={13}>TIER</Col>
                 <Col>HOLD</Col>
               </span>
@@ -753,11 +757,13 @@ function PayLater() {
               <span className="t-cur t-curA" />
             </span>
             <div className="t-out t-oA">
-              <span className="t-ln t-dim">tab {TAB_ID} · open · pay later · devnet USDC</span>
+              <span className="t-ln t-dim">
+                tab {TAB_ID} · open · pay later<span className="t-wide"> · devnet USDC</span>
+              </span>
               <span className="t-ln t-dim">
                 <Col w={7}>#</Col>
                 <Col w={16}>MERCHANT</Col>
-                <Col w={12}>ORDER</Col>
+                <Col w={12} cls="t-wide">ORDER</Col>
                 <Col w={9}>AMOUNT</Col>
                 <Col>STATUS</Col>
               </span>
@@ -765,7 +771,7 @@ function PayLater() {
                 <span key={o.merchant} className="t-ln">
                   <Col w={7} cls="t-dim">#{i + 1}</Col>
                   <Col w={16} cls="t-wht">{o.merchant}</Col>
-                  <Col w={12} cls="t-dim">{o.order}</Col>
+                  <Col w={12} cls="t-dim t-wide">{o.order}</Col>
                   <Col w={9} cls="t-wht">{o.amount}</Col>
                   <Col cls="t-amb">on tab</Col>
                 </span>
@@ -777,7 +783,8 @@ function PayLater() {
               </span>
               <span className="t-ln">
                 <Col w={7} cls="t-dim">TOTAL</Col>
-                <Col w={28}>{TAB_ORDERS.length} orders</Col>
+                <Col w={16}>{TAB_ORDERS.length} orders</Col>
+                <Col w={12} cls="t-wide" />
                 <Col w={9} cls="t-wht">{TAB_TOTAL}</Col>
                 <Col cls="t-amb">unpaid</Col>
               </span>
@@ -917,7 +924,9 @@ function Settle() {
                     <Check />
                     settled · 1 signature · main agent
                   </span>
-                  <span className="t-ln t-dim">{n} orders closed · 1 payment on-chain</span>
+                  <span className="t-ln t-dim">
+                    {n} orders closed · 1 payment<span className="t-wide"> on-chain</span>
+                  </span>
                   <Prompt />
                 </div>
               </div>
@@ -1011,8 +1020,8 @@ function LandingFooter() {
 /** The footer of the other pages (agents, market, formula, review), unchanged. */
 export function Footer({ dark = true }: { dark?: boolean }) {
   return (
-    <footer className={dark ? 'night' : ''} style={{ borderTop: `1px solid ${dark ? '#272b21' : '#ded7c2'}` }}>
-      <div className="wrap flex flex-wrap items-center justify-between gap-6 py-10 text-[0.86rem]" style={{ color: dark ? '#8b8a7c' : '#878371' }}>
+    <footer style={{ borderTop: '1px solid #1A211E', background: '#0B0E0D' }}>
+      <div className="wrap flex flex-wrap items-center justify-between gap-6 py-10 text-[0.86rem]" style={{ color: dark ? '#86918B' : '#A3ADA7' }}>
         <span className="inline-flex items-center gap-2.5">
           <Mark size={18} />
           Tessera. Devnet demo, unaudited. Not financial infrastructure yet.

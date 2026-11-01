@@ -9,12 +9,12 @@ the same statuses, whichever an agent speaks.
 | **HTTP API** | `POST /v1/check` and friends. Reads the program, returns decisions, builds unsigned transactions. | Any code, other platforms | [`apps/api`](../apps/api) · `npm run api` (port 4030) |
 | **MCP server** | The same tools over MCP's Streamable HTTP transport. Each tool calls the API. | Claude, Codex, Cursor | [`apps/mcp`](../apps/mcp) · `npm run mcp` (port 4040) |
 | **Skill** | `SKILL.md`: when to use Tessera and how. The main rule: before any paid tool call, call `check_payment`. | Claude Code and other skill-aware agents | [`skills/tessera/SKILL.md`](../skills/tessera/SKILL.md) |
-| **CLI** | `tessera check …`, `tessera report …`. Each escrow command calls the API; `tessera merchants`, `tessera tab` and `tessera settle` (the pay-later tab, settled in one payment) read the chain themselves. | Developers, coding agents | [`apps/cli`](../apps/cli) · `npm run tessera -- help` |
+| **CLI** | `tessera check …`, `tessera report …`. Each escrow command calls the API. `tessera score`, `credit`, `merchants`, `tab`, `settle` (the pay-later tab, settled in one payment), `buy-later`, `repay`, `mark-default`, `ask` and `collect` read the chain themselves. | Developers, coding agents | [`apps/cli`](../apps/cli) · `npm run tessera -- help` |
 
 ## Run it
 
 ```bash
-npm install
+npm ci
 npm run api        # the core, against devnet; TESSERA_RPC_URLS=<url,url> for another RPC
 npm run mcp        # MCP on http://127.0.0.1:4040/mcp; TESSERA_API_URL if the API is elsewhere
 npm run tessera -- check DzmuSTiwQLnZ4KMtWC3gZ5s68ySstf7UW37Jo4Wm8c2r 0.20
@@ -101,7 +101,9 @@ into the rank, so an agent does not have to read them.
 - **Nobody is hidden for a bad record.** A penalised merchant is listed, lower, routed to escrow.
 
 The list is read from one snapshot of the program's accounts, shared for 30 s
-(`TESSERA_FIND_SNAPSHOT_MS`), so call `check_payment` right before paying.
+(`TESSERA_FIND_SNAPSHOT_MS`), so call `check_payment` right before paying. Each merchant's agent card gets
+`TESSERA_CARD_TIMEOUT_MS` to answer (1.5 s on the API, 10 s in the CLI's `merchants`), and a find waits
+`TESSERA_CARDS_BUDGET_MS` for all of them together (by default the card deadline plus 1 s).
 
 Card text is the merchant's own: it only decides matching and price, it is cut short and stripped of
 control, invisible and bidirectional characters, a card whose Tessera extension names another wallet is ignored, and every reply
@@ -161,7 +163,7 @@ status that says so.
 | `rejected` | 422 | The transaction failed in simulation (and was not handed out), or the network refused it |
 | `rate_limited` | 429 | Too many requests from this client |
 | `not_configured`, `rpc_unavailable` | 503 | The program is not set up on this cluster, or no RPC answered |
-| `internal_error` | 500 | A bug; the message says where |
+| `internal_error` | 500 | A bug. `ref` identifies it in the server log |
 
 ## Non-custodial, and what that does and does not mean
 

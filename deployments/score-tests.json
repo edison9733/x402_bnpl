@@ -1,0 +1,141 @@
+{
+  "recordedAt": "2026-11-01T02:47:51.666Z",
+  "command": "npm test -- score",
+  "tests": [
+    {
+      "title": "isqrt is the exact floor of the square root",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "a wallet nobody knows scores 0, is New, and waits the longest hold",
+      "where": "formula",
+      "passed": true
+    },
+    {
+      "title": "age alone earns nothing: a wallet left idle for a year has no tenure",
+      "where": "formula",
+      "passed": true
+    },
+    {
+      "title": "time cannot be bought in a burst: full evidence in one day is still not Trusted",
+      "where": "formula",
+      "passed": true
+    },
+    {
+      "title": "quality multiplies: one-star reviews sink any amount of history",
+      "where": "formula",
+      "passed": true
+    },
+    {
+      "title": "no reviews yet means half marks, not full marks",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "losing a dispute costs a quarter of the score and heals over 100 periods",
+      "where": "formula",
+      "passed": true
+    },
+    {
+      "title": "one counterparty can never grant more than the pair cap",
+      "where": "formula + on-chain",
+      "passed": true
+    },
+    {
+      "title": "splitting a purchase into many small ones earns nothing extra",
+      "where": "formula",
+      "passed": true
+    },
+    {
+      "title": "a refund or a lost dispute earns no credit",
+      "where": "formula + on-chain",
+      "passed": true
+    },
+    {
+      "title": "friendly fraud: a buyer who loses a dispute drops a tier and loses pair trust for good",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "a merchant cannot borrow the tier of a buyer who never took part",
+      "where": "formula + on-chain",
+      "passed": true
+    },
+    {
+      "title": "a merchant cannot forge pair history to waive a buyer's hold",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "a merchant that lost Trusted after the order opened does not settle it instantly",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "a complaint locks the instant amount for good, and a refund frees it at once",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "an even split of an odd amount leaves both sides heard",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "the side that lost a dispute gets no weighted say on it",
+      "where": "formula + on-chain",
+      "passed": true
+    },
+    {
+      "title": "exit scam: instant settlement can net at most the base allowance",
+      "where": "formula + on-chain",
+      "passed": true
+    },
+    {
+      "title": "a ring of fresh wallets: what faking Trusted costs (mainnet targets)",
+      "where": "formula",
+      "passed": true
+    },
+    {
+      "title": "an honest merchant with real customers gets there, and faster with better customers",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "farming History with brand-new sock puppets (closed form)",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "devnet runs the same rules, compressed",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "the buyer's check refuses a quote for the wrong buyer, amount or escrow before paying",
+      "where": "on-chain",
+      "passed": true
+    },
+    {
+      "title": "the merchant cannot take the money before the hold ends, or shorten a hold the buyer asked for",
+      "where": "on-chain",
+      "passed": true
+    },
+    {
+      "title": "the printed equations multiply out to the printed numbers, floored as the program does, in every state the simulator reaches",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "the simulator grants a merchant evidence only for sales its buyers reviewed, as the program does",
+      "where": null,
+      "passed": true
+    },
+    {
+      "title": "the five preset wallets score what the page says: 0, 304, 1000, 750 and 314",
+      "where": "formula",
+      "passed": true
+    }
+  ]
+}

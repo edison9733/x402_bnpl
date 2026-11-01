@@ -1,5 +1,5 @@
 import { motion, useMotionValueEvent, useScroll } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NETWORK } from '../lib/client';
 import { Link, usePath } from '../lib/router';
 import { useChain } from '../lib/store';
@@ -11,7 +11,7 @@ const LINKS: [string, string][] = [
   ['/market', 'Market'],
   ['/review', 'Review'],
   ['/formula', 'The score'],
-  ['/pay-later', 'Pay later'],
+  ['/pay-later', 'Pay Later'],
 ];
 
 /** The nav link whose home-page section has reached the top of the viewport, if any. */
@@ -30,12 +30,24 @@ export function Nav({ dark = true }: { dark?: boolean }) {
   const { scrollY } = useScroll();
   const [solid, setSolid] = useState(false);
   const [open, setOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
   // On the home page the underline follows the section being read, not the address.
   const [spy, setSpy] = useState<string | null>(null);
   useEffect(() => {
     setOpen(false);
     setSpy(sectionInView());
   }, [path]);
+  // Escape closes the open menu and gives focus back to its button.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setOpen(false);
+      menuButton.current?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
   useMotionValueEvent(scrollY, 'change', (y) => {
     setSolid(y > 24);
     setSpy(sectionInView());
@@ -57,7 +69,7 @@ export function Nav({ dark = true }: { dark?: boolean }) {
       }}
     >
       <div className="wrap flex h-[68px] items-center justify-between gap-6">
-        <Link to="/" className="flex items-center gap-2.5">
+        <Link to="/" className="flex min-h-11 items-center gap-2.5">
           <Mark size={26} />
           <span className="display text-[1.35rem]" style={{ letterSpacing: '-0.02em' }}>
             Tessera
@@ -87,6 +99,7 @@ export function Nav({ dark = true }: { dark?: boolean }) {
             {NETWORK} · {status === 'live' ? 'live' : status === 'error' ? 'unreachable' : 'loading'}
           </span>
           <button
+            ref={menuButton}
             className="rounded-full border px-3.5 py-2 text-[0.88rem] lg:hidden"
             style={{ borderColor: dark ? '#303B36' : '#303B36', cursor: 'pointer' }}
             onClick={() => setOpen((o) => !o)}

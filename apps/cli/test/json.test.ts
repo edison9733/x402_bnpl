@@ -181,3 +181,51 @@ test('settle --json: the spec D10 shape, settled, dry run and failed', () => {
   assert.equal(none.status, 'none');
   assert.equal(none.total, '0.000');
 });
+
+import { DEVNET_PARAMS, MAINNET_TARGET_PARAMS, score, simulate } from '@tessera/sdk';
+import { scoreJson, type ScoreInput } from '../src/render.js';
+
+test('score --json: the brief 3.3 shape, numbers as numbers, the hold in seconds too', () => {
+  const o = simulate.simulate(simulate.presetById('small-honest-shop')!.w, MAINNET_TARGET_PARAMS);
+  const b = score.breakdown(o.agent, MAINNET_TARGET_PARAMS, o.now);
+  // The program stored its score on 28 Oct 2026 at 14:02:11 UTC.
+  const input: ScoreInput = { wallet: NOVA, simulated: false, network: 'devnet', counterparties: 12, activePeriods: 16, b, other: { network: 'mainnet target', holdSecs: 86_400 }, program: { score: 304, sdk: 304, at: 1_793_196_131 }, noFile: false };
+  const j = JSON.parse(JSON.stringify(scoreJson(input, MAINNET_TARGET_PARAMS, o.agent.credit, o.agent.counterpartyPoints)));
+  assert.deepEqual(j, {
+    wallet: NOVA,
+    simulated: false,
+    network: 'devnet',
+    inputs: { counterparties: 12, active_periods: 16, credit: 800, credit_full: 10000, points: 4.8, diversity_full: 20, stars: 4.14, penalty_bps: 0 },
+    factors: { history: 0.282, tenure: 0.533, diversity: 0.24, rating: 0.88, behaviour: 1, evidence: 0.346 },
+    score: 304,
+    tier: 'Building',
+    hold: '24 h',
+    hold_seconds: 86_400,
+    hold_mainnet_target: '24 h',
+    program_score: 304,
+    program_score_at: '2026-10-28T14:02:11Z',
+    match: true,
+  });
+  const none = JSON.parse(JSON.stringify(scoreJson({ ...input, program: null, noFile: true }, MAINNET_TARGET_PARAMS, 0n, 0)));
+  assert.equal(none.program_score, null);
+  assert.equal(none.program_score_at, null);
+  assert.equal(none.match, null);
+  const sim = scoreJson({ ...input, wallet: '', simulated: true, network: 'mainnet scale', other: { network: 'devnet', holdSecs: DEVNET_PARAMS.holdSecs[1]! }, program: null }, MAINNET_TARGET_PARAMS, o.agent.credit, o.agent.counterpartyPoints);
+  assert.equal(sim.hold_devnet, '45 s');
+});
+
+test('score --json: the factors are the program\'s own, so they multiply out to the score', () => {
+  // A Trusted wallet one period into a lost dispute: behaviour is 0.7525, which two decimals would round.
+  const P = MAINNET_TARGET_PARAMS;
+  const o = simulate.simulate(simulate.presetById('same-lost-a-dispute')!.w, P);
+  const b = score.breakdown(o.agent, P, o.now + BigInt(P.periodSecs));
+  const j = scoreJson({ wallet: NOVA, simulated: false, network: 'devnet', counterparties: 40, activePeriods: 60, b, other: { network: 'mainnet target', holdSecs: 0 }, program: null, noFile: false }, P, o.agent.credit, o.agent.counterpartyPoints);
+  assert.equal(j.factors.behaviour, 0.7525);
+  assert.equal(j.score, Math.floor(1000 * j.factors.evidence * j.factors.rating * j.factors.behaviour + 1e-9));
+  for (const preset of simulate.PRESETS) {
+    const s = simulate.simulate(preset.w, P);
+    const f = scoreJson({ wallet: '', simulated: true, network: 'mainnet scale', counterparties: 0, activePeriods: 0, b: score.breakdown(s.agent, P, s.now), other: { network: 'devnet', holdSecs: 0 }, program: null, noFile: false }, P, s.agent.credit, s.agent.counterpartyPoints);
+    const milli = (x: number) => BigInt(Math.round(x * 1000));
+    assert.equal(Number((1000n * milli(f.factors.evidence) * milli(f.factors.rating) * BigInt(Math.round(f.factors.behaviour * 10_000))) / 10_000_000_000n), f.score, preset.id);
+  }
+});

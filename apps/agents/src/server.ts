@@ -121,7 +121,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(cors({ origin: config.webOrigins, exposedHeaders: ['PAYMENT-REQUIRED', 'PAYMENT-RESPONSE'] }));
-app.use(express.json({ limit: '64kb' }));
+app.use(express.json({ limit: '64kb', inflate: false }));
 
 /**
  * Who a request is from, for limits and caps: the address for IPv4, the /64
@@ -253,7 +253,8 @@ const agentList = cached(15_000, async () =>
     })),
   ),
 );
-app.get('/agents', async (_req, res) => {
+// The host root answers the same index, so a bare link to the server shows the merchants.
+app.get(['/', '/agents'], async (_req, res) => {
   res.json(await agentList());
 });
 

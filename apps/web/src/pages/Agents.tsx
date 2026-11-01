@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
 import { useMemo, useState } from 'react';
+import { isAddress } from '@solana/kit';
 import { OrderState, paylater, rewards, safeText, score } from '@tessera/sdk';
 import { Footer } from './Landing';
 import { Nav } from '../components/Nav';
@@ -10,7 +11,7 @@ import registry from '../../../../deployments/registry.json';
 const REGISTRY = new Map(Object.values(registry.agents).map((e) => [e.wallet, e.asset]));
 const MIRRORED = Object.values(registry.feedback).reduce((n, f) => n.set(f.asset, (n.get(f.asset) ?? 0) + 1), new Map<string, number>());
 import { NETWORK_LABEL } from '../lib/client';
-import { ago, compactUsd, duration, explorerAddress, tierName, usd } from '../lib/format';
+import { ago, compactUsd, duration, explorerAddress, short, tierName, usd } from '../lib/format';
 import { usePayLater } from '../lib/paylater';
 import { go, Link } from '../lib/router';
 import { useChain, useProfiles, type Profile } from '../lib/store';
@@ -44,10 +45,10 @@ export function Agents() {
       .sort((a, b) => key[sort](b) - key[sort](a));
   }, [profiles, sort, role]);
 
-  const Th = ({ k, children, right }: { k?: SortKey; children: React.ReactNode; right?: boolean }) => (
-    <th className={`eyebrow py-3 font-normal ${right ? 'text-right' : 'text-left'}`} style={{ color: '#86918B' }} aria-sort={k && sort === k ? 'descending' : undefined}>
+  const Th = ({ k, children, right, className = '' }: { k?: SortKey; children: React.ReactNode; right?: boolean; className?: string }) => (
+    <th className={`eyebrow py-3 font-normal ${right ? 'text-right' : 'text-left'} ${className}`} style={{ color: '#86918B' }} aria-sort={k && sort === k ? 'descending' : undefined}>
       {k ? (
-        <button onClick={() => setSort(k)} style={{ cursor: 'pointer', textTransform: 'inherit', letterSpacing: 'inherit', color: sort === k ? '#E8EDE9' : 'inherit' }}>
+        <button onClick={() => setSort(k)} className="-my-3 inline-flex min-h-11 items-center" style={{ cursor: 'pointer', textTransform: 'inherit', letterSpacing: 'inherit', color: sort === k ? '#E8EDE9' : 'inherit' }}>
           {children}
           {sort === k ? ' ↓' : ''}
         </button>
@@ -82,15 +83,15 @@ export function Agents() {
         </div>
 
         <div className="card mt-4 overflow-x-auto p-2 md:p-4">
-          <table className="w-full min-w-[760px]" style={{ borderCollapse: 'collapse' }}>
+          <table className="w-full md:min-w-[660px]" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 <Th>Agent</Th>
                 <Th>Tier</Th>
                 <Th k="score" right>Score</Th>
-                <Th k="stars">Rating</Th>
-                <Th k="orders" right>Orders</Th>
-                <Th k="volume" right>Volume</Th>
+                <Th k="stars" className="hidden pl-4 md:table-cell">Rating</Th>
+                <Th k="orders" right className="hidden pl-3 md:table-cell">Orders</Th>
+                <Th k="volume" right className="hidden pl-3 md:table-cell">Volume</Th>
                 <Th right>Settles in</Th>
               </tr>
             </thead>
@@ -102,26 +103,29 @@ export function Agents() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: EASE, delay: Math.min(i, 12) * 0.03 }}
-                  onClick={() => go(`/agents/${p.wallet}`)}
+                  onClick={(e) => {
+                    // the name is a link and navigates by itself
+                    if (!(e.target as HTMLElement).closest('a')) go(`/agents/${p.wallet}`);
+                  }}
                   style={{ borderTop: '1px solid #1A211E', cursor: 'pointer' }}
-                  className="hover:bg-black/[0.03]"
+                  className="hover:bg-white/[0.03]"
                 >
                   <td className="py-3.5">
                     <div className="flex items-center gap-3">
-                      <span style={{ width: 12, height: 12, borderRadius: p.role === 'merchant' || p.role === 'both' ? 3 : 12, background: ['#35705a', '#2f9e73', '#5EE6AB', '#b9f8da'][p.eval.tier] }} aria-hidden />
-                      <span>
-                        <span className="text-[1rem] font-medium">{p.name}</span>
-                        <span className="mono ml-2 text-[0.72rem]" style={{ color: '#86918B' }}>{p.role}</span>
-                        {REGISTRY.has(p.wallet) && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#5EE6AB' }} title="Also registered in the Solana Agent Registry (ERC-8004 on Solana)">◆ 8004</span>}
-                        {p.agent.penaltyBps > 0 && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#d03b3b' }} title="Standing penalty from a lost dispute or missed delivery">! penalty</span>}
+                      <span className="hidden shrink-0 sm:block" style={{ width: 12, height: 12, borderRadius: p.role === 'merchant' || p.role === 'both' ? 3 : 12, background: ['#35705a', '#2f9e73', '#5EE6AB', '#b9f8da'][p.eval.tier] }} aria-hidden />
+                      <span className="flex flex-wrap items-baseline gap-x-2">
+                        <Link to={`/agents/${p.wallet}`} className="whitespace-nowrap text-[1rem] font-medium">{p.name}</Link>
+                        <span className="mono text-[0.72rem]" style={{ color: '#86918B' }}>{p.role}</span>
+                        {REGISTRY.has(p.wallet) && <span className="mono text-[0.7rem]" style={{ color: '#5EE6AB' }} title="Also registered in the Solana Agent Registry (ERC-8004 on Solana)">◆ 8004</span>}
+                        {p.agent.penaltyBps > 0 && <span className="mono text-[0.7rem]" style={{ color: '#f06a6a' }} title="Standing penalty from a lost dispute or missed delivery">! penalty</span>}
                       </span>
                     </div>
                   </td>
                   <td><TierBadge tier={p.eval.tier} /></td>
                   <td className="display text-right text-[1.5rem]">{p.eval.score}</td>
-                  <td className="pl-4"><Stars value={p.stars} /></td>
-                  <td className="mono text-right text-[0.86rem]">{p.orders}</td>
-                  <td className="mono text-right text-[0.86rem]">{compactUsd(p.volume)}</td>
+                  <td className="hidden pl-4 md:table-cell"><Stars value={p.stars} /></td>
+                  <td className="mono hidden pl-3 text-right text-[0.86rem] md:table-cell">{p.orders}</td>
+                  <td className="mono hidden pl-3 text-right text-[0.86rem] md:table-cell">{compactUsd(p.volume)}</td>
                   <td className="mono text-right text-[0.86rem]">{params ? duration(params.holdSecs[p.eval.tier]!) : ''}</td>
                 </motion.tr>
               ))}
@@ -216,7 +220,7 @@ function PayLaterLine({ wallet, tier, score: sc }: { wallet: string; tier: numbe
 }
 
 export function AgentProfile({ wallet }: { wallet: string }) {
-  const { reviews, pairs, orders, config } = useChain();
+  const { reviews, pairs, orders, config, status } = useChain();
   const { byWallet, params } = useProfiles();
   const p = byWallet.get(wallet);
   const name = (w: string) => byWallet.get(w)?.name ?? `${w.slice(0, 4)}…${w.slice(-4)}`;
@@ -234,13 +238,27 @@ export function AgentProfile({ wallet }: { wallet: string }) {
   }, [reviews, pairs, orders, wallet]);
 
   if (!p || !params) {
+    const valid = isAddress(wallet);
     return (
       <div>
         <Nav />
-        <main className="wrap py-24">
-          <div className="mono text-[0.9rem]" style={{ color: '#86918B' }}>Reading this wallet's credit file from devnet…</div>
-          <p className="mt-4 text-[0.95rem]">If nothing appears, this wallet has no Tessera account yet: it scores 0 and is New.</p>
+        <main className="wrap pb-24 pt-10">
+          <Link to="/agents" className="mono link -my-3 inline-flex min-h-11 items-center text-[0.78rem]">← all agents</Link>
+          {!valid ? (
+            <h1 className="display mt-6 text-[clamp(2.2rem,5vw,3.6rem)]">This is not a Solana address.</h1>
+          ) : status === 'live' && params ? (
+            <>
+              <h1 className="display mt-6 text-[clamp(2.2rem,5vw,3.6rem)]" title={wallet}>{short(wallet, 6)}</h1>
+              <p className="mt-4 text-[0.95rem]">No Tessera account for this wallet yet. It scores 0 and is New.</p>
+            </>
+          ) : (
+            <>
+              <div className="mono mt-6 text-[0.9rem]" style={{ color: '#86918B' }}>Reading this wallet's credit file from devnet…</div>
+              <p className="mt-4 text-[0.95rem]">If nothing appears, this wallet has no Tessera account yet: it scores 0 and is New.</p>
+            </>
+          )}
         </main>
+        <Footer />
       </div>
     );
   }
@@ -253,7 +271,7 @@ export function AgentProfile({ wallet }: { wallet: string }) {
     <div>
       <Nav />
       <main className="wrap pb-24 pt-10">
-        <Link to="/agents" className="mono link text-[0.78rem]" >← all agents</Link>
+        <Link to="/agents" className="mono link -my-3 inline-flex min-h-11 items-center text-[0.78rem]">← all agents</Link>
         <div className="mt-6 grid gap-8 lg:grid-cols-[1.1fr_1fr]">
           <Reveal>
             <div className="flex flex-wrap items-center gap-3">
@@ -333,11 +351,11 @@ export function AgentProfile({ wallet }: { wallet: string }) {
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
           <div className="card p-6">
-            <div className="flex items-baseline justify-between">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="eyebrow" style={{ color: '#86918B' }}>Reviews received</div>
               <span className="flex items-baseline gap-3">
-                <span className="mono text-[0.72rem]" style={{ color: '#86918B' }}>{mine.got.length} on-chain</span>
-                <Link to="/review" className="link text-[0.8rem]">Review an order</Link>
+                <span className="mono whitespace-nowrap text-[0.72rem]" style={{ color: '#86918B' }}>{mine.got.length} on-chain</span>
+                <Link to="/review" className="link whitespace-nowrap text-[0.8rem]">Review an order</Link>
               </span>
             </div>
             <ul className="mt-3 grid" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
@@ -372,12 +390,12 @@ export function AgentProfile({ wallet }: { wallet: string }) {
                   return (
                     <li key={x.address} className="grid items-center gap-3 py-2.5 text-[0.88rem]" style={{ borderTop: '1px solid #1A211E', gridTemplateColumns: '1fr auto' }}>
                       <span>
+                        <span className="mono mr-2 text-[0.72rem]" style={{ color: '#86918B' }}>{x.data.buyer === wallet ? 'bought from' : 'sold to'}</span>
                         <Link to={`/agents/${other}`} className="link font-medium">{name(other)}</Link>
-                        <span className="mono ml-2 text-[0.72rem]" style={{ color: '#86918B' }}>{x.data.buyer === wallet ? 'buys from' : 'sells to'}</span>
-                        {x.data.disputes > 0 && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#d03b3b' }}>! {x.data.disputes} dispute{x.data.disputes > 1 ? 's' : ''}</span>}
+                        {x.data.disputes > 0 && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#f06a6a' }}>! {x.data.disputes} dispute{x.data.disputes > 1 ? 's' : ''}</span>}
                         {trusted && <span className="mono ml-2 text-[0.7rem]" style={{ color: '#5EE6AB' }}>✓ history on record</span>}
                       </span>
-                      <span className="mono text-[0.78rem]" style={{ color: '#A3ADA7' }}>{x.data.orders} orders · {usd(x.data.volume)}</span>
+                      <span className="mono text-[0.78rem]" style={{ color: '#A3ADA7' }}>{x.data.orders} order{x.data.orders === 1 ? '' : 's'} · {usd(x.data.volume)}</span>
                     </li>
                   );
                 })}
@@ -389,10 +407,11 @@ export function AgentProfile({ wallet }: { wallet: string }) {
               <ul className="mt-3 grid" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {mine.ord.map((o) => (
                   <li key={o.address}>
-                    <a href={explorerAddress(o.address)} target="_blank" rel="noreferrer" className="grid items-center gap-3 py-2 text-[0.82rem]" style={{ borderTop: '1px solid #1A211E', gridTemplateColumns: '5.4rem 1fr auto' }}>
+                    <a href={explorerAddress(o.address)} target="_blank" rel="noreferrer" className="grid items-center gap-3 py-2 text-[0.82rem]" style={{ borderTop: '1px solid #1A211E', gridTemplateColumns: '5.4rem minmax(0,1fr) auto auto' }}>
                       <StateChip kind={o.data.state === OrderState.Released && o.data.instant ? 'instant' : states[o.data.state]!} />
-                      <span className="mono truncate">{name(o.data.buyer)} → {name(o.data.merchant)} · {usd(o.data.amount)}</span>
-                      <span className="mono text-[0.72rem]" style={{ color: '#86918B' }}>hold {duration(o.data.holdSecs)}</span>
+                      <span className="mono truncate">{o.data.buyer === wallet ? `to ${name(o.data.merchant)}` : `from ${name(o.data.buyer)}`}</span>
+                      <span className="mono text-right">{usd(o.data.amount)}</span>
+                      <span className="mono whitespace-nowrap text-[0.72rem]" style={{ color: '#86918B' }}>{o.data.holdSecs > 0 && (<><span className="hidden sm:inline">hold </span>{duration(o.data.holdSecs)}</>)}</span>
                     </a>
                   </li>
                 ))}

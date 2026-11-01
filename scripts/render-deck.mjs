@@ -18,6 +18,9 @@
  *
  * --no-voice: silent, each slide for its declared `seconds`. --mute: silent, but
  * each slide as long as its narration takes, to talk over at the same pace.
+ * --relay URL: the site was built against hosted agents (VITE_AGENTS_URL) that
+ * answer only the live site's origin. Requests to URL are made from Node and
+ * handed to the page, so a local build can be recorded before it is deployed.
  *   node scripts/render-deck.mjs demo
  *
  * Needs macOS (`say`), ffmpeg and Google Chrome. Writes to
@@ -46,6 +49,7 @@ const withVoice = !process.argv.includes('--no-voice');
 // A slide that performs something live keeps its declared length even if its narration is shorter.
 const floors = new Set(flag('floor', name === 'demo' ? 'checkout' : '').split(',').filter(Boolean));
 const site = flag('url', 'http://localhost:5173');
+const relay = flag('relay', '');
 const out = resolve(flag('out', join(repo, 'apps/web/slides/dist/videos')));
 const base = `tessera-${name}${withVoice && !mute ? '' : '-silent'}`;
 const work = join(out, `.${base}`);
@@ -111,15 +115,31 @@ writeFileSync(
     `Edit the \`say\` text in the deck, not this file.\n\n| # | Starts | Slide | Say |\n|---|---|---|---|\n${rows.join('\n')}\n`,
 );
 writeFileSync(join(out, `${base}.srt`), cues.map((c, i) => `${i + 1}\n${stamp(c.from)} --> ${stamp(c.to)}\n${c.text}\n`).join('\n'));
+const vtt = (t) => stamp(t).replace(/^00:/, '').replace(',', '.');
+writeFileSync(join(out, `${base}.vtt`), `WEBVTT\n\n${cues.map((c) => `${vtt(c.from)} --> ${vtt(c.to)}\n${c.text}\n`).join('\n')}`);
 
 // ---- 3. play it and record it
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--autoplay-policy=no-user-gesture-required'] });
 const size = { width: 1920, height: 1080 };
 const context = await browser.newContext({ viewport: size, deviceScaleFactor: 1, recordVideo: { dir: work, size } });
+if (relay) {
+  const origin = new URL(site).origin;
+  const cors = { 'access-control-allow-origin': origin, 'access-control-expose-headers': 'PAYMENT-REQUIRED, PAYMENT-RESPONSE', vary: 'Origin' };
+  await context.route((u) => u.href.startsWith(relay), async (route) => {
+    const req = route.request();
+    if (req.method() === 'OPTIONS') {
+      return route.fulfill({ status: 204, headers: { ...cors, 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': req.headers()['access-control-request-headers'] ?? 'content-type' } });
+    }
+    const res = await route.fetch({ timeout: 120_000 });
+    return route.fulfill({ response: res, headers: { ...res.headers(), ...cors } });
+  });
+  console.log(`  relaying ${relay} for ${origin}`);
+}
 const page = await context.newPage();
 // The recording starts when the page is created, so this is time zero of the video.
 const opened = Date.now();
-await page.goto(`${site}/#/deck/${name}?auto=1&clean=1&wait=1&t=${slides.map((s) => s.hold).join(',')}`);
+// live=1: the deck performs its purchases (a visitor's deck only reads)
+await page.goto(`${site}/#/deck/${name}?auto=1&clean=1&wait=1&live=1&t=${slides.map((s) => s.hold).join(',')}`);
 page.on('pageerror', (e) => console.warn(`  page error: ${e.message.slice(0, 200)}`));
 // A reload or a dev-server hot update restarts the deck: say so, with the time, if it happens.
 page.on('load', () => console.log(`  page loaded at ${((Date.now() - opened) / 1000).toFixed(1)} s`));
@@ -188,5 +208,6 @@ if (withVoice && !mute) {
 args.push('-t', (total + 1).toFixed(2), '-r', '30', '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4);
 sh('ffmpeg', args);
 const seconds = Number(sh('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4]).trim());
-console.log(`wrote ${mp4} (${mmss(seconds)}, ${(readFileSync(mp4).length / 1e6).toFixed(1)} MB), ${base}.srt and ${base}-script.md`);
+sh('ffmpeg', ['-y', '-loglevel', 'error', '-ss', '0.5', '-i', mp4, '-frames:v', '1', '-q:v', '3', join(out, `${base}-poster.jpg`)]);
+console.log(`wrote ${mp4} (${mmss(seconds)}, ${(readFileSync(mp4).length / 1e6).toFixed(1)} MB), ${base}.srt, .vtt, -poster.jpg and -script.md`);
 rmSync(work, { recursive: true, force: true });

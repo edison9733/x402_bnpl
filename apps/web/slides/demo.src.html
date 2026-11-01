@@ -9,17 +9,18 @@
   <p class="kicker">The one design decision everything rests on</p>
   <h1 style="font-size: 70px; max-width: 22ch;">The program trusts a balance, <em>not a message.</em></h1>
   <div class="card" style="margin-top: 40px; padding: 30px 36px; border-radius: 22px;">
-<pre style="font-size: 24px; line-height: 1.65; color: #c9c6b6;"><span style="color: #5d5c52;">/// Permissionless on purpose: the only input it trusts is the vault balance.</span>
+<pre style="font-size: 24px; line-height: 1.65; color: #C9D2CC;"><span style="color: #6B7771;">/// Permissionless on purpose: the only input it trusts is the vault balance.</span>
 pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; {
     let vault_balance = ctx.accounts.vault.amount;
     let order = &amp;mut ctx.accounts.order;
     require!(order.state == OrderState::AwaitingPayment, TesseraError::InvalidState);
+    ...   <span style="color: #6B7771;">// and the quote&#x27;s payment window: PaymentWindowClosed</span>
     <span class="mint">require!(vault_balance &gt;= order.amount, TesseraError::VaultUnderfunded);</span>
     order.state = OrderState::Funded;
     ...
 }</pre>
   </div>
-  <p style="font-size: 27px; max-width: 60ch; margin: 36px 0 0; line-height: 1.4;">A facilitator can refuse a payment but cannot redirect one: the buyer's signature fixes recipient, amount and mint. A dishonest merchant server cannot either: the buyer re-derives the escrow address and reads the order from the chain before signing, and on credit the buy_now it signs carries the price too.</p>
+  <p style="font-size: 27px; max-width: 60ch; margin: 36px 0 0; line-height: 1.4;">A facilitator can refuse a payment but cannot redirect it: the buyer's signature fixes recipient, amount and mint. A dishonest merchant cannot either: the buyer reads the order from the chain before it signs.</p>
   <p class="source">programs/tessera/src/lib.rs. A July 2026 study found rule violations in all 15 x402 facilitators it tested (arXiv 2607.19545), which is why nothing here trusts one.</p>
 </section>
 
@@ -29,7 +30,7 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
   <div class="term" style="margin-top: 28px; padding: 28px 34px; font-size: 19px; line-height: 1.7;">
     <div class="white">$ curl -i "localhost:4020/agents/atlas/x402/telemetry?buyer=Acy1…t7PW"</div>
     <div class="warn">  HTTP/1.1 402 Payment Required</div>
-    <div style="color: #6f6e62;">  PAYMENT-REQUIRED: eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2Ui…   (the body below, base64)</div>
+    <div style="color: #6B7771;">  PAYMENT-REQUIRED: eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2Ui…   (the body below, base64)</div>
     <div>  accepts[0]  exact             0.20 USDC  payTo DAwJTW9m…  feePayer: x402.org facilitator</div>
     <div>  accepts[1]  exact             0.20 USDC  payTo DAwJTW9m…  feePayer: payai.network facilitator</div>
     <div class="mint">  accepts[2]  tessera-paylater  0.20 USDC  payTo DAwJTW9m…  buyerLimit 9.297270 · fee 0.004 · 600 s · eligible</div>
@@ -44,20 +45,20 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
   <h1 style="font-size: 64px;">One instruction pays the escrow <em>and confirms it.</em></h1>
   <div class="row" style="gap: 14px; margin-top: 40px; align-items: stretch;">
     <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">1 · 402</h3><p style="font-size: 18px;">exact first, then the pay-later option with the buyer&#x27;s limit</p></div>
-    <div class="card on" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">2 · pay later</h3><p style="font-size: 18px;">the buyer signs buy_now; the merchant checks, signs and sends it</p></div>
+    <div class="card on" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">2 · pay later</h3><p style="font-size: 18px;">the buyer signs buy_now, and the merchant checks, signs and sends it</p></div>
     <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">3 · deliver</h3><p style="font-size: 18px;">the merchant delivers and commits its hash</p></div>
     <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">4 · hold</h3><p style="font-size: 18px;">as long as the two parties&#x27; tiers say</p></div>
     <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">5 · release</h3><p style="font-size: 18px;">the escrow pays the merchant, minus its 1%</p></div>
     <div class="card" style="flex: 1; padding: 18px 20px;"><h3 style="font-size: 30px;">6 · repay --all</h3><p style="font-size: 18px;">price + 2% to the pool, every loan in one transaction</p></div>
   </div>
   <div class="card" style="margin-top: 30px; padding: 26px 32px; border-radius: 22px;">
-<pre style="font-size: 20px; line-height: 1.6; color: #c9c6b6;">pub fn buy_now(ctx: Context&lt;BuyNow&gt;, loan_id: [u8; 32], amount: u64, request_hash: [u8; 32]) -&gt; Result&lt;()&gt; {
-    let order = read_order(&amp;a.order)?;    <span style="color: #5d5c52;">// the escrow&#x27;s own order: owner, address and type checked</span>
+<pre style="font-size: 20px; line-height: 1.6; color: #C9D2CC;">pub fn buy_now(ctx: Context&lt;BuyNow&gt;, loan_id: [u8; 32], amount: u64, request_hash: [u8; 32]) -&gt; Result&lt;()&gt; {
+    let order = read_order(&amp;a.order)?;    <span style="color: #6B7771;">// the escrow&#x27;s own order: owner, address and type checked</span>
     require_keys_eq!(order.buyer, a.buyer.key(), PayLaterError::NotTheBuyer);
-    require!(order.amount == amount, PayLaterError::PriceMismatch);   <span style="color: #5d5c52;">// the price the buyer signed for</span>
+    require!(order.amount == amount, PayLaterError::PriceMismatch);   <span style="color: #6B7771;">// the price the buyer signed for</span>
     require!(amount &lt;= limit.saturating_sub(line.outstanding), PayLaterError::CreditLimitExceeded);
-    <span class="mint">pay_from_pool(&amp;a.pool, ..., a.order_vault.to_account_info(), amount)?;</span>   <span style="color: #5d5c52;">// pool → the order&#x27;s vault</span>
-    <span class="mint">tessera::cpi::confirm_funded(...)?;</span>                                  <span style="color: #5d5c52;">// the escrow marks it Funded</span>
+    <span class="mint">pay_from_pool(&amp;a.pool, ..., a.order_vault.to_account_info(), amount)?;</span>   <span style="color: #6B7771;">// pool → the order&#x27;s vault</span>
+    <span class="mint">tessera::cpi::confirm_funded(...)?;</span>                                  <span style="color: #6B7771;">// the escrow marks it Funded</span>
     ...
 }</pre>
   </div>
@@ -70,7 +71,7 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
     <div class="white">$ npm run buy -- --buyer nova --merchant quill --pay-later</div>
     <div>  [nova] Quill/summary: 0.25 USDC into escrow Fi68yAxK, hold 10s (merchant Established, me Building, pair trusted)</div>
     <div>  [nova] Quill/summary: on credit; limit 1.026626 USDC, owing 0.00; fee 0.005, due in 600s</div>
-    <div class="mint">  settle tx  explorer.solana.com/tx/2mZxEzfu…MnzW8   # signed by the server, Nova and Quill; ConfirmFunded inside</div>
+    <div class="mint">  settle tx  explorer.solana.com/tx/2mZxEzfu…MnzW8   # signed by the server, Nova and Quill. ConfirmFunded inside</div>
     <div>  loan       35R7bZzw…  owe 0.255 USDC (0.25 + 0.005 pool fee) by 07:22:32 UTC</div>
     <div>  hash check matches the hash committed on-chain</div>
     <div class="mint">  final      Released</div>
@@ -82,7 +83,7 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
     <div class="white" style="margin-top: 10px;">$ npm run buy -- --buyer charlie --merchant atlas --pay-later</div>
     <div class="warn">  NOT BOUGHT not eligible for pay later: the buyer has no credit yet (New, score 40)</div>
   </div>
-  <p class="source">The limit follows the score: 1.026626 USDC in Nova&#x27;s 402, as a Building buyer; 2.865299 after this repayment, at Established 527 with three loans repaid on time (boost +8.74%). Charlie, which disputes what it receives, is New. Times in UTC (28 Oct in UTC+8). Lines shortened with ….</p>
+  <p class="source">The limit follows the score: 1.026626 USDC in Nova&#x27;s 402, as a Building buyer. 2.865299 after this repayment, at Established 527 with three loans repaid on time (boost +8.74%). Charlie, which disputes what it receives, was New then. Times in UTC (28 Oct in UTC+8). Lines shortened with ….</p>
 </section>
 
 <section data-document-role="page" data-label="On chain" data-speaker-notes="And that transaction, read back from devnet: three signers, the pay-later program’s buy now, the pool’s transfer, and inside it, the escrow’s confirm funded." style="--gap: 120ms;">
@@ -110,26 +111,26 @@ pub fn confirm_funded(ctx: Context&lt;ConfirmFunded&gt;) -&gt; Result&lt;()&gt; 
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 34px;">
     <div class="card anim"><h3>The 402 asks too much</h3><p>Above the buyer&#x27;s ceiling, it signs nothing. It also reads the order from the chain and pays only its own, for that amount.</p></div>
     <div class="card anim"><h3>Paid, never delivered</h3><p>After the deadline anyone may refund: the buyer gets it all, and the merchant&#x27;s score loses 10%. On devnet: mallory, three orders, three refunds.</p></div>
-    <div class="card anim"><h3>A delivery is disputed</h3><p>The arbiter checks what arrived against the hash committed on chain. On devnet: charlie disputed two valid deliveries; both were resolved for the merchant.</p></div>
+    <div class="card anim"><h3>A delivery is disputed</h3><p>The arbiter checks what arrived against the hash committed on chain. On devnet: charlie disputed two valid deliveries, and both were resolved for the merchant.</p></div>
     <div class="card on anim"><h3>The facilitator fails <span class="mono mint" style="font-size: 16px;">new</span></h3><p>Refused at verify: HTTP 400, nothing sent. Left pending: the merchant watches the vault until it lands (delivered) or can no longer land (400, pay again).</p></div>
     <div class="card on anim"><h3>A forged pay-later header <span class="mono mint" style="font-size: 16px;">new</span></h3><p>Checked before the merchant signs, and simulated before anything is sent: HTTP 400, nothing sent, and the buyer may pay another way.</p></div>
-    <div class="card on anim"><h3>A loan not repaid <span class="mono mint" style="font-size: 16px;">new</span></h3><p>After the grace period anyone marks it in default; the server&#x27;s keeper does, every 30 s. The line freezes, and the next 402 says so.</p></div>
+    <div class="card on anim"><h3>A loan not repaid <span class="mono mint" style="font-size: 16px;">new</span></h3><p>After the grace period anyone can mark it in default, and the server&#x27;s keeper does, every 30 s. The line freezes, and the next 402 says so.</p></div>
   </div>
   <p class="mono" style="font-size: 18px; margin: 24px 0 0;">Before a buyer even tries, the 402 says <span class="mint">eligible: false</span> with the reason. If the escrow refunds an order the pool paid for, the refund goes to the buyer and the loan stays owed.</p>
   <p class="source">Each case with the file and line that handles it: README, &quot;Failed payments&quot;.</p>
 </section>
 
-<section class="paper" data-document-role="page" data-label="A purchase on the website" data-speaker-notes="A person can buy from the same agents on the website, with a built-in devnet test wallet. The merchant opens the escrow, and the browser checks it on-chain before paying into its vault. The merchant delivers and commits a hash, and the browser checks what arrived against it. This buyer is new, so the money is held until it confirms receipt.">
+<section class="paper" data-document-role="page" data-label="A purchase on the website" data-speaker-notes="A person can buy from the same agents on the website, with a built-in devnet test wallet. The merchant opens the escrow, and the browser checks it on-chain before paying into its vault. The merchant delivers and commits a hash, and the browser checks what arrived against it. This buyer is new, so the money is held for two minutes, or until it confirms receipt.">
   <p class="kicker">A purchase on the website</p>
   <h1 style="font-size: 64px; margin-top: 10px;">Checked in the browser, <em>then paid into escrow.</em></h1>
   <div class="shot kb" style="width: 1700px; height: 640px; margin-top: 26px; background: #0B0E0D;"><img src="img/checkout.png" alt="A purchase on the Tessera market: escrow opened, checked in the browser, paid, delivered, hash matched, released" style="object-fit: contain; object-position: top;"></div>
-  <div class="caption anim" style="left: 150px; right: 150px; bottom: 60px; font-size: 27px;">The merchant opens the escrow. The browser checks it on-chain before paying. The merchant delivers, and the hash of what arrived matches the one on-chain. A new buyer's money is held until it confirms receipt.</div>
+  <div class="caption anim" style="left: 150px; right: 150px; bottom: 60px; font-size: 27px;">The merchant opens the escrow. The browser checks it on-chain before paying. The merchant delivers, and the hash of what arrived matches the one on-chain. A new buyer's money is held for two minutes, or until it confirms receipt.</div>
 </section>
 
-<section class="paper" data-document-role="page" data-label="An owner approves" data-speaker-notes="New this week: an agent that holds no key can still buy. It asks, and its owner approves on this page from their own wallet. The page reads the order from the chain and checks it against the link before paying into escrow. The agent collects the delivery, and the owner keeps the right to dispute." style="padding: 70px 110px;">
+<section class="paper" data-document-role="page" data-label="An owner approves" data-speaker-notes="New in 2.0: an agent that holds no key can still buy. It asks, and its owner approves on this page from their own wallet. The page reads the order from the chain and checks it against the link before paying into escrow. The agent collects the delivery, and the owner keeps the right to dispute." style="padding: 70px 110px;">
   <p class="kicker">New · an agent with no key asks, and its owner's wallet pays</p>
   <div class="shot kb" style="width: 1700px; height: 760px; background: #0B0E0D;"><img src="img/approve.png" alt="The approval page: the order read from devnet, paid from the owner's wallet into escrow, delivered, held" style="object-fit: contain; object-position: top;"></div>
-  <div class="caption anim" style="left: 150px; right: 150px; bottom: 60px; font-size: 27px;"><span class="mono">tessera ask &lt;merchant&gt; &lt;skill&gt; --owner &lt;wallet&gt;</span> prints the link. The page reads the order from the chain, checks it against the link, and the owner's wallet pays into escrow; the agent collects the delivery with its claim and checks the hash.</div>
+  <div class="caption anim" style="left: 150px; right: 150px; bottom: 60px; font-size: 27px;"><span class="mono">tessera ask &lt;merchant&gt; &lt;skill&gt; --owner &lt;wallet&gt;</span> prints the link. The page reads the order from the chain, checks it against the link, and the owner's wallet pays into escrow. The agent collects the delivery with its claim and checks the hash.</div>
 </section>
 
 <section class="paper" data-document-role="page" data-label="A credit file" data-speaker-notes="Every wallet has a credit file anyone can read: the score, what it is made of, and every review with the weight it carried." style="padding: 70px 110px;">

@@ -30,7 +30,7 @@ import {
   verifyOrderForPayment,
   walletBrowseLinks,
 } from '@tessera/sdk';
-import { readClock, TESSERA_EXTENSION_URI } from './paylater.js';
+import { readClock, scrub, TESSERA_EXTENSION_URI } from './paylater.js';
 
 export const ASK_COMMANDS = new Set(['ask', 'collect']);
 
@@ -59,6 +59,8 @@ type Opts = {
   /** The CLI's URL check: https, or http to this machine. */
   endpoint: (url: string, what: string) => string;
   die: (m: string) => never;
+  /** A mistake on the command line: exits 2. */
+  usage: (m: string) => never;
 };
 
 const short = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`;
@@ -69,20 +71,22 @@ const isLocal = (url: string) => ['localhost', '127.0.0.1', '[::1]'].includes(ne
 
 export async function askCommands(cmd: string, a1: string | undefined, a2: string | undefined, o: Opts): Promise<void> {
   const rpc = createSolanaRpc(o.rpcUrl);
+  /** An address typed on the command line (`<order>`, `--owner`) that is missing or wrong is a usage error. One a merchant sent is a refusal. */
   const addr = (v: string | undefined, what: string): Address => {
-    if (!v) o.die(`${what} is required (see: tessera help)`);
+    const bad: (m: string) => never = /^(--|<)/.test(what) ? o.usage : o.die;
+    if (!v) bad(`${what} is required (see: tessera help)`);
     try {
       return address(v);
     } catch {
-      return o.die(`${what} is not a Solana address: ${v}`);
+      return bad(`${what} is not a Solana address: ${scrub(v)}`);
     }
   };
 
   // A merchant agent's URL is <server>/agents/<id>; its card's own URL is accepted too.
-  if (!a1) o.die(`${cmd} needs a <merchant agent url> (see: tessera help)`);
+  if (!a1) o.usage(`${cmd} needs a <merchant agent url> (see: tessera help)`);
   const base = o.endpoint(a1, '<merchant agent url>').replace(/\/\.well-known\/agent-card\.json$/, '').replace(/\/$/, '');
   const parts = /^(.*)\/agents\/([^/?#]+)$/.exec(base);
-  if (!parts) o.die(`${base} is not a Tessera merchant agent URL (<server>/agents/<id>)`);
+  if (!parts) o.usage(`${base} is not a Tessera merchant agent URL (<server>/agents/<id>)`);
   const [, server, merchantId] = parts as unknown as [string, string, string];
 
   const call = async (url: string, body?: unknown, timeoutMs = 30_000) => {
@@ -99,11 +103,12 @@ export async function askCommands(cmd: string, a1: string | undefined, a2: strin
   };
 
   // Everything on the command line is checked before anything is fetched.
-  const collecting = cmd === 'collect' ? { order: addr(a2, '<order>'), claim: o.claim ?? o.die('collect needs --claim (printed by tessera ask)') } : undefined;
-  const skill = collecting ? '' : (a2 ?? o.die('ask <merchant agent url> needs a <skill> (see: tessera help)'));
+  const collecting = cmd === 'collect' ? { order: addr(a2, '<order>'), claim: o.claim ?? o.usage('collect needs --claim (printed by tessera ask)') } : undefined;
+  const skill = collecting ? '' : (a2 ?? o.usage('ask <merchant agent url> needs a <skill> (see: tessera help)'));
   const ownerArg = collecting ? undefined : addr(o.owner, '--owner');
   const input = o.input ?? {};
-  if (typeof input !== 'object' || input === null || Array.isArray(input)) o.die('--input must be a JSON object');
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) o.usage('--input must be a JSON object');
+  const site = collecting ? '' : o.endpoint(o.site ?? process.env.TESSERA_SITE_URL ?? (isLocal(server) ? LOCAL_SITE : PUBLIC_SITE), o.site !== undefined ? '--site' : 'the approval site');
 
   const cfg = await fetchMaybeConfig(rpc, await configPda());
   if (!cfg.exists) o.die(`no Tessera config on ${o.rpcUrl}`);
@@ -113,7 +118,7 @@ export async function askCommands(cmd: string, a1: string | undefined, a2: strin
   if (collecting) return collect(collecting.order, collecting.claim);
 
   // ------------------------------------------------------------------ ask
-  const owner = ownerArg ?? o.die('--owner is required (see: tessera help)');
+  const owner = ownerArg ?? o.usage('--owner is required (see: tessera help)');
 
   // 0. The most the owner is asked to pay: what the merchant's card advertises for the skill.
   const { body: card } = await call(`${base}/.well-known/agent-card.json`);
@@ -124,7 +129,7 @@ export async function askCommands(cmd: string, a1: string | undefined, a2: strin
 
   // 1. The quote: an order opened in the owner's name, and the claim that collects its delivery.
   const quote = await call(`${server}/api/orders`, { merchant: merchantId, sku: skill, input, buyer: owner, ...(o.minHoldSecs ? { minHoldSecs: o.minHoldSecs } : {}) }, 60_000);
-  if (!quote.res.ok) o.die(`the merchant would not open an order (${quote.res.status}): ${String(quote.body.error ?? 'failed')}`);
+  if (!quote.res.ok) o.die(`the merchant would not open an order (${quote.res.status}): ${scrub(String(quote.body.error ?? 'failed'))}`);
   const terms = quote.body.terms as { orderId: string; order: string; amount: string; holdSecs: number } | undefined;
   const claim = quote.body.claim;
   if (!terms || typeof claim !== 'string') o.die('the merchant answered without an order or a claim');
@@ -150,7 +155,6 @@ export async function askCommands(cmd: string, a1: string | undefined, a2: strin
     }
   }
 
-  const site = o.endpoint(o.site ?? process.env.TESSERA_SITE_URL ?? (isLocal(server) ? LOCAL_SITE : PUBLIC_SITE), o.site ? '--site' : 'the approval site');
   const link = approvalLink(site, verified.order, { sku: skill, input });
   const phone = walletBrowseLinks(link);
   const payBy = Number(verified.data.createdAt) + params.unpaidSecs;
@@ -167,8 +171,9 @@ export async function askCommands(cmd: string, a1: string | undefined, a2: strin
     console.log(`         held ${verified.data.holdSecs} s after delivery; the owner has ${mmss(left)} to pay`);
     console.log(`approve  ${link}`);
     console.log(`phone    ${phone.phantom}`);
-    console.log(`claim    ${claim}  (collects the delivery; keep it to yourself)`);
-    if (!o.wait) console.log(`next     ${next}`);
+    // The claim is the merchant's text: scrubbed, an escape code in it cannot redraw the approve line above.
+    console.log(`claim    ${scrub(claim)}  (collects the delivery; keep it to yourself)`);
+    if (!o.wait) console.log(`next     ${scrub(next)}`);
   }
   if (o.wait) return collect(verified.order, claim);
 
@@ -191,7 +196,7 @@ export async function askCommands(cmd: string, a1: string | undefined, a2: strin
     if (!o.json) console.log(`paid     the order is funded; collecting the delivery`);
 
     const f = await call(`${server}/api/orders/${order}/fulfil`, { claim }, 120_000);
-    const why = String(f.body.error ?? 'failed');
+    const why = scrub(String(f.body.error ?? 'failed'));
     if (f.res.status === 403) o.die(`the merchant refused this claim (${why}): only the claim printed by tessera ask collects this order's delivery`);
     if (f.res.status === 404) o.die(`the merchant has no quote for order ${short(order)} (${why}); check the merchant agent URL`);
     if (!f.res.ok) o.die(`the merchant did not deliver (${f.res.status}): ${why}. The money is safe in escrow: an order not delivered by its deadline is refunded to the owner`);
@@ -204,7 +209,7 @@ export async function askCommands(cmd: string, a1: string | undefined, a2: strin
         JSON.stringify({ order, state: OrderState[after.data.state], deliverable: f.body.deliverable, deliveryHash: toHex(after.data.deliveryHash), matches, instant: after.data.instant, releaseAt }, null, 2),
       );
     }
-    console.log(`result   ${JSON.stringify(f.body.deliverable).slice(0, 600)}`);
+    console.log(scrub(`result   ${JSON.stringify(f.body.deliverable).slice(0, 600)}`));
     console.log(matches ? 'check    sha256 of what was received equals the hash the merchant committed on-chain' : 'check    what was received does NOT match the hash on-chain: the owner should dispute it on the approval page');
     console.log(
       after.data.instant

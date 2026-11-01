@@ -23,41 +23,39 @@ const decks = resolve(here, '../public/decks');
 const dist = join(here, 'dist');
 mkdirSync(dist, { recursive: true });
 
-const LOGO = (size) =>
-  `<svg width="${size}" height="${size}" viewBox="14 14 36 36" aria-label="Tessera logo"><path d="M14 32a18 18 0 0 1 18-18v36a18 18 0 0 1-18-18z" fill="#f6f1e3"/><path d="M36 14a18 18 0 0 1 0 36l5-9-5-9 5-9z" fill="#b8f5c8"/></svg>`;
-const FAVICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#14130f"/><path d="M14 32a18 18 0 0 1 18-18v36a18 18 0 0 1-18-18z" fill="#f6f1e3"/><path d="M36 14a18 18 0 0 1 0 36l5-9-5-9 5-9z" fill="#b8f5c8"/></svg>')}`;
+// The four-tile mark the site's nav and footer use.
+const MARK = '<rect x="1" y="1" width="12" height="12" rx="3" fill="#5EE6AB"/><rect x="15.8" y="1.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" stroke-width="1.6"/><rect x="1.8" y="15.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" stroke-width="1.6"/><rect x="15" y="15" width="12" height="12" rx="3" fill="#F5BE55"/>';
+const LOGO = (size) => `<svg width="${size}" height="${size}" viewBox="0 0 28 28" aria-label="Tessera logo">${MARK}</svg>`;
+const FAVICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0B0E0D"/><g transform="translate(11 11) scale(1.5)"><rect x="1" y="1" width="12" height="12" rx="3" fill="#5EE6AB"/><rect x="15.8" y="1.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" stroke-width="1.6"/><rect x="1.8" y="15.8" width="10.4" height="10.4" rx="2.4" fill="none" stroke="#E8EDE9" stroke-width="1.6"/><rect x="15" y="15" width="12" height="12" rx="3" fill="#F5BE55"/></g></svg>')}`;
 
+// The site's design (apps/web/src/styles.css, landing.css): Bricolage Grotesque headings with the
+// accent in mint, Geist text, Geist Mono labels and code, on the dark surface.
 const STYLE = `
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: pointer; -webkit-font-smoothing: antialiased; touch-action: manipulation; }
-#stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: 0 0; }
-section { position: absolute; inset: 0; overflow: hidden; padding: 96px 110px; background: #0d0e0b; color: #c9c6b6; font-family: Inter, 'Helvetica Neue', Arial, sans-serif; font-size: 26px; display: none; flex-direction: column;
-  background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px); background-size: 28px 28px; }
+#stage { position: fixed; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: 0 0; }
+section { position: absolute; inset: 0; overflow: hidden; padding: 96px 110px; background: #0B0E0D; color: #A3ADA7; font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; font-size: 26px; display: none; flex-direction: column;
+  background-image: radial-gradient(circle at 1px 1px, rgba(201, 198, 182, 0.09) 1px, transparent 0); background-size: 26px 26px; }
 section.active { display: flex; }
-section.paper { background-color: #fbf8ef; color: #14130f; background-image: radial-gradient(rgba(20,19,15,0.05) 1px, transparent 1px); }
+section.paper { background-image: none; color: #E8EDE9; }
 section.center { align-items: center; justify-content: center; text-align: center; }
-.kicker { font-family: 'Roboto Mono', Menlo, monospace; font-size: 18px; letter-spacing: 0.14em; text-transform: uppercase; color: #8b8a7c; margin: 0 0 22px; }
-.paper .kicker { color: #878371; }
-h1 { font-family: 'EB Garamond', Georgia, serif; font-weight: 400; color: #f1eee2; margin: 0; line-height: 1.04; letter-spacing: -0.01em; }
-.paper h1 { color: #14130f; }
-h1 em, .display em { font-style: italic; }
-.display { font-family: 'EB Garamond', Georgia, serif; font-weight: 400; line-height: 1; }
-.mono { font-family: 'Roboto Mono', Menlo, monospace; }
-.mint { color: #b9f8da; } .white { color: #f1eee2; } .grey { color: #8b8a7c; } .warn { color: #ec835a; } .gold { color: #e2b04a; }
-.card { padding: 20px 26px; border-radius: 18px; border: 1px solid #272b21; background: #10120e; }
-.card.on { border-color: #b9f8da; background: #121a14; }
-.paper .card { border-color: #ded7c2; background: #ffffff; }
-.card h3 { font-family: 'EB Garamond', Georgia, serif; font-weight: 400; font-size: 34px; color: #f1eee2; margin: 0; }
-.paper .card h3 { color: #14130f; }
+.kicker { font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-size: 20px; letter-spacing: 0.14em; text-transform: uppercase; color: #86918B; margin: 0 0 22px; }
+h1 { font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-weight: 700; color: #E8EDE9; margin: 0; line-height: 1.02; letter-spacing: -0.04em; text-wrap: balance; }
+h1 em, .display em { font-style: normal; color: #5EE6AB; }
+.display { font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
+.mono { font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+.mint { color: #5EE6AB; } .white { color: #E8EDE9; } .grey { color: #86918B; } .warn { color: #F5BE55; } .gold { color: #F5BE55; }
+.card { padding: 20px 26px; border-radius: 18px; border: 1px solid #232C28; background: #101513; }
+.card.on { border-color: #5EE6AB; background: #13201A; }
+.card h3 { font-family: 'Bricolage Grotesque', 'Geist', ui-sans-serif, system-ui, sans-serif; font-weight: 700; letter-spacing: -0.03em; font-size: 34px; color: #E8EDE9; margin: 0; }
 .card p { margin: 6px 0 0; font-size: 21px; line-height: 1.38; }
-.source { position: absolute; left: 110px; right: 110px; bottom: 44px; margin: 0; font-family: 'Roboto Mono', Menlo, monospace; font-size: 14px; color: #5d5c52; line-height: 1.5; }
-.paper .source { color: #8f8a77; }
+.source { position: absolute; left: 110px; right: 110px; bottom: 44px; margin: 0; font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-size: 15px; color: #86918B; line-height: 1.5; }
 .row { display: flex; gap: 48px; }
 .col { display: flex; flex-direction: column; gap: 16px; }
-pre { margin: 0; font-family: 'Roboto Mono', Menlo, monospace; white-space: pre; }
-.term { border-radius: 22px; background: #050605; border: 1px solid #272b21; padding: 26px 32px; flex: 1; }
-.term div { font-family: 'Roboto Mono', Menlo, monospace; white-space: pre; overflow: hidden; line-height: 1.62; }
-.caption { position: absolute; padding: 18px 26px; border-radius: 18px; background: rgba(10,11,9,0.92); border: 1px solid #272b21; color: #f1eee2; line-height: 1.35; }
+pre { margin: 0; font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre; }
+.term { border-radius: 22px; background: #070908; border: 1px solid #232C28; padding: 26px 32px; flex: 1; }
+.term div { font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; white-space: pre; overflow: hidden; line-height: 1.62; }
+.caption { position: absolute; padding: 18px 26px; border-radius: 18px; background: rgba(11,14,13,0.92); border: 1px solid #232C28; color: #E8EDE9; line-height: 1.35; }
 .shot { border-radius: 18px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.45); }
 .shot img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
@@ -71,25 +69,25 @@ section.active .a.wipe { animation-name: wipe; animation-duration: 1.6s; }
 @keyframes wipe { from { opacity: 1; clip-path: inset(0 100% 0 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
 section.active .kb img { animation: kb 14s ease-out both; }
 @keyframes kb { from { transform: scale(1.0); } to { transform: scale(1.07); } }
-.bar { height: 14px; border-radius: 8px; background: #1c1f18; overflow: hidden; }
+.bar { height: 14px; border-radius: 8px; background: #1A211E; overflow: hidden; }
 .bar i { display: block; height: 100%; border-radius: 8px; transform-origin: left; transform: scaleX(0); }
 section.active .bar i { animation: grow 1.4s cubic-bezier(0.2, 0.7, 0.1, 1) both; animation-delay: calc(var(--i, 0) * 110ms + 500ms); }
 @keyframes grow { to { transform: scaleX(1); } }
 .track { position: relative; flex: 1; height: 22px; }
-.track::before { content: ''; position: absolute; left: 0; right: 0; top: 10px; height: 2px; background: #272b21; }
+.track::before { content: ''; position: absolute; left: 0; right: 0; top: 10px; height: 2px; background: #232C28; }
 .track b { position: absolute; top: 2px; left: 0; width: 18px; height: 18px; border-radius: 18px; }
 section.active .track b { animation: run var(--t) linear infinite; }
 @keyframes run { 0% { left: 0; } 85%, 100% { left: calc(100% - 18px); } }
-.line { position: absolute; background: #3a3f33; transform-origin: left top; }
+.line { position: absolute; background: #3A4741; transform-origin: left top; }
 section.active .line { animation: draw 1.2s ease both; animation-delay: 1.3s; }
 @keyframes draw { from { clip-path: inset(0 100% 100% 0); } to { clip-path: inset(0 0 0 0); } }
 
-#progress { position: fixed; left: 0; bottom: 0; height: 4px; width: 0; background: #2f9e73; transition: width 0.5s ease; z-index: 5; }
-#notes { position: fixed; left: 24px; right: 24px; bottom: 24px; padding: 18px 24px; border-radius: 14px; background: rgba(0,0,0,0.85); color: #f1eee2; font: 20px/1.45 Inter, Arial, sans-serif; display: none; z-index: 6; }
+#progress { position: fixed; left: 0; bottom: 0; height: 4px; width: 0; background: #5EE6AB; transition: width 0.5s ease; z-index: 5; }
+#notes { position: fixed; left: 24px; right: 24px; bottom: 24px; padding: 18px 24px; border-radius: 14px; background: rgba(11,14,13,0.92); border: 1px solid #232C28; color: #E8EDE9; font: 20px/1.45 'Geist', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; display: none; z-index: 6; }
 #notes.on { display: block; }
-#hint { position: fixed; right: 18px; top: 14px; font: 13px Inter, Arial, sans-serif; color: rgba(255,255,255,0.45); z-index: 6; transition: opacity 1s; display: none; }
-#fallback { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: #f1eee2; font: 20px/1.5 Inter, Arial, sans-serif; z-index: 7; }
-#fallback a { color: #b9f8da; }
+#hint { position: fixed; right: 18px; top: 14px; font: 13px 'Geist', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; color: rgba(232,237,233,0.5); z-index: 6; transition: opacity 1s; display: none; }
+#fallback { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: #E8EDE9; font: 20px/1.5 'Geist', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; z-index: 7; }
+#fallback a { color: #5EE6AB; }
 `;
 
 /** The slide runtime. The hosted decks load it as decks/slides.js; the offline files carry it inline. */
@@ -202,7 +200,8 @@ function page(body, title, pdf, script) {
 <title>${title}</title>
 <link rel="icon" href="${FAVICON}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;1,400&family=Inter:wght@400;500&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
 <style>${STYLE}</style>
 </head>
 <body>

@@ -7,7 +7,8 @@ This one is integer arithmetic over public accounts. Two implementations compute
 |---|---|---|
 | The program | [`programs/tessera/src/score.rs`](../programs/tessera/src/score.rs) | `npm run test:local` compares the on-chain score with the model after every instruction |
 | The SDK | [`packages/sdk/src/score.ts`](../packages/sdk/src/score.ts) | `npm run test:formula` |
-| The website | imports the SDK | shows "cached on-chain" next to "recomputed here" on every credit file |
+| The website | imports the SDK | shows "cached on-chain" next to "recomputed here" on every credit file. The score page's example wallet and simulator run `score.breakdown` |
+| The CLI | [`apps/cli/src/score.ts`](../apps/cli/src/score.ts) | `tessera score <wallet>` prints the breakdown and the `✓` line only when the program's stored score is what the SDK gives for the same moment. Otherwise it prints `✗ program says n, SDK says m` and exits 1 |
 
 ## The formula
 
@@ -24,7 +25,7 @@ The four things a credit score for agents should look at, and where each one is:
 | Input | Where it is in the score | Why it is shaped that way |
 |---|---|---|
 | How much money moved | **History**: settled volume, weighted by the counterparty's tier, capped per counterparty | Volume alone is free to fake by trading with yourself |
-| How many transactions, over what period | **Tenure** and the tier gates count *active periods*: periods with at least one settled order | A raw count rewards splitting one order into a hundred. Fifty orders in one period count as one active period; one order in each of fifty periods counts as fifty |
+| How many transactions, over what period | **Tenure** and the tier gates count *active periods*: periods with at least one settled order | A raw count rewards splitting one order into a hundred. Fifty orders in one period count as one active period. One order in each of fifty periods counts as fifty |
 | How long the agent has existed | **Tenure**: age in periods, but never more than three times the active periods | An old wallet that never traded has shown nothing |
 | How it behaved | **Rating** (stars from counterparties, weighted by settled volume) and **Behaviour** (a penalty for each lost dispute or missed delivery, which only time removes) | Both multiply the rest, so no amount of history hides them |
 
@@ -39,7 +40,7 @@ History = min(1, √(credit ÷ credit_full))
 
 `credit` grows when an order is **released**: the buyer's at once, the merchant's when the buyer
 reviews that order. A merchant opens and funds the escrow, so it could name any wallet as its buyer
-and pay itself; only the buyer's own signature shows the buyer took part. Each side earns
+and pay itself. Only the buyer's own signature shows the buyer took part. Each side earns
 
 ```
 min( volume × w ,  pair_cap × w  −  credit already earned from this counterparty )
@@ -63,9 +64,9 @@ Tenure = min(1, min(age, 3 × active periods) ÷ tenure_full)
 ```
 
 `age` is periods since the wallet's credit file was created. For a buyer, an active period is one in
-which it had at least one order released; for a merchant, one in which a buyer reviewed one of its
+which it had at least one order released. For a merchant, it is one in which a buyer reviewed one of its
 released orders (the buyer's review is what shows the buyer took part). A wallet left to age earns
-nothing; a thousand orders in one day are one active period.
+nothing. A thousand orders in one day are one active period.
 
 ### Diversity
 
@@ -87,7 +88,7 @@ A review's weight `wᵢ` is the volume that settled on the reviewed order, times
 weight, capped per pair. A review of a refunded order weighs 0. A merchant's review of a released
 order weighs 0 until the buyer has reviewed it too, and the side that lost a dispute gets no weight
 on it (it already had its say before the arbiter). With no reviews a wallet sits at 3 stars, which
-is a Rating of 0.5; it takes 4.5 stars for a Rating of 1.
+is a Rating of 0.5. It takes 4.5 stars for a Rating of 1.
 
 ### Behaviour
 
@@ -139,7 +140,7 @@ does an order whose merchant has lost Trusted since the order was opened.
 ## Parameters
 
 Every parameter is in the on-chain `Config` account. Devnet runs the same rules with time and amounts
-compressed so a whole journey can be watched in under an hour.
+compressed so a wallet's climb from New to Trusted can be watched in under an hour.
 
 | Parameter | Devnet (deployed) | Mainnet target (not deployed) |
 |---|---|---|
@@ -157,7 +158,7 @@ compressed so a whole journey can be watched in under an hour.
 
 ## What it guarantees
 
-Each of these is a test in [`packages/sdk/test/score.test.ts`](../packages/sdk/test/score.test.ts); the
+Each of these is a test in [`packages/sdk/test/score.test.ts`](../packages/sdk/test/score.test.ts). The
 ones marked on-chain are also sent to the real program in [`scripts/test-local.ts`](../scripts/test-local.ts).
 
 1. A wallet nobody knows scores 0, is New, and waits the longest hold.
@@ -167,7 +168,7 @@ ones marked on-chain are also sent to the real program in [`scripts/test-local.t
 5. Losing a dispute costs a quarter of the score and removes Trusted until it heals (100 periods).
 6. One counterparty can never grant more than the pair cap. *(on-chain)*
 7. Splitting a purchase into many small ones earns nothing extra.
-8. A refund or a lost dispute earns no credit; a review of a refund weighs nothing. *(on-chain)*
+8. A refund or a lost dispute earns no credit. A review of a refund weighs nothing. *(on-chain)*
 9. Three wallets trading only with each other for a year never reach Trusted.
 10. Instant settlement can net an exit scam at most the base allowance. *(on-chain)*
 11. A merchant cannot borrow the tier of a buyer who never took part, or review-bomb it. *(on-chain)*
@@ -177,8 +178,10 @@ ones marked on-chain are also sent to the real program in [`scripts/test-local.t
 
 A ring is one operator running several wallets that only trade with each other and rate each other 5
 stars. It is the cheapest way to farm a score, so it is the attack to price. Simulated at the mainnet
-target parameters with the same arithmetic the program runs (`npm run test:formula` prints the table;
-the one-year figures come from `attacks.simulateRing`):
+target parameters with the same arithmetic the program runs, by `attacks.simulateRing`. Fees and the instant
+limit are counted up to the day the ring reaches Trusted, or over one year for a ring that never does.
+`npm run test:formula` prints a similar table (3, 6, 12, 21 and 40 wallets) with fees counted over 120 days and
+rounded down. After Trusted the fees keep growing, so the 21-wallet ring shows $4,888 and $5,413 there.
 
 | Wallets in the ring | Reaches Trusted | Fees burned | Can then take instantly, all wallets together | Net of taking it |
 |---|---|---|---|---|
@@ -198,7 +201,7 @@ time gate. The same merchant with 25 customers nobody knows never does.
 
 Read this honestly: a large enough ring that is willing to burn hundreds to a few thousand dollars in
 fees over one to three months does reach Trusted. What it buys is instant settlement of roughly the fees it burned. The score
-does not stop reputation from being bought; it sets the price, and the instant limit makes what was
+does not stop reputation from being bought. It sets the price, and the instant limit makes what was
 bought worth about nothing for theft.
 
 One more caveat: the table assumes the fees a ring burns stay burned. If the review-reward rebate ([REWARDS.md](REWARDS.md)) is running, a ring can earn back part of its fees as reviewer rewards (at most 75% of the fee of an order that settled), so a ring's cost is lower than shown by up to that share. The rebate run is off-chain and optional, and the on-chain instant limit does not account for it.
